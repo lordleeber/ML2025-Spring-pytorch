@@ -1,0 +1,71 @@
+[project]
+name = "ml2025-spring-pytorch"
+version = "0.1.0"
+description = "NTU ML 2025 Spring (Hung-yi Lee) homeworks, runnable locally with PyTorch"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.7",
+    "transformers==4.47.0",
+    "accelerate",
+    "huggingface_hub",
+    "sae-lens<6",
+    "nltk",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "tqdm",
+    "ipykernel",
+]
+
+# torch's CUDA runtime deps, listed only so [tool.uv.sources] can route them to the
+# PyTorch index (sources don't apply to transitive deps); versions are still set by torch
+[dependency-groups]
+cuda = [
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-cupti-cu12",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cudnn-cu12",
+    "nvidia-cufft-cu12",
+    "nvidia-cufile-cu12",
+    "nvidia-curand-cu12",
+    "nvidia-cusolver-cu12",
+    "nvidia-cusparse-cu12",
+    "nvidia-cusparselt-cu12",
+    "nvidia-nccl-cu12",
+    "nvidia-nvjitlink-cu12",
+    "nvidia-nvshmem-cu12",
+    "nvidia-nvtx-cu12",
+    "triton",
+]
+
+[tool.uv]
+package = false
+default-groups = ["cuda"]
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+# RTX PRO 4000 Blackwell (sm_120) needs CUDA 12.8+ wheels
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+# PyPI is slow from this network; the PyTorch index mirrors torch's CUDA deps
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+nvidia-cublas-cu12 = { index = "pytorch-cu128" }
+nvidia-cuda-cupti-cu12 = { index = "pytorch-cu128" }
+nvidia-cuda-nvrtc-cu12 = { index = "pytorch-cu128" }
+nvidia-cuda-runtime-cu12 = { index = "pytorch-cu128" }
+nvidia-cudnn-cu12 = { index = "pytorch-cu128" }
+nvidia-cufft-cu12 = { index = "pytorch-cu128" }
+nvidia-cufile-cu12 = { index = "pytorch-cu128" }
+nvidia-curand-cu12 = { index = "pytorch-cu128" }
+nvidia-cusolver-cu12 = { index = "pytorch-cu128" }
+nvidia-cusparse-cu12 = { index = "pytorch-cu128" }
+nvidia-cusparselt-cu12 = { index = "pytorch-cu128" }
+nvidia-nccl-cu12 = { index = "pytorch-cu128" }
+nvidia-nvjitlink-cu12 = { index = "pytorch-cu128" }
+nvidia-nvshmem-cu12 = { index = "pytorch-cu128" }
+nvidia-nvtx-cu12 = { index = "pytorch-cu128" }
+triton = { index = "pytorch-cu128" }
