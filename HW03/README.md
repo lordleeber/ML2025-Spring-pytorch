@@ -32,5 +32,8 @@ Examples for Q4:
 
 ```bash
 python HW03/hw3.py --q 4 --top-k 200 --top-p 0.999
-python HW03/hw3.py --q 4 --top-k 1 --top-p 0 --num-samples 1
+python HW03/hw3.py --q 4 --top-k 1 --top-p 0 --num-samples 2
 ```
+
+`--num-samples` must be at least 2: self-BLEU compares each sentence against the others,
+so with 1 sample `compute_self_bleu` divides by zero.

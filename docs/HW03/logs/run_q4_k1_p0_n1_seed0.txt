@@ -1,0 +1,29 @@
+Script started on 2026-10-04 00:34:32+08:00 [COMMAND=".venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-k 1 --top-p 0 --num-samples 1" <not executed on terminal>]
+
+
+############################## Q4 ##############################
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+
+
+===== Top-K Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+
+===== Top-P Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+
+Traceback (most recent call last):
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/hw3.py", line 521, in <module>
+    main()
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/hw3.py", line 249, in q4
+    print(f"self-BLEU Score for top_k (k={top_k}): {compute_self_bleu(generated_sentences_top_k):.4f}")
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/hw3.py", line 196, in compute_self_bleu
+    total_bleu_score += sum(bleu_scores) / len(bleu_scores)
+                        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+ZeroDivisionError: division by zero
+
+Script done on 2026-10-04 00:34:39+08:00 [COMMAND_EXIT_CODE="1"]

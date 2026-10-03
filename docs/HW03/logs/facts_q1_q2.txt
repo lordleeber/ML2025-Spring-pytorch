@@ -1,0 +1,95 @@
+load_model 2.5s
+
+==================== q1 ====================
+scoring model params: 22,713,601 num_labels 1 max_len 512 device cpu
+--- with template (double <bos>, as hw3.py): new tokens 240, last token '<end_of_turn>', 6.8s (35.4 tok/s), words 172, scorer tokens 285, score 6.0734
+decoded full (repr, first 300): 'user\nPlease tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.\nmodel\nSupervised and unsupervised learning are two fundamental types of machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each input ha'
+response:
+Supervised and unsupervised learning are two fundamental types of machine learning. 
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them. 
+
+**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.
+
+**Key differences:**
+
+* **Labeling:** Supervised uses labeled data, unsupervised doesn't.
+* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.
+* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction. 
+
+
+Both types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data.
+--- with template, single <bos> (add_special_tokens=False): new tokens 161, last token '<end_of_turn>', 3.9s (41.1 tok/s), words 127, scorer tokens 204, score 6.1188
+decoded full (repr, first 300): 'user\nPlease tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.\nmodel\nSupervised and unsupervised learning are two fundamental approaches in machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each inp'
+response:
+Supervised and unsupervised learning are two fundamental approaches in machine learning. 
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, enabling it to predict outputs for new, unseen inputs. Examples include image classification and spam detection.
+
+**Unsupervised learning**, on the other hand, uses unlabeled data. The model aims to discover patterns and relationships within the data without explicit guidance. This allows it to group similar data points, identify anomalies, or reduce data dimensionality. Examples include clustering customers based on purchasing behavior and dimensionality reduction in data visualization.
+
+In essence, supervised learning relies on labeled data to learn a mapping function, while unsupervised learning explores unlabeled data to uncover hidden structures and patterns.
+--- without template: new tokens 138, last token '<end_of_turn>', 3.3s (42.4 tok/s), words 87, scorer tokens 189, score 5.0104
+decoded full (repr, first 300): 'Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.\n\n**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels) to train models.\n* **Goal:** Predict outputs for new, unseen data.\n* **Examples:** Image classific'
+response:
+**Supervised Learning:**
+
+* **Labeled data:** Uses data with known outputs (labels) to train models.
+* **Goal:** Predict outputs for new, unseen data.
+* **Examples:** Image classification, spam detection, regression.
+
+**Unsupervised Learning:**
+
+* **Unlabeled data:** Uses data without known outputs to discover patterns.
+* **Goal:** Explore data, identify clusters, or reduce dimensionality.
+* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.
+
+In summary, supervised learning relies on labeled data to learn a mapping from input to output, while unsupervised learning uses unlabeled data to discover hidden structures and relationships.
+split key for no-template: 'words.'
+[q1 took 81.0s]
+
+==================== q2 ====================
+--- round 1: prompt tokens 27, first 3 ['<bos>', '<bos>', '<start_of_turn>']
+prompt repr: '<bos><start_of_turn>user\nName a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>\n<start_of_turn>model\n'
+logits dtype torch.float16; top-10 sum 0.9873
+  173209       'Indigo' fp32 0.3068  fp16-softmax 0.3069  logit 24.125
+   13936        'Green' fp32 0.2624  fp16-softmax 0.2625  logit 23.969
+    5200          'Red' fp32 0.2012  fp16-softmax 0.2012  logit 23.703
+   36565       'Orange' fp32 0.1320  fp16-softmax 0.1320  logit 23.281
+  107712       'Violet' fp32 0.0409  fp16-softmax 0.0409  logit 22.109
+   10716         'Blue' fp32 0.0226  fp16-softmax 0.0226  logit 21.516
+   22103       'orange' fp32 0.0080  fp16-softmax 0.0080  logit 20.484
+   48876       'Purple' fp32 0.0056  fp16-softmax 0.0056  logit 20.125
+    9740        'green' fp32 0.0042  fp16-softmax 0.0042  logit 19.844
+  129070       'indigo' fp32 0.0036  fp16-softmax 0.0036  logit 19.672
+generated ids [173209, 235248, 108, 107] -> ['Indigo', '▁', '\n', '<end_of_turn>']; response 'Indigo \n'
+--- round 2: prompt tokens 59, first 3 ['<bos>', '<bos>', '<start_of_turn>']
+prompt repr: "<bos><start_of_turn>user\nName a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>\n<start_of_turn>model\nIndigo<end_of_turn>\n<start_of_turn>user\nThat's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>\n<start_of_turn>model\n"
+logits dtype torch.float16; top-10 sum 0.9580
+   36565       'Orange' fp32 0.4887  fp16-softmax 0.4888  logit 25.312
+   13936        'Green' fp32 0.2168  fp16-softmax 0.2168  logit 24.500
+  107712       'Violet' fp32 0.1689  fp16-softmax 0.1688  logit 24.250
+    5200          'Red' fp32 0.0255  fp16-softmax 0.0255  logit 22.359
+   48876       'Purple' fp32 0.0175  fp16-softmax 0.0175  logit 21.984
+   10716         'Blue' fp32 0.0115  fp16-softmax 0.0115  logit 21.562
+   33157       'Yellow' fp32 0.0113  fp16-softmax 0.0113  logit 21.547
+   22103       'orange' fp32 0.0063  fp16-softmax 0.0063  logit 20.969
+  220488         'Teal' fp32 0.0059  fp16-softmax 0.0059  logit 20.891
+   20723      ' Orange' fp32 0.0056  fp16-softmax 0.0056  logit 20.844
+generated ids [36565, 235248, 108, 107] -> ['Orange', '▁', '\n', '<end_of_turn>']; response 'Orange \n'
+--- round 3: prompt tokens 82, first 3 ['<bos>', '<bos>', '<start_of_turn>']
+prompt repr: "<bos><start_of_turn>user\nName a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>\n<start_of_turn>model\nIndigo<end_of_turn>\n<start_of_turn>user\nThat's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>\n<start_of_turn>model\nOrange<end_of_turn>\n<start_of_turn>user\nCould you continue and name yet another color from the rainbow?<end_of_turn>\n<start_of_turn>model\n"
+logits dtype torch.float16; top-10 sum 0.9906
+   13936        'Green' fp32 0.5125  fp16-softmax 0.5127  logit 24.625
+   33157       'Yellow' fp32 0.2659  fp16-softmax 0.2659  logit 23.969
+    5200          'Red' fp32 0.0978  fp16-softmax 0.0978  logit 22.969
+  107712       'Violet' fp32 0.0786  fp16-softmax 0.0786  logit 22.750
+   48876       'Purple' fp32 0.0212  fp16-softmax 0.0211  logit 21.438
+   10716         'Blue' fp32 0.0063  fp16-softmax 0.0063  logit 20.219
+   15010         'Gold' fp32 0.0044  fp16-softmax 0.0044  logit 19.859
+  158281      'Scarlet' fp32 0.0021  fp16-softmax 0.0021  logit 19.109
+    3016          'Ver' fp32 0.0012  fp16-softmax 0.0012  logit 18.547
+  183726      'Magenta' fp32 0.0008  fp16-softmax 0.0008  logit 18.219
+generated ids [13936, 235248, 108, 107] -> ['Green', '▁', '\n', '<end_of_turn>']; response 'Green \n'
+[q2 took 0.4s]
+

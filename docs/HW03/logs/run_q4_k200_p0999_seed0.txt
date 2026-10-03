@@ -1,0 +1,91 @@
+Script started on 2026-10-04 00:34:03+08:00 [COMMAND=".venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-k 200 --top-p 0.999" <not executed on terminal>]
+
+
+############################## Q4 ##############################
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+
+
+===== Top-K Sampling Output =====
+
+0. He is highly regarded as a leader in machine learning education.
+1. Professor Hung-yi Lee is highly regarded and renowned for his excellence in machine learning education.
+2. He is highly regarded for his expertise in machine learning education.
+3. Professor Lee is highly regarded as a pioneer and leader in machine learning instruction.
+4. Professor Lee's teaching skills in machine learning are highly respected and widely considered outstanding.
+5. Professor Lee is a highly regarded teacher specializing in machine learning.
+6. Professor Lee is highly respected for his teaching excellence and his expertise in machine learning.
+7. He is highly regarded for his expertise in machine learning and is beloved by his students for his teaching skills. 
+
+
+
+Professor Lee is
+8. He is highly regarded as an outstanding machine learning educator.
+9. Professor Lee is highly regarded as a top expert in the field of machine learning, significantly influencing the field.
+10. Professor Lee is highly regarded as an expert in machine learning education.
+11. Here I would like an accurate paraphrase, 
+It is widely recognised that Professor Hung-yi Lee is highly skilled in and a distinguished leader
+12. Professor Lee is highly regarded for his expertise in machine learning and his excellent teaching abilities.  
+
+Professor Lee is a top-tier instructor in
+13. Professor Lee is highly respected and renowned for his exceptional teaching in machine learning.
+
+Here's why this paraphrase works:
+
+* **Focuses on
+14. Professor Lee is highly recognized for his outstanding contributions to machine learning education and is considered a leading expert in the field.
+15. He is highly respected for his expertise in machine learning, making him a leading teacher in the field.
+16. Professor Lee is highly regarded for his expertise in machine learning and recognized as one of the leading educators in the field.
+17. Professor Hung-yi Lee is highly regarded for his teaching excellence in the field of machine learning.
+18. Professor Hung-yi Lee is highly regarded for his expertise in machine learning.
+19. Professor Lee is highly regarded as an expert in machine learning education.
+
+===== Top-P Sampling Output =====
+
+0. He is renowned as a leading authority on machine learning, distinguished for his excellence in teaching.
+1. Professor Hung-yi Lee is highly recognized  for his excellence in teaching machine learning.
+2. His teaching skills are highly respected in and beyond academia, making him a distinguished educator.
+3. He is highly regarded for his exceptional teaching in machine learning.
+4. Here's the original sentence:
+
+Professor Hung-yi Lee is one of the best teachers in the domain of machine learning. 
+
+
+**Par
+5. Professor Lee is highly esteemed as a teacher and leader in the field of machine learning.
+6. Professor Lee is highly regarded as a skilled teacher in the field of machine learning.
+7. Professor Lee is highly esteemed for his exceptional teaching abilities in the field of machine learning.
+8. He is highly regarded as a renowned expert in machine learning.
+9. Professor Lee is highly regarded as a top-notch machine learning educator.
+10. He is recognized as an exceptional leader in the field of machine learning education.
+11. He is considered a leading figure within the field of machine learning education.
+12. Professor Lee is highly regarded for his expertise in machine learning and consistently receives praise for his impactful teaching style.
+13. Professor Lee is widely respected as a leading expert in machine learning education.
+14. Dr. Hung-yi Lee, renowned for his expertise in machine learning, consistently ranks among the top educators in the field.
+15. He is highly regarded for his teaching expertise in machine learning.
+16. Dr. Lee is a highly regarded and experienced scholar in machine learning education.
+17. Professor Lee is highly recognized for his exceptional ability and expertise in machine learning, making him a leading instructor in the field.
+18. Professor Lee is renowned for his excellence in machine learning education.
+19. Professor Lee is recognized as a highly accomplished educator in the field of machine learning.
+
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 4-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 3-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 2-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+self-BLEU Score for top_k (k=200): 0.1343
+self-BLEU Score for top_p (p=0.999): 0.0625
+
+Script done on 2026-10-04 00:34:32+08:00 [COMMAND_EXIT_CODE="0"]

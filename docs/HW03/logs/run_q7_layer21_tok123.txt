@@ -1,0 +1,46 @@
+Script started on 2026-10-04 00:34:48+08:00 [COMMAND=".venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3" <not executed on terminal>]
+
+
+############################## Q7 ##############################
+SAE(
+  (activation_fn): ReLU()
+  (hook_sae_input): HookPoint()
+  (hook_sae_acts_pre): HookPoint()
+  (hook_sae_acts_post): HookPoint()
+  (hook_sae_output): HookPoint()
+  (hook_sae_recons): HookPoint()
+  (hook_sae_error): HookPoint()
+) {'architecture': 'jumprelu', 'd_in': 2304, 'd_sae': 16384, 'dtype': 'float32', 'model_name': 'gemma-2-2b', 'hook_name': 'blocks.20.hook_resid_post', 'hook_layer': 20, 'hook_head_index': None, 'activation_fn_str': 'relu', 'finetuning_scaling_factor': False, 'sae_lens_training_version': None, 'prepend_bos': True, 'dataset_path': 'monology/pile-uncopyrighted', 'context_size': 1024, 'dataset_trust_remote_code': True, 'apply_b_dec_to_input': False, 'normalize_activations': None, 'device': 'cpu', 'neuronpedia_id': 'gemma-2-2b/20-gemmascope-res-16k'} None
+[Q7.1] Open in browser: https://neuronpedia.org/gemma-2-2b/20-gemmascope-res-16k/10004?embed=true&embedexplanation=true&embedplots=true&embedtest=true&height=300
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_max_activation_a.png
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 58.10378646850586
+max_activation for prompt_b: 31.740745544433594
+feature_acts shape: torch.Size([13, 16384])
+           '<bos>'  30.9524
+            'Time'  0.0000
+         '▁travel'  71.2294
+           '▁will'  13.5252
+         '▁become'  9.6190
+              '▁a'  17.8892
+        '▁reality'  0.0000
+             '▁as'  10.5246
+     '▁technology'  0.0000
+      '▁continues'  0.0000
+             '▁to'  0.0000
+        '▁advance'  0.0000
+               '.'  29.1788
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_token_activations_L21.png
+Token 1 = 'Time', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:0.00, L10:0.00, L11:8.58, L12:13.95, L13:15.92, L14:15.34, L15:12.07, L16:11.07, L17:8.72, L18:0.00, L19:0.00, L20:0.00, L21:0.00, L22:0.00, L23:0.00, L24:10.80, L25:10.19, L26:0.00
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_layer_activations_tok1.png
+Token 2 = '▁travel', activations per layer:
+  L0:0.00, L1:7.70, L2:8.21, L3:0.00, L4:11.02, L5:15.30, L6:14.94, L7:16.03, L8:19.34, L9:18.49, L10:20.53, L11:21.18, L12:21.89, L13:19.98, L14:20.71, L15:18.68, L16:18.60, L17:27.32, L18:27.84, L19:44.30, L20:58.06, L21:71.23, L22:70.61, L23:73.96, L24:74.17, L25:78.85, L26:11.76
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_layer_activations_tok2.png
+Token 3 = '▁will', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:0.00, L10:7.51, L11:0.00, L12:0.00, L13:0.00, L14:0.00, L15:0.00, L16:0.00, L17:8.59, L18:0.00, L19:10.95, L20:11.33, L21:13.53, L22:15.18, L23:21.28, L24:24.25, L25:23.87, L26:0.00
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_layer_activations_tok3.png
+
+Script done on 2026-10-04 00:34:57+08:00 [COMMAND_EXIT_CODE="0"]

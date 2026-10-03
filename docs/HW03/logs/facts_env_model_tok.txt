@@ -1,0 +1,135 @@
+
+==================== env ====================
+python 3.12.3
+torch 2.11.0+cu128
+transformers 4.47.0
+tokenizers 0.21.4
+accelerate 1.15.0
+huggingface_hub 0.36.2
+sae-lens 5.11.0
+transformer-lens 2.15.4
+nltk 3.10.3
+scikit-learn 1.9.1
+numpy 1.26.4
+matplotlib 3.11.2
+seaborn 0.13.2
+GPU NVIDIA RTX PRO 4000 Blackwell sm_120 23.9 GiB, CUDA 12.8
+HF cache model deepset/bert-base-cased-squad2: 0.433 GB
+HF cache model google/gemma-scope-2b-pt-res: 0.302 GB
+HF cache model cross-encoder/ms-marco-MiniLM-L-6-v2: 0.092 GB
+HF cache model luhua/chinese_pretrain_mrc_roberta_wwm_ext_large: 2.605 GB
+HF cache model google/gemma-2-2b-it: 5.251 GB
+HF cache model bert-base-chinese: 0.412 GB
+
+==================== attn_implementation default ====================
+without attn_implementation: eager
+load_model 2.2s
+
+==================== model ====================
+config.num_hidden_layers = 26
+config.hidden_size = 2304
+config.intermediate_size = 9216
+config.num_attention_heads = 8
+config.num_key_value_heads = 4
+config.head_dim = 256
+config.vocab_size = 256000
+config.max_position_embeddings = 8192
+config.sliding_window = 4096
+config.attn_logit_softcapping = 50.0
+config.final_logit_softcapping = 30.0
+config.query_pre_attn_scalar = 256
+config.rope_theta = 10000.0
+config.rms_norm_eps = 1e-06
+config.hidden_activation = gelu_pytorch_tanh
+config.torch_dtype = torch.float16
+config.tie_word_embeddings = True
+config._attn_implementation = eager
+generation_config: {'cache_implementation': 'hybrid', 'pad_token_id': 0, 'bos_token_id': 2, 'eos_token_id': [1, 107], '_from_model_config': True, 'transformers_version': '4.47.0'}
+model dtype: torch.float16 device: cuda:0
+params total 2,614,341,888; embed_tokens 589,824,000 (22.6%); non-embedding 2,024,517,888
+lm_head tied to embed_tokens: True
+  layers.0.self_attn.q_proj.weight (2048, 2304) 4,718,592
+  layers.0.self_attn.k_proj.weight (1024, 2304) 2,359,296
+  layers.0.self_attn.v_proj.weight (1024, 2304) 2,359,296
+  layers.0.self_attn.o_proj.weight (2304, 2048) 4,718,592
+  layers.0.mlp.gate_proj.weight (9216, 2304) 21,233,664
+  layers.0.mlp.up_proj.weight (9216, 2304) 21,233,664
+  layers.0.mlp.down_proj.weight (2304, 9216) 21,233,664
+  layers.0.input_layernorm.weight (2304,) 2,304
+  layers.0.post_attention_layernorm.weight (2304,) 2,304
+  layers.0.pre_feedforward_layernorm.weight (2304,) 2,304
+  layers.0.post_feedforward_layernorm.weight (2304,) 2,304
+per layer 77,865,984; x26 = 2,024,515,584; final norm 2,304
+sliding layers: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
+weights in fp16: 4.87 GiB; cuda allocated after load 4.87 GiB
+Gemma2DecoderLayer(
+  (self_attn): Gemma2Attention(
+    (q_proj): Linear(in_features=2304, out_features=2048, bias=False)
+    (k_proj): Linear(in_features=2304, out_features=1024, bias=False)
+    (v_proj): Linear(in_features=2304, out_features=1024, bias=False)
+    (o_proj): Linear(in_features=2048, out_features=2304, bias=False)
+    (rotary_emb): Gemma2RotaryEmbedding()
+  )
+  (mlp): Gemma2MLP(
+    (gate_proj): Linear(in_features=2304, out_features=9216, bias=False)
+    (up_proj): Linear(in_features=2304, out_features=9216, bias=False)
+    (down_proj): Linear(in_features=9216, out_features=2304, bias=False)
+    (act_fn): PytorchGELUTanh()
+  )
+  (input_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+  (post_attention_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+  (pre_feedforward_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+  (post_feedforward_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+)
+len(hidden_states) = 27
+hidden_states[0] == embed_tokens * sqrt(2304): True
+hidden_states[1] == output of layers[0]: True
+hidden_states[20] == output of layers[19]: True
+hidden_states[21] == output of layers[20]: True
+hidden_states[25] == output of layers[24]: True
+hidden_states[26] == output of layers[25]: False
+hidden_states[26] == norm(output of layers[25]): True
+per-position L2 norm of hidden_states (mean over tokens excl. <bos> / <bos>):
+  [ 0]      85.9 /     200.0
+  [ 1]      80.1 /     367.9
+  [ 5]      91.6 /    1030.1
+  [10]     184.7 /    1902.2
+  [15]     291.7 /    2849.9
+  [20]     397.2 /    3731.5
+  [21]     430.3 /    3807.3
+  [24]     591.7 /    4157.9
+  [25]     740.2 /    4244.0
+  [26]     104.4 /      98.7
+[model took 0.8s]
+
+==================== tokenizer ====================
+GemmaTokenizerFast len 256000 padding_side left
+special: {'bos_token': '<bos>', 'eos_token': '<eos>', 'unk_token': '<unk>', 'pad_token': '<pad>', 'additional_special_tokens': ['<start_of_turn>', '<end_of_turn>']}
+  '<pad>' -> 0
+  '<eos>' -> 1
+  '<bos>' -> 2
+  '<unk>' -> 3
+  '<start_of_turn>' -> 106
+  '<end_of_turn>' -> 107
+  '\n' -> 108
+  '▁' -> 235248
+chat_template: "{{ bos_token }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
+Q1 prompt_with_template repr: '<bos><start_of_turn>user\nPlease tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.<end_of_turn>\n<start_of_turn>model\n'
+tokenizer(prompt).input_ids: len 32, first 6 [2, 2, 106, 1645, 108, 5958] -> ['<bos>', '<bos>', '<start_of_turn>', 'user', '\n', 'Please'], last 5 ['<end_of_turn>', '\n', '<start_of_turn>', 'model', '\n']
+apply_chat_template(tokenize=True): len 31, first 3 ['<bos>', '<start_of_turn>', 'user']
+plain question: len 23, first 3 ['<bos>', 'Please', '▁tell']
+  'Name a color in a rainbow, please just answer in a word without any emoji.': [('Name', 1232), ('▁a', 476), ('▁color', 2881), ('▁in', 575), ('▁a', 476), ('▁rainbow', 30088), (',', 235269), ('▁please', 3743), ('▁just', 1317), ('▁answer', 3448), ('▁in', 575), ('▁a', 476), ('▁word', 2204), ('▁without', 2346), ('▁any', 1089), ('▁emoji', 52810), ('.', 235265)]
+  'Google ': [('Google', 12583), ('▁', 235248)]
+  'Google': [('Google', 12583)]
+  'Hung-yi': [('Hung', 42599), ('-', 235290), ('yi', 12636)]
+  'Hungyi': [('Hung', 42599), ('yi', 12636)]
+  ' Hung-yi Lee': [('▁Hung', 18809), ('-', 235290), ('yi', 12636), ('▁Lee', 9201)]
+  '機器學習': [('機器', 100697), ('學習', 88900)]
+  '李宏毅': [('李', 236454), ('宏', 238805), ('毅', 239597)]
+  '2025': [('2', 235284), ('0', 235276), ('2', 235284), ('5', 235308)]
+  '12345': [('1', 235274), ('2', 235284), ('3', 235304), ('4', 235310), ('5', 235308)]
+  'unsupervised': [('un', 549), ('supervised', 122612)]
+  'Time travel will become a reality as technology continues to advance.': [('Time', 2282), ('▁travel', 5056), ('▁will', 877), ('▁become', 3831), ('▁a', 476), ('▁reality', 10546), ('▁as', 685), ('▁technology', 6178), ('▁continues', 11614), ('▁to', 577), ('▁advance', 8484), ('.', 235265)]
+decode([235285, 2182]) = 'I love'
+Q3 slide check: '▁you' -> 692 'you' -> 4747 '?' -> 235336 id 23533 -> ▁Operation
+[tok took 0.1s]

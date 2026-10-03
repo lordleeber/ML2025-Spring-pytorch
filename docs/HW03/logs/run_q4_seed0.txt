@@ -1,0 +1,75 @@
+Script started on 2026-10-04 00:33:34+08:00 [COMMAND=".venv/bin/python HW03/hw3.py --q 4 --seed 0" <not executed on terminal>]
+
+
+############################## Q4 ##############################
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+
+
+===== Top-K Sampling Output =====
+
+0. He is highly regarded as a top expert in machine learning education.
+1. Professor Lee is widely recognized as a leading expert in machine learning and is highly esteemed for his teaching skills.
+2. He is highly regarded as a leading expert in machine learning education and instruction.
+3. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in this field.
+4. Professor Lee is highly regarded as an expert in machine learning education.
+5. Professor Lee is widely recognized as a leading expert in machine learning education.
+6. Professor Lee is highly respected for his expertise in the field of machine learning.
+7. Professor Lee is highly regarded as a leading expert in machine learning education.
+8. Professor Lee is highly regarded for his expertise and teaching abilities in the field of machine learning.
+9. Professor Lee is highly regarded as an expert in machine learning and a skilled educator.
+10. He is highly regarded as a leading expert in machine learning education.
+11. Professor Lee is highly regarded for his expertise in machine learning and is considered a leading figure in the field.
+12. Professor Lee is widely recognized as an expert in machine learning, and his teaching abilities are exceptional.
+13. He is highly regarded as an expert in machine learning and is considered to be among the top educators in the field.
+14. Professor Hung-yi Lee is highly regarded as a leading expert in machine learning education.
+15. He is highly respected for his expertise in machine learning education.
+16. Professor Lee's expertise in machine learning makes him a highly respected teacher.
+17. Professor Lee is widely recognized for his expertise in machine learning, and he is considered one of the leading educators in the field.
+18. Professor Lee is highly respected and recognized as an expert in the field of machine learning, making him one of the top educators.
+19. He is highly regarded for his expertise in machine learning and consistently delivers exceptional teaching experiences.
+
+===== Top-P Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded as a leading expert in machine learning education.
+3. Professor Lee is highly regarded as a leading expert in machine learning education.
+4. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in the field.
+5. Professor Lee is highly regarded as a leading expert in machine learning education.
+6. Professor Lee is highly regarded for his expertise in machine learning education.
+7. Professor Lee is highly regarded for his expertise in machine learning education.
+8. Professor Lee is highly regarded as a leading expert in machine learning education.
+9. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in the field.
+10. Professor Lee is highly regarded as a top expert in machine learning education.
+11. Professor Lee is highly regarded as a leading expert in machine learning education.
+12. Professor Lee is highly regarded as a leading expert in machine learning education.
+13. Professor Lee is highly regarded as a leading expert in machine learning education.
+14. Professor Lee is highly regarded as a leading expert in machine learning education.
+15. Professor Lee is highly regarded for his expertise in machine learning and is known for his exceptional teaching abilities.
+16. Professor Lee is highly regarded for his expertise in machine learning, making him a top teacher in the field.
+17. Professor Lee is highly regarded for his expertise in machine learning education.
+18. Professor Lee is highly regarded for his expertise in machine learning and is considered a top-tier educator.
+19. Professor Lee is highly regarded for his expertise in machine learning and is known for being an excellent teacher.
+
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 4-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 3-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 2-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+self-BLEU Score for top_k (k=2): 0.2029
+self-BLEU Score for top_p (p=0.6): 0.5542
+
+Script done on 2026-10-04 00:34:03+08:00 [COMMAND_EXIT_CODE="0"]
