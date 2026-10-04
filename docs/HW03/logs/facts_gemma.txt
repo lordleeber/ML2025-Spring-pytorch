@@ -1,0 +1,141 @@
+
+==================== files ====================
+--- google/gemma-2-2b: snapshot c5ebcd40d208330abc697524c919956e692655cf
+  config.json                                         818 bytes
+  generation_config.json                              168 bytes
+  model-00001-of-00003.safetensors          4,992,576,136 bytes  tensors 94, dtypes ['F32']
+  model-00002-of-00003.safetensors          4,983,443,424 bytes  tensors 176, dtypes ['F32']
+  model-00003-of-00003.safetensors            481,381,384 bytes  tensors 18, dtypes ['F32']
+  model.safetensors.index.json                     24,224 bytes
+  special_tokens_map.json                             636 bytes
+  tokenizer.json                               17,525,357 bytes
+  tokenizer.model                               4,241,003 bytes
+  tokenizer_config.json                            46,379 bytes
+--- google/gemma-2-2b-it: snapshot 299a8560bedf22ed1c72a8a11e7dce4a7f9f51f8
+  .gitattributes                                    1,570 bytes
+  README.md                                        29,091 bytes
+  config.json                                         838 bytes
+  generation_config.json                              187 bytes
+  model-00001-of-00002.safetensors          4,988,025,760 bytes  tensors 270, dtypes ['BF16']
+  model-00002-of-00002.safetensors            240,691,728 bytes  tensors 18, dtypes ['BF16']
+  model.safetensors.index.json                     24,223 bytes
+  special_tokens_map.json                             636 bytes
+  tokenizer.json                               17,525,357 bytes
+  tokenizer.model                               4,241,003 bytes
+  tokenizer_config.json                            46,996 bytes
+
+==================== config ====================
+config.json keys 28; differing (pt, it): {'eos_token_id': (1, [1, 107]), 'torch_dtype': ('float32', 'bfloat16')}
+it config.json: {"architectures": ["Gemma2ForCausalLM"], "attention_bias": false, "attention_dropout": 0.0, "attn_logit_softcapping": 50.0, "bos_token_id": 2, "cache_implementation": "hybrid", "eos_token_id": [1, 107], "final_logit_softcapping": 30.0, "head_dim": 256, "hidden_act": "gelu_pytorch_tanh", "hidden_activation": "gelu_pytorch_tanh", "hidden_size": 2304, "initializer_range": 0.02, "intermediate_size": 9216, "max_position_embeddings": 8192, "model_type": "gemma2", "num_attention_heads": 8, "num_hidden_layers": 26, "num_key_value_heads": 4, "pad_token_id": 0, "query_pre_attn_scalar": 256, "rms_norm_eps": 1e-06, "rope_theta": 10000.0, "sliding_window": 4096, "torch_dtype": "bfloat16", "transformers_version": "4.42.4", "use_cache": true, "vocab_size": 256000}
+pt generation_config.json: {
+  "_from_model_config": true,
+  "bos_token_id": 2,
+  "cache_implementation": "hybrid",
+  "eos_token_id": 1,
+  "pad_token_id": 0,
+  "transformers_version": "4.42.4"
+}
+it generation_config.json: {
+  "_from_model_config": true,
+  "bos_token_id": 2,
+  "cache_implementation": "hybrid",
+  "eos_token_id": [
+    1,
+    107
+  ],
+  "pad_token_id": 0,
+  "transformers_version": "4.42.4"
+}
+
+==================== tokenizer ====================
+it tokenizer len 256000, pt tokenizer len 256000; same vocab: True
+chat_template present: it True, pt False; identical: False
+max token id 255999; special tokens map {'bos_token': '<bos>', 'eos_token': '<eos>', 'unk_token': '<unk>', 'pad_token': '<pad>', 'additional_special_tokens': ['<start_of_turn>', '<end_of_turn>']}
+GenerationConfig it: eos [1, 107], pt: eos 1
+pt apply_chat_template: ValueError: Cannot use chat template functions because tokenizer.chat_template is not set and no template argument was passed! For information about writing templates and setting the tokenizer.chat_template attribute, please see the documentation at https://huggingface.co/docs/transformers/main/en/chat_templating
+
+==================== weights pt vs it (safetensors, CPU) ====================
+relative change by parameter type (summed over layers), and ||W_pt||^2:
+  down_proj                    0.0852  ||W_pt||^2 3.022e+04
+  gate_proj                    0.0847  ||W_pt||^2 3.371e+04
+  up_proj                      0.0805  ||W_pt||^2 3.219e+04
+  k_proj                       0.0576  ||W_pt||^2 8.466e+03
+  o_proj                       0.0571  ||W_pt||^2 1.474e+04
+  q_proj                       0.0570  ||W_pt||^2 1.742e+04
+  v_proj                       0.0552  ||W_pt||^2 7.619e+03
+  model.embed_tokens.weight    0.0326  ||W_pt||^2 8.272e+05
+  pre_feedforward_layernorm    0.0037  ||W_pt||^2 8.412e+03
+  input_layernorm              0.0023  ||W_pt||^2 3.369e+04
+  post_attention_layernorm     0.0021  ||W_pt||^2 8.588e+04
+  model.norm.weight            0.0021  ||W_pt||^2 1.486e+04
+  post_feedforward_layernorm   0.0020  ||W_pt||^2 2.527e+05
+  all parameters 0.0353; attention+MLP matrices only 0.0756
+mean |w| of the pt norm weights, averaged over layers: {'input_layernorm': 0.63, 'post_attention_layernorm': 0.89, 'post_feedforward_layernorm': 1.42, 'pre_feedforward_layernorm': 0.26}
+per layer: attn+MLP matrices / attn / MLP / norms
+   0: 0.0669 / 0.0551 / 0.0715 / 0.0031
+   1: 0.0655 / 0.0518 / 0.0709 / 0.0033
+   2: 0.0652 / 0.0491 / 0.0719 / 0.0037
+   3: 0.0658 / 0.0503 / 0.0722 / 0.0027
+   4: 0.0689 / 0.0531 / 0.0755 / 0.0032
+   5: 0.0693 / 0.0516 / 0.0772 / 0.0035
+   6: 0.0734 / 0.0571 / 0.0798 / 0.0028
+   7: 0.0698 / 0.0525 / 0.0773 / 0.0027
+   8: 0.0707 / 0.0527 / 0.0781 / 0.0025
+   9: 0.0722 / 0.0516 / 0.0810 / 0.0024
+  10: 0.0752 / 0.0538 / 0.0844 / 0.0025
+  11: 0.0763 / 0.0530 / 0.0864 / 0.0023
+  12: 0.0809 / 0.0578 / 0.0907 / 0.0024
+  13: 0.0801 / 0.0590 / 0.0891 / 0.0024
+  14: 0.0816 / 0.0591 / 0.0907 / 0.0024
+  15: 0.0795 / 0.0587 / 0.0882 / 0.0022
+  16: 0.0793 / 0.0551 / 0.0894 / 0.0022
+  17: 0.0800 / 0.0594 / 0.0885 / 0.0024
+  18: 0.0787 / 0.0589 / 0.0875 / 0.0021
+  19: 0.0800 / 0.0634 / 0.0871 / 0.0021
+  20: 0.0791 / 0.0620 / 0.0864 / 0.0019
+  21: 0.0786 / 0.0596 / 0.0862 / 0.0018
+  22: 0.0797 / 0.0608 / 0.0874 / 0.0017
+  23: 0.0815 / 0.0624 / 0.0891 / 0.0021
+  24: 0.0835 / 0.0674 / 0.0905 / 0.0020
+  25: 0.0814 / 0.0602 / 0.0904 / 0.0020
+embedding rows cosine(pt, it): mean 0.9995, min 0.9805; rows with cosine < 0.9: 0
+  '<start_of_turn>'  id    106: cosine 0.9996
+  '<end_of_turn>'    id    107: cosine 0.9977
+  '<bos>'            id      2: cosine 1.0000
+  '<eos>'            id      1: cosine 0.9962
+  'user'             id   1645: cosine 0.9996
+  'model'            id   2516: cosine 0.9995
+  '▁the'             id    573: cosine 0.9999
+
+==================== load ====================
+it loaded 3.8s, pt loaded 3.4s; both fp16 on GPU, memory_allocated 9.74 GiB
+
+==================== behaviour pt vs it ====================
+--- plain question (no template): 23 prompt tokens, greedy 60 new tokens
+  [pt] next-token top-5: '\n\n' 0.4585, '\n' 0.1660, ' Please' 0.0420, ' I' 0.0348, ' ' 0.0267
+  [pt] 60 tokens, last '▁The', contains <end_of_turn>: False
+  [pt] text: '\n\nSupervised learning is a type of machine learning in which the model is trained on labeled data. The model is trained to predict the output based on the input data. The model is trained on a set of labeled data and the model is trained to predict the output based on the input data. The'
+  [it] next-token top-5: '\n\n' 0.9182, ' ' 0.0742, '  ' 0.0030, '\n\n\n' 0.0028, '\n' 0.0012
+  [it] 60 tokens, last ':**', contains <end_of_turn>: False
+  [it] text: '\n\n**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels) to train models.\n* **Goal:** Predict the output for new, unseen data.\n* **Examples:** Image classification, spam detection, predicting house prices.\n\n**Unsupervised Learning:**'
+--- chat template: 31 prompt tokens, greedy 60 new tokens
+  [pt] next-token top-5: 'Please' 0.1872, 'Answer' 0.0562, 'What' 0.0352, 'I' 0.0301, 'How' 0.0278
+  [pt] 60 tokens, last '0', contains <end_of_turn>: False
+  [pt] text: 'Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words. Answer in 200 words. Answer in 200 words. Answer in 200 words. Answer in 200 words. Answer in 200'
+  [it] next-token top-5: 'Super' 0.6631, 'The' 0.2153, 'Here' 0.0341, '**' 0.0207, 'Imagine' 0.0188
+  [it] 60 tokens, last '▁classification', contains <end_of_turn>: False
+  [it] text: 'Supervised and unsupervised learning are two fundamental approaches in machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, enabling it to predict outputs for new, unseen inputs. Examples include image classification'
+--- completion: 'The capital of France is': 6 prompt tokens, greedy 20 new tokens
+  [pt] next-token top-5: ' a' 0.2072, ' the' 0.1010, ' one' 0.0812, ' also' 0.0774, ' home' 0.0508
+  [pt] 20 tokens, last '▁a', contains <end_of_turn>: False
+  [pt] text: ' a city of contrasts. It is a city of art, culture, and history. It is a'
+  [it] next-token top-5: ' Paris' 0.2026, ':' 0.1844, ' **' 0.1666, '...' 0.0706, ' ' 0.0402
+  [it] 20 tokens, last '\n', contains <end_of_turn>: False
+  [it] text: ' Paris. \n\nIs this statement true or false?\n\nThe statement is **true**. \n'
+--- completion: 'Professor Hung-yi Lee teaches': 7 prompt tokens, greedy 20 new tokens
+  [pt] next-token top-5: ' in' 0.1913, ' at' 0.1378, ' courses' 0.0962, ' the' 0.0810, ' a' 0.0612
+  [pt] 20 tokens, last '<em>', contains <end_of_turn>: False
+  [pt] text: ' in the Department of English at the University of California, Irvine. He is the author of <em>'
+  [it] next-token top-5: ' at' 0.2544, ' a' 0.1183, ' in' 0.0674, ' the' 0.0463, ' courses' 0.0347
+  [it] 20 tokens, last '▁and', contains <end_of_turn>: False
+  [it] text: ' at the University of California, Berkeley. He is a renowned expert in the field of artificial intelligence and'

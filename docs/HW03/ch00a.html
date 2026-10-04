@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>補充章　認識 Gemma-2-2b-it：這份作業拆的是什麼模型 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  blockquote.src { margin: 0 0 1.2rem; padding: .6rem 1rem; border-left: 3px solid var(--hairline); background: var(--bg-panel); font-size: .95em; }
+  blockquote.src p { margin: 0; }
+  blockquote.src cite { display: block; margin-top: .35rem; font-style: normal; color: var(--muted); font-size: .9em; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><a href="ch00.html">第 0 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>補充章　認識 Gemma-2-2b-it：這份作業拆的是什麼模型</h1>
+  <p class="chap-lead">HW03 的七題都在同一個模型上動手：看它吃進什麼格式、怎麼選下一個字、內部的向量與注意力長什麼樣。這個模型是 Google 在 2024 年 7 月釋出的 Gemma-2-2b-it。這一章先認識它：它屬於哪個家族、名字的每一段是什麼意思、是怎麼訓練出來的、技術報告怎麼描述它的架構，以及「-it」版和它的原始版（pt）到底差在哪裡。後者本機把兩個模型並排放上 GPU，直接量了權重與行為的差別。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">Gemma-2-2b-it 是 Google 開放權重的小型語言模型：decoder-only transformer，26 層、2,614,341,888 個參數，用 2 兆個（主要是英文的）token 預訓練，而且不是自己從頭學「下一個字」，而是向一個更大的老師模型學它的機率分布（knowledge distillation）。預訓練完的版本叫 <code>gemma-2-2b</code>（pt）；再經過監督式微調、RLHF 與模型平均，才得到會照對話指示回答的 <code>gemma-2-2b-it</code>。本機實測兩者的 config 只差停止 token 與 dtype，attention 與 MLP 的權重矩陣平均只變了約 7.6%，行為卻完全不同：pt 拿到對話格式只會重複題目，it 會回答。</p>
+  <ul>
+    <li>為什麼有這一章：<a href="index.html#hw">目錄頁</a>與<a href="ch00.html">第 0 章</a>都直接從「載入模型」開始，沒有交代這個模型的來歷。後面每一章的現象（對話格式、tokenizer、<code>&lt;end_of_turn&gt;</code> 之後的 <code>&lt;eos&gt;</code>、pt 版的 SAE）都和它的訓練方式有關，這裡先一次講清楚。結構的細節（每層的形狀、參數怎麼算）仍在第 0 章，本章只回指。</li>
+    <li>本章的外部資料原文摘錄在 <code>docs/HW03/logs/sources_gemma.txt</code>（下文寫成 <code>logs/…</code>），檔案裡用代號分段：<b>[P]</b> Gemma 2 技術報告（下稱「技術報告」，arXiv:2408.00118v3）、<b>[C]</b> Hugging Face 上的模型卡（<code>google/gemma-2-2b-it</code> 的 README）、<b>[S]</b> Gemma Scope 論文摘要（arXiv:2408.05147）、<b>[B]</b> Google 部落格的發表文、<b>[H]</b> Hugging Face 網站 API 查到的 repo 資訊。引用時保留英文原句。</li>
+    <li>本章的實測數字來自 <code>logs/facts_gemma.txt</code>（工具 <code>docs/tools/hw03_gemma.py</code> 的輸出，各段以 <code>==== files ====</code> 這種標題分開，下文寫成「files 段」等）與 <code>logs/facts_review1_ptit.txt</code>（G.8 節）；第 0 章已經量過的參數量與記憶體，出處見第 0 章。</li>
+  </ul>
+</div>
+
+<h2 id="why-this">G.1　這份作業在做什麼，為什麼用這個模型</h2>
+
+<p>HW03 是台大 ML 2025 Spring 的第三份作業，題目叫 Understanding Transformers：<b>不訓練模型</b>，而是拿一個訓練好的語言模型，從外到內一層一層拆開來觀察。助教給的是一本 Colab notebook，學生補完幾段 TODO、跑出結果，再到 Gradescope 回答選擇與填空題。本 repo 把 notebook 改寫成一支腳本 <code>HW03/hw3.py</code>，TODO 都已經填好，行為刻意和原版保持一致（<a href="index.html#colab-vs-repo">目錄頁第 2 節</a>）。七題全部在同一個模型上做：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>題</th><th>觀察什麼</th><th>本書</th></tr></thead>
+<tbody>
+<tr><td>Q1</td><td>同一個問題，套不套對話格式（chat template），回答差多少；另用一個小的評分模型替回答打分</td><td><a href="ch01.html">第 1 章</a></td></tr>
+<tr><td>Q2</td><td>多輪對話怎麼串成一個 prompt；每一輪「下一個 token」的機率分布</td><td><a href="ch02.html">第 2 章</a></td></tr>
+<tr><td>Q3</td><td>一句話怎麼被 tokenizer 切成 token 與 id</td><td><a href="ch03.html">第 3 章</a></td></tr>
+<tr><td>Q4</td><td>top-k、top-p 取樣；用 self-BLEU 量生成的多樣性</td><td><a href="ch04.html">第 4</a>、<a href="ch05.html">5 章</a></td></tr>
+<tr><td>Q5</td><td>同一個字在不同句子裡，句子向量是否不同（t-SNE 畫圖）</td><td><a href="ch06.html">第 6 章</a></td></tr>
+<tr><td>Q6</td><td>逐步生成時，每個 token 在注意前面哪些 token（attention map）</td><td>第 7 章</td></tr>
+<tr><td>Q7</td><td>用 SAE 找出代表某個概念的 feature，看它在哪些 token、哪幾層亮起來</td><td>第 8、9 章</td></tr>
+</tbody>
+</table></div>
+
+<p>hw3.py 為了和原版一致，保留了一些「不會讓程式當掉、但會讓數字的意思和直覺不同」的寫法，本書替它們編號為 R1、R2…，在相應的章節用「讀 code 不盡信文件」的框拆開（完整清單見<a href="index.html#what-kept">目錄頁 2.2 節</a>）。本章會提到其中兩條：R1（G.9 節）與 R3（G.4.2 節）。</p>
+
+<p>拆模型，模型得滿足幾個條件，Gemma-2-2b-it 剛好都符合：</p>
+
+<ul>
+<li><b>權重是開放的</b>。要看 attention 權重（Q6）、取出每一層的 hidden state（Q5、Q7），就必須在自己的機器上跑模型、碰得到每一個張量。只提供 API 的模型做不到。</li>
+<li><b>小到一張 GPU 放得下</b>。26 億參數以 fp16 載入只佔 4.87 GiB（<a href="ch00.html#load">第 0 章 0.4 節</a>），Colab 的免費 GPU 就跑得動。</li>
+<li><b>有會聽指令的版本</b>。名字最後的 <code>-it</code> 是 instruction-tuned：經過微調、會照對話格式回答問題。Q1、Q2 要觀察的就是「對話格式」對它的影響（<a href="ch01.html">第 1 章</a>、<a href="ch02.html">第 2 章</a>）。</li>
+<li><b>有現成的「顯微鏡」</b>。Google 和這個模型一起釋出了 Gemma Scope：一整套在 Gemma 2 每一層上訓練好的稀疏自編碼器（SAE）。Q7 用的就是其中一個（<a href="#scope">G.8 節</a>）。</li>
+</ul>
+
+<p>hw3.py 開頭指名這個模型的是第 34 行；緊接的第 35 行是 Q1 的評分模型（另一個小模型，第 1 章講），36–37 行是放在 GPU、以 fp16 載入：</p>
+
+<figure class="listing"><figcaption>hw3.py:34–37 — 模型的 id 與載入時的設定</figcaption>
+<pre class="py" data-hot="34"><code>MODEL_ID = "google/gemma-2-2b-it"
+SCORING_MODEL_ID = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+DEVICE = "cuda"
+DTYPE = torch.float16</code></pre>
+</figure>
+
+<p><code>google/gemma-2-2b-it</code> 是它在 Hugging Face Hub（存放與下載公開模型的網站，簡稱 HF）上的 id。要下載得先登入、並在模型頁同意授權（<a href="#license">G.9 節</a>）。</p>
+
+<h2 id="family">G.2　Gemma 家族：從 Gemini 分出來的開放模型</h2>
+
+<p>模型卡第一句話就交代了它的來歷：</p>
+
+<blockquote class="src"><p>Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. They are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained variants and instruction-tuned variants.</p><cite>— 模型卡 Description（<code>logs/sources_gemma.txt</code> 的 [C] 段）</cite></blockquote>
+
+<p>拆開來看：Gemini 是 Google 的旗艦模型系列；Gemma 是用同一套研究與技術做出來、<b>開放權重</b>（任何人都能下載完整參數）的輕量版。它是「text-to-text」：輸入文字、輸出文字，不吃圖片；「decoder-only」是指只有 transformer 的 decoder 那一半，一次預測下一個 token（第 0 章的 <code>CausalLM</code>）；每個尺寸都同時釋出 pre-trained（預訓練完的原始版）與 instruction-tuned（微調成會對話的版本）兩種權重。</p>
+
+<p>Gemma 2 是這個家族的第二代。Google 部落格的發表日期（<code>logs/sources_gemma.txt</code> 的 [B] 段）：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 250" role="img" aria-label="時間線：2024 年 2 月 21 日 Gemma 1 的 2B 與 7B；6 月 27 日 Gemma 2 的 9B 與 27B；7 月 31 日 Gemma 2 2B 與 Gemma Scope、ShieldGemma 一起發表；8 月 9 日 Gemma Scope 論文上 arXiv">
+  <line x1="60" y1="120" x2="860" y2="120" stroke="var(--muted)" stroke-width="2"/>
+  <g style="fill: var(--accent)">
+    <circle cx="120" cy="120" r="8"/><circle cx="470" cy="120" r="8"/>
+  </g>
+  <circle cx="620" cy="120" r="11" style="fill: var(--accent-warm)"/>
+  <circle cx="760" cy="120" r="7" style="fill: var(--muted)"/>
+  <text class="s-mono" x="120" y="96" text-anchor="middle">2024-02-21</text>
+  <text class="s-lbl" x="120" y="156" text-anchor="middle" font-weight="700">Gemma 1</text>
+  <text class="s-sm" x="120" y="178" text-anchor="middle">2B、7B（pt 與 it）</text>
+  <text class="s-mono" x="470" y="96" text-anchor="middle">2024-06-27</text>
+  <text class="s-lbl" x="470" y="156" text-anchor="middle" font-weight="700">Gemma 2</text>
+  <text class="s-sm" x="470" y="178" text-anchor="middle">9B、27B</text>
+  <text class="s-mono" x="620" y="72" text-anchor="middle">2024-07-31</text>
+  <text class="s-lbl" x="620" y="94" text-anchor="middle" font-weight="700" style="fill: var(--accent-warm)">Gemma 2 2B</text>
+  <text class="s-sm" x="620" y="156" text-anchor="middle">同日發表</text>
+  <text class="s-sm" x="620" y="178" text-anchor="middle">Gemma Scope、ShieldGemma</text>
+  <text class="s-mono" x="760" y="96" text-anchor="middle">2024-08-09</text>
+  <text class="s-sm" x="760" y="156" text-anchor="middle">Gemma Scope</text>
+  <text class="s-sm" x="760" y="178" text-anchor="middle">論文上 arXiv</text>
+  <text class="s-sm" x="450" y="226" text-anchor="middle">作業用的是橘色那一個：Gemma 2 系列裡最小、最晚發表的 2B</text>
+</svg>
+<figcaption>圖 G.1 — Gemma 家族的時間線（日期取自 Google 部落格的 datePublished 與 arXiv；<code>logs/sources_gemma.txt</code> 的 [B]、[S] 段）。同日發表的 ShieldGemma 是一組判斷輸入輸出是否不安全的分類模型，本書用不到。HF 網站 API 顯示 <code>gemma-2-2b</code> 與 <code>gemma-2-2b-it</code> 的 repo 建立於 2024-07-16（[H] 段），早於公開發表日；repo 建立時間不等於發表日。</figcaption>
+</figure>
+
+<p>Gemma 2 一共三個尺寸。技術報告的 Table 1 列出它們的主要設定（<code>logs/sources_gemma.txt</code> 的 [P] 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>設定</th><th class="num">2B</th><th class="num">9B</th><th class="num">27B</th></tr></thead>
+<tbody>
+<tr><td>d_model（hidden size）</td><td class="num">2304</td><td class="num">3584</td><td class="num">4608</td></tr>
+<tr><td>層數</td><td class="num">26</td><td class="num">42</td><td class="num">46</td></tr>
+<tr><td>query head ／ KV head</td><td class="num">8 ／ 4</td><td class="num">16 ／ 8</td><td class="num">32 ／ 16</td></tr>
+<tr><td>head size</td><td class="num">256</td><td class="num">256</td><td class="num">128</td></tr>
+<tr><td>Feedforward dim</td><td class="num">18432</td><td class="num">28672</td><td class="num">73728</td></tr>
+<tr><td>預訓練 token 數</td><td class="num">2 兆</td><td class="num">8 兆</td><td class="num">13 兆</td></tr>
+<tr><td>訓練方式</td><td class="num">蒸餾</td><td class="num">蒸餾</td><td class="num">從頭訓練</td></tr>
+</tbody>
+</table></div>
+
+<p>三個尺寸共用的設定：global attention 的範圍 8192、sliding window 4096、Vocab size 256128、embedding 與輸出層共用權重（tied embedding）。訓練 token 數與訓練方式來自技術報告的 3.1 節與摘要。表與這段文字裡有兩個數字（Feedforward dim、Vocab size）和本機的 config 對不上，<a href="#paper-vs-config">G.5.1 節</a>處理。</p>
+
+<h2 id="name">G.3　拆解名字：google / gemma-2 / 2b / it</h2>
+
+<div class="tablewrap"><table>
+<thead><tr><th>片段</th><th>意思</th></tr></thead>
+<tbody>
+<tr><td><code>google/</code></td><td>Hugging Face 上的組織名稱。模型 id 一律是「組織/名稱」。</td></tr>
+<tr><td><code>gemma-2</code></td><td>Gemma 第二代。</td></tr>
+<tr><td><code>2b</code></td><td>尺寸級別「2B」。實際參數是 2,614,341,888（<a href="ch00.html#params">第 0 章 0.8 節</a>），約 26 億；技術報告在某些表格與敘述裡也直接寫成「Gemma 2.6B」。2B 是級別名稱，不是精確數字。</td></tr>
+<tr><td><code>-it</code></td><td>instruction-tuned。沒有這個尾巴的 <code>google/gemma-2-2b</code> 是預訓練版，本書寫成 <b>pt</b>（pre-trained，技術報告的用語）。</td></tr>
+</tbody>
+</table></div>
+
+<p>pt 與 it 是同一個模型的兩個階段，不是兩個不同的模型：it 是拿 pt 繼續微調出來的（下一節）。它們的架構完全相同，差在權重；<a href="#pt-vs-it">G.6 節</a>把兩者並排實測。</p>
+
+<h2 id="training">G.4　它是怎麼訓練出來的</h2>
+
+<figure class="fig">
+<svg viewBox="0 0 900 300" role="img" aria-label="訓練流程：大型老師模型提供每個 token 的機率分布，2B 學生模型在 2 兆個 token 上學習，得到預訓練版 gemma-2-2b；再經過 SFT、RLHF、模型平均，得到 gemma-2-2b-it。Gemma Scope 的 SAE 是在預訓練版上訓練的">
+  <rect x="20" y="40" width="170" height="64" rx="8" style="fill: var(--bg-panel); stroke: var(--muted)"/>
+  <text class="s-lbl" x="105" y="66" text-anchor="middle" font-weight="700">老師模型</text>
+  <text class="s-sm" x="105" y="88" text-anchor="middle">較大的語言模型</text>
+  <rect x="20" y="150" width="170" height="64" rx="8" style="fill: var(--bg-panel); stroke: var(--muted)"/>
+  <text class="s-lbl" x="105" y="176" text-anchor="middle" font-weight="700">2 兆個 token</text>
+  <text class="s-sm" x="105" y="198" text-anchor="middle">網頁、程式碼、科學文章</text>
+  <line x1="190" y1="72" x2="250" y2="118" stroke="var(--muted)" stroke-width="1.5"/>
+  <line x1="190" y1="182" x2="250" y2="140" stroke="var(--muted)" stroke-width="1.5"/>
+  <text class="s-sm" x="222" y="62" text-anchor="middle">機率分布</text>
+  <rect x="250" y="95" width="170" height="70" rx="8" style="fill: var(--accent); fill-opacity: .18; stroke: var(--accent)"/>
+  <text class="s-lbl" x="335" y="122" text-anchor="middle" font-weight="700">預訓練（蒸餾）</text>
+  <text class="s-mono" x="335" y="146" text-anchor="middle">gemma-2-2b（pt）</text>
+  <line x1="420" y1="130" x2="460" y2="130" stroke="var(--muted)" stroke-width="1.5"/>
+  <g style="fill: var(--accent-warm); fill-opacity: .18; stroke: var(--accent-warm)">
+    <rect x="460" y="105" width="90" height="50" rx="8"/><rect x="570" y="105" width="90" height="50" rx="8"/><rect x="680" y="105" width="90" height="50" rx="8"/>
+  </g>
+  <text class="s-lbl" x="505" y="136" text-anchor="middle">SFT</text>
+  <text class="s-lbl" x="615" y="136" text-anchor="middle">RLHF</text>
+  <text class="s-lbl" x="725" y="136" text-anchor="middle">平均</text>
+  <line x1="550" y1="130" x2="570" y2="130" stroke="var(--muted)" stroke-width="1.5"/>
+  <line x1="660" y1="130" x2="680" y2="130" stroke="var(--muted)" stroke-width="1.5"/>
+  <line x1="770" y1="130" x2="790" y2="130" stroke="var(--muted)" stroke-width="1.5"/>
+  <text class="s-mono" x="845" y="126" text-anchor="middle">gemma-2</text>
+  <text class="s-mono" x="845" y="144" text-anchor="middle">-2b-it</text>
+  <text class="s-sm" x="615" y="88" text-anchor="middle">post-training：把 pt 微調成 it</text>
+  <line x1="335" y1="165" x2="335" y2="232" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <rect x="250" y="232" width="170" height="50" rx="8" style="fill: var(--bg-panel); stroke: var(--muted)"/>
+  <text class="s-lbl" x="335" y="262" text-anchor="middle">Gemma Scope SAE</text>
+  <text class="s-sm" x="590" y="250" text-anchor="middle">SAE 是在 pt 上訓練的；Q7 把它用在 it 上（G.8 節）</text>
+</svg>
+<figcaption>圖 G.2 — 從資料到 <code>gemma-2-2b-it</code>。左半是預訓練（技術報告 3.1、3.2 節），右半是 post-training（第 4 節），下方虛線是 Gemma Scope 的 SAE 從哪個模型訓練出來（[S] 段）。技術報告沒有寫 2B 的老師模型有多大，圖上只標「較大的語言模型」。</figcaption>
+</figure>
+
+<h3 id="pretrain">G.4.1　預訓練：2 兆個 token，向老師學機率分布</h3>
+
+<p>技術報告 3.1 節：「We train Gemma 2 27B on 13 trillion tokens of primarily-English data, the 9B model on 8 trillion tokens, and the 2B on 2 trillion tokens.」資料來自網頁、程式碼與科學文章；報告也直接說「Our models are not multimodal and are not trained specifically for state-of-the-art multilingual capabilities.」這就是為什麼本書所有的 prompt 都是英文：模型卡同樣寫明它是「available in English」。第 3 章看到的中文切法（一個字一個 token 的情況不少），也要放在這個背景下理解：詞表繼承自多語言的 Gemini，但訓練資料以英文為主。</p>
+
+<p>真正特別的是<b>怎麼學</b>。一般語言模型的預訓練是「next token prediction」：看前文，猜下一個 token，正確答案是一個 one-hot 向量（只有實際出現的那個 token 是 1，其餘 256,000 多個都是 0）。Gemma 2 的 2B 與 9B 不這樣做，摘要寫的是：</p>
+
+<blockquote class="src"><p>We also train the 2B and 9B models with knowledge distillation (Hinton et al., 2015) instead of next token prediction.</p><cite>— 技術報告摘要</cite></blockquote>
+
+<p><b>knowledge distillation</b>（知識蒸餾）的意思是：先有一個比較大、已經訓練好的<b>老師模型</b>，讓它對同一段前文算出「下一個 token 的機率分布」，小的<b>學生模型</b>要學的就是這整個分布，而不是只有正確答案那一個 token。報告前言的說法是，蒸餾「replaces the one-hot vector seen at each token with the distribution of potential next tokens computed from a large model」。3.2 節寫成式子：</p>
+
+<div class="eq">min<sub>P<sub>S</sub></sub> Σ<sub>x</sub> −P<sub>T</sub>(x | x<sub>c</sub>) · log P<sub>S</sub>(x | x<sub>c</sub>)</div>
+
+<p>其中 x<sub>c</sub> 是前文（context），P<sub>T</sub> 是老師給的機率、P<sub>S</sub> 是學生的機率，加總跑過詞表裡每一個 token x。如果 P<sub>T</sub> 換成 one-hot，這個式子就退化成一般的 cross-entropy（只剩正確 token 那一項）；蒸餾讓學生同時學到「哪些 token 也算合理、各有幾分合理」。第 2 章 Q2 請模型說出一個彩虹的顏色，印出的 top-10 機率表（第一輪 Indigo 0.3068、Green 0.2624、Red 0.2012……）就是這種「分布」的樣子。</p>
+
+<p>效果有多大？報告的 Table 6 做了一個縮小版的對照：同樣是 2B 模型、同樣訓練 500B 個 token，從頭訓練的三項評測平均 60.3，從一個 7B 老師蒸餾的平均 67.7。前言也說，2B、9B 訓練的 token 量是理論上「計算最省」的數量的 50 倍以上（「more than 50 × the compute-optimal quantity」）：用蒸餾，讓小模型能從大量資料裡持續學到東西。</p>
+
+<p>訓練用的 tokenizer 和 Gemma 1、Gemini 相同（3.1 節）：「a SentencePiece tokenizer with split digits, preserved whitespace, and byte-level encodings … The resulting vocabulary has 256k entries.」數字一位一個 token、保留空白（<code>▁</code>）、詞表裡沒有的字元拆成位元組，<a href="ch03.html">第 3 章</a>逐一實測過這三件事。</p>
+
+<h3 id="posttrain">G.4.2　post-training：把 pt 變成會對話的 it</h3>
+
+<p>技術報告第 4 節：「For post-training, we fine-tune our pre-trained models into instruction-tuned models.」依序做三件事：</p>
+
+<ol>
+<li><b>SFT</b>（supervised fine-tuning，監督式微調）：拿「提示 → 回答」的配對資料繼續訓練。報告說回答「predominantly synthetically generated by the teacher」，大多是由較大的老師模型生成的；也同樣做了蒸餾。</li>
+<li><b>RLHF</b>（reinforcement learning from human feedback）：先用人類標註的偏好資料（「兩個回答哪個比較好」）訓練一個 reward model，再用強化學習讓模型的回答往高分的方向調。報告特別提到這個 reward model「an order of magnitude larger than the policy」，比被調整的模型大一個數量級。</li>
+<li><b>model merging</b>（模型平均）：用不同超參數各跑一次上面的流程，把得到的幾個模型的權重平均起來。</li>
+</ol>
+
+<p>微調時用的對話格式，就是第 1 章拆過的 chat template。技術報告的 Table 4 列出控制 token：<code>&lt;start_of_turn&gt;</code>、<code>&lt;end_of_turn&gt;</code>（一則對話訊息的開始與結束）、<code>&lt;bos&gt;</code>（beginning of sequence，整段序列的開頭）、<code>&lt;eos&gt;</code>（end of sequence，序列結束），角色名稱是 <code>user</code> 與 <code>model</code>。生成時，模型一吐出被指定為<b>停止 token</b> 的 id，<code>generate</code> 就停下來。接著有一句和本書直接相關的話：</p>
+
+<blockquote class="src"><p>Notice that the model explicitly ends generations with &lt;end_of_turn&gt;&lt;eos&gt; tokens, while previously it only generated &lt;eos&gt;.</p><cite>— 技術報告第 4 節 Formatting</cite></blockquote>
+
+<p>it 模型被訓練成「說完話先打 <code>&lt;end_of_turn&gt;</code>，再打 <code>&lt;eos&gt;</code>」。<a href="ch04.html#r3">第 4 章 4.5.2 節</a>的 R3（G.1 節說的編號）實測正好看到這件事：Q4 傳給 <code>generate</code> 的參數把停止 token 蓋成只剩 <code>&lt;eos&gt;</code>，模型生成 <code>&lt;end_of_turn&gt;</code> 之後沒有停，下一步以機率 1.0000 接上 <code>&lt;eos&gt;</code>。這也是為什麼 it 版的 config 把兩個都列為停止 token（<code>eos_token_id</code> 是 <code>[1, 107]</code>，<a href="ch01.html#stop">第 1 章 1.3.2 節</a>），而 pt 版只有 1（<a href="#pt-vs-it">G.6 節</a>）。</p>
+
+<h2 id="arch">G.5　架構：技術報告怎麼說，本機的 config 怎麼寫</h2>
+
+<p>Gemma 2 是 decoder-only transformer（報告第 2 節：「the Gemma 2 models are based on a decoder-only transformer architecture」）。報告列出和第一代相同的部分：「a context length of 8192 tokens, the use of Rotary Position Embeddings (RoPE) …, and the approximated GeGLU non-linearity」，以及幾項新的設計。下表把每一項對到本機 config 的欄位與第 0 章的段落（config 欄位取自 <code>logs/facts_gemma.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>設計</th><th>技術報告的說法</th><th>本機 config</th><th>本書哪裡看得到</th></tr></thead>
+<tbody>
+<tr><td>local／global attention 交替：local（sliding window）層的每個 token 只看前面最多 4096 個 token，global 層看全部</td><td>「We alternate between a local sliding window attention … and global attention … in every other layer.」</td><td><code>sliding_window: 4096</code>；transformers 的 Gemma 2 實作讓偶數層 sliding、奇數層 global（第 0 章 0.6.2 節）</td><td><a href="ch00.html#attn">0.6.2 節</a>、<a href="ch00b.html#sliding">補充章 K.6 節</a></td></tr>
+<tr><td>Grouped-Query Attention（GQA）：8 個 query head 兩兩共用一組 key／value，key／value 只有 4 組</td><td>「We use GQA with num_groups=2」</td><td><code>num_attention_heads: 8</code>、<code>num_key_value_heads: 4</code></td><td><a href="ch00.html#attn">0.6.2 節</a>；生成時要存起來重用的 key／value（KV cache）因此少一半（<a href="ch00b.html#layout">補充章 K.3 節</a>）</td></tr>
+<tr><td>logit soft-capping：分數 x 換成 cap × tanh(x / cap)，大的值被平滑地壓進 ±cap 之內</td><td>「soft_cap parameter to 50.0 for the self-attention layers and to 30.0 for the final layer」</td><td><code>attn_logit_softcapping: 50.0</code>、<code>final_logit_softcapping: 30.0</code></td><td><a href="ch00.html#attn">0.6.2 節</a>、<a href="ch00.html#arch">0.5 節</a></td></tr>
+<tr><td>pre-norm 加 post-norm：RMSNorm 和 LayerNorm 類似，但只除以均方根、不減平均，並乘上一組可學的縮放權重；每個子層的輸入與輸出各做一次</td><td>「RMSNorm … to normalize the input and output of each transformer sub-layer」</td><td>每層 4 個 RMSNorm，<code>rms_norm_eps: 1e-06</code></td><td><a href="ch00.html#sandwich">0.6.1 節</a>（三明治 norm）</td></tr>
+<tr><td>GeGLU：MLP 的啟動方式，兩個並排的投影一個過 GELU 當閘門、一個當內容，相乘後再投影回來</td><td>「the approximated GeGLU non-linearity」</td><td><code>hidden_activation: gelu_pytorch_tanh</code>、gate／up／down 三個投影</td><td><a href="ch00.html#layer">0.6 節</a></td></tr>
+<tr><td>RoPE：把位置資訊用「旋轉 query 與 key 向量」的方式加進去，內積因此只取決於兩個 token 的相對距離</td><td>「Rotary Position Embeddings (RoPE)」</td><td><code>rope_theta: 10000.0</code></td><td><a href="ch00.html#layer">0.6 節</a></td></tr>
+<tr><td>context 長度</td><td>「a context length of 8192 tokens」</td><td><code>max_position_embeddings: 8192</code></td><td><a href="ch00.html#arch">0.5 節</a></td></tr>
+<tr><td>tied embedding</td><td>Table 1「Tied embedding: yes」</td><td><code>lm_head</code> 與 <code>embed_tokens</code> 共用同一塊記憶體</td><td><a href="ch00.html#params">0.8 節</a></td></tr>
+</tbody>
+</table></div>
+
+<p>每一項為什麼這樣設計，報告第 5 節（Ablations）給了幾個實驗：例如在 9B 模型上把 multi-head attention 換成 GQA，四項評測平均 50.3 → 50.8，「We choose GQA since it requires fewer parameters and is faster at inference time」；「深而窄」比「淺而寬」略好（50.8 → 52.0），所以 Gemma 2 比第一代更深。這些實驗都是在 9B 上做的，報告沒有 2B 的版本。</p>
+
+<h3 id="paper-vs-config">G.5.1　報告和 config 對不上的兩個數字</h3>
+
+<p>把 Table 1、Table 2 和本機量到的數字逐一對照（<a href="ch00.html#params">第 0 章 0.8 節</a>的參數量是 PyTorch 實際數的）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>項目</th><th class="num">技術報告</th><th class="num">本機</th><th>對得上嗎</th></tr></thead>
+<tbody>
+<tr><td>non-embedding 參數</td><td class="num">2,024,517,888</td><td class="num">2,024,517,888</td><td>完全相同</td></tr>
+<tr><td>embedding 參數</td><td class="num">590,118,912</td><td class="num">589,824,000</td><td>差 294,912 = 128 × 2304</td></tr>
+<tr><td>詞表大小</td><td class="num">256128</td><td class="num">256000</td><td>差 128</td></tr>
+<tr><td>Feedforward dim</td><td class="num">18432</td><td class="num">9216</td><td>剛好兩倍</td></tr>
+</tbody>
+</table></div>
+
+<p><b>詞表</b>：590,118,912 = 256128 × 2304，所以報告的 embedding 參數是照 256128 列算的；Hugging Face 釋出的 checkpoint 只有 256000 列，tokenizer 的最大 id 是 255999（<code>logs/facts_gemma.txt</code>）。差的 128 列是什麼、為什麼沒有釋出，報告與模型卡都沒有交代，本書不猜。對作業沒有影響：所有 token id 都落在 0–255999 之內。</p>
+
+<p><b>Feedforward dim</b>：config 的 <code>intermediate_size</code> 是 9216，MLP 的 <code>gate_proj</code> 與 <code>up_proj</code> 各把 2304 維投影到 9216 維（<a href="ch00.html#params">0.8 節</a>）。18432 = 2 × 9216，推論是報告把 gate 與 up 兩個投影合起來算（GeGLU 需要兩個並排的投影）；報告沒有明說，這一句是推論。</p>
+
+<p>non-embedding 參數一個不差，說明兩邊講的是同一個模型；實物上的差異只有詞表這 128 列，FFN 則是（推論的）算法不同。讀論文、讀模型卡、讀 config，數字都要對照實物，這也是本書每章「讀 code 不盡信文件」的精神。</p>
+
+<h2 id="pt-vs-it">G.6　pt 與 it：同一個骨架，兩份權重</h2>
+
+<p>本機逐項比較 <code>google/gemma-2-2b</code>（pt）與 <code>google/gemma-2-2b-it</code>（it）（<code>logs/facts_gemma.txt</code>）：檔案與設定直接讀下載下來的檔案，權重差異直接從權重檔在 CPU 上算，行為比較則把兩個模型都以 fp16 載入同一張 GPU（合計 9.74 GiB）。重跑的方法見章末延伸閱讀。</p>
+
+<h3 id="files">G.6.1　檔案與設定：幾乎一樣</h3>
+
+<div class="tablewrap"><table>
+<thead><tr><th>項目</th><th>pt（gemma-2-2b）</th><th>it（gemma-2-2b-it）</th></tr></thead>
+<tbody>
+<tr><td>權重檔（safetensors：HF 存放權重的檔案格式，大模型會切成幾個檔）</td><td>3 個，共 10,457,400,944 bytes</td><td>2 個，共 5,228,717,488 bytes</td></tr>
+<tr><td>權重的 dtype</td><td>F32（fp32，每個參數 4 bytes）</td><td>BF16（bfloat16，每個參數 2 bytes）</td></tr>
+<tr><td>config.json</td><td colspan="2">28 個欄位，只有兩個不同：<code>eos_token_id</code>（pt 是 <code>1</code>，it 是 <code>[1, 107]</code>）與 <code>torch_dtype</code>（pt 是 <code>float32</code>，it 是 <code>bfloat16</code>）</td></tr>
+<tr><td>tokenizer 詞表</td><td colspan="2">完全相同，256000 個</td></tr>
+<tr><td>chat template</td><td><b>沒有</b>（呼叫 <code>apply_chat_template</code> 會丟出 <code>ValueError</code>）</td><td>有（第 1 章拆的那一段）</td></tr>
+</tbody>
+</table></div>
+
+<p>pt 的權重檔大一倍，只是因為存成 fp32；參數個數一樣。模型卡說 it 的權重「were exported in <code>bfloat16</code> precision」，hw3.py 則以 fp16 載入（<a href="ch00.html#load">第 0 章 0.4 節</a>），所以讀進來時每個數都從 bf16 轉成 fp16。兩者都是 2 bytes，但分配不同：bf16 的指數位多、能表示的範圍大、精度較低；fp16 精度較高、範圍較小。轉換會帶來極小的捨入差異，本書所有數字都是 fp16 載入後量的。</p>
+
+<p>最值得注意的是最後一列：<b>pt 的 tokenizer 根本沒有 chat template</b>。對話格式不是模型架構的一部分，而是 post-training 時教會模型的一種「書寫慣例」，template 只是幫你把字串排成那個慣例。pt 沒學過這個慣例，給它 template 也沒有意義；下一小節實測就看得到。</p>
+
+<h3 id="weights">G.6.2　權重改了多少</h3>
+
+<p>對每一類參數算「it 和 pt 差多少」：把 it 減 pt 的差值矩陣取 Frobenius 範數（所有元素平方和開根號），除以 pt 本身的範數，同一類參數把 26 層合起來算。直接讀兩個模型的權重檔（pt 是 fp32、it 是 bf16，都轉成 fp32 再算）。結果（<code>logs/facts_gemma.txt</code> 的 weights 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>參數類別</th><th class="num">相對變化</th></tr></thead>
+<tbody>
+<tr><td>MLP：<code>down_proj</code>、<code>gate_proj</code>、<code>up_proj</code></td><td class="num">0.0852、0.0847、0.0805</td></tr>
+<tr><td>attention：<code>k_proj</code>、<code>o_proj</code>、<code>q_proj</code>、<code>v_proj</code></td><td class="num">0.0576、0.0571、0.0570、0.0552</td></tr>
+<tr><td>embedding（<code>embed_tokens</code>）</td><td class="num">0.0326</td></tr>
+<tr><td>四種 RMSNorm、最後的 norm</td><td class="num">0.0020–0.0037</td></tr>
+<tr><td><b>attention 與 MLP 的權重矩陣合計</b></td><td class="num"><b>0.0756</b></td></tr>
+<tr><td>全部參數合計</td><td class="num">0.0353</td></tr>
+</tbody>
+</table></div>
+
+<p>attention 與 MLP 這些權重矩陣平均動了約 7.6%：MLP 約 8%，attention 約 5.7%。「全部參數」只有 3.5%，是被另外兩類拉低的：embedding 本身的範數最大（範數平方約是 attention 與 MLP 所有矩陣合計的 5.7 倍，計算值），只改了 3.3%；norm 的權重數值也不小（例如每層 <code>post_feedforward_layernorm</code> 權重的平均絕對值約 1.42），卻幾乎沒動。所以「改了幾 %」要看是對哪些參數算的。embedding 的每一列和 pt 版的 cosine 相似度平均 0.9995、最低 0.9805；對話用的 <code>&lt;start_of_turn&gt;</code>、<code>&lt;end_of_turn&gt;</code> 也分別是 0.9996、0.9977，代表這兩個 token 的 embedding 在預訓練時就已經存在（詞表本來就有它們），微調幾乎沒改它們的向量。</p>
+
+<p>逐層看，把每一層的 attention 與 MLP 分開算（norm 不算進去，否則它的大範數會把整層的比例壓低）：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 330" role="img" aria-label="26 層各自的權重相對變化：每層兩根長條，MLP 在 0.071 到 0.091 之間，attention 在 0.049 到 0.067 之間；兩者都是後半段的層比前面略高">
+  <line x1="70" y1="250.0" x2="880" y2="250.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="254.0" text-anchor="end">0.00</text>
+  <line x1="70" y1="210.0" x2="880" y2="210.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="214.0" text-anchor="end">0.02</text>
+  <line x1="70" y1="170.0" x2="880" y2="170.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="174.0" text-anchor="end">0.04</text>
+  <line x1="70" y1="130.0" x2="880" y2="130.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="134.0" text-anchor="end">0.06</text>
+  <line x1="70" y1="90.0" x2="880" y2="90.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="94.0" text-anchor="end">0.08</text>
+  <line x1="70" y1="50.0" x2="880" y2="50.0" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="s-sm" x="62" y="54.0" text-anchor="end">0.10</text>
+  <g style="fill: var(--accent-warm); fill-opacity: 0.75">
+    <rect x="74.4" y="107.0" width="11.2" height="143.0"/>
+    <rect x="105.5" y="108.2" width="11.2" height="141.8"/>
+    <rect x="136.7" y="106.2" width="11.2" height="143.8"/>
+    <rect x="167.8" y="105.6" width="11.2" height="144.4"/>
+    <rect x="199.0" y="99.0" width="11.2" height="151.0"/>
+    <rect x="230.1" y="95.6" width="11.2" height="154.4"/>
+    <rect x="261.3" y="90.4" width="11.2" height="159.6"/>
+    <rect x="292.4" y="95.4" width="11.2" height="154.6"/>
+    <rect x="323.6" y="93.8" width="11.2" height="156.2"/>
+    <rect x="354.7" y="88.0" width="11.2" height="162.0"/>
+    <rect x="385.9" y="81.2" width="11.2" height="168.8"/>
+    <rect x="417.1" y="77.2" width="11.2" height="172.8"/>
+    <rect x="448.2" y="68.6" width="11.2" height="181.4"/>
+    <rect x="479.4" y="71.8" width="11.2" height="178.2"/>
+    <rect x="510.5" y="68.6" width="11.2" height="181.4"/>
+    <rect x="541.7" y="73.6" width="11.2" height="176.4"/>
+    <rect x="572.8" y="71.2" width="11.2" height="178.8"/>
+    <rect x="604.0" y="73.0" width="11.2" height="177.0"/>
+    <rect x="635.1" y="75.0" width="11.2" height="175.0"/>
+    <rect x="666.3" y="75.8" width="11.2" height="174.2"/>
+    <rect x="697.4" y="77.2" width="11.2" height="172.8"/>
+    <rect x="728.6" y="77.6" width="11.2" height="172.4"/>
+    <rect x="759.7" y="75.2" width="11.2" height="174.8"/>
+    <rect x="790.9" y="71.8" width="11.2" height="178.2"/>
+    <rect x="822.1" y="69.0" width="11.2" height="181.0"/>
+    <rect x="853.2" y="69.2" width="11.2" height="180.8"/>
+  </g>
+  <g style="fill: var(--accent); fill-opacity: 0.75">
+    <rect x="85.6" y="139.8" width="11.2" height="110.2"/>
+    <rect x="116.7" y="146.4" width="11.2" height="103.6"/>
+    <rect x="147.9" y="151.8" width="11.2" height="98.2"/>
+    <rect x="179.0" y="149.4" width="11.2" height="100.6"/>
+    <rect x="210.2" y="143.8" width="11.2" height="106.2"/>
+    <rect x="241.3" y="146.8" width="11.2" height="103.2"/>
+    <rect x="272.5" y="135.8" width="11.2" height="114.2"/>
+    <rect x="303.7" y="145.0" width="11.2" height="105.0"/>
+    <rect x="334.8" y="144.6" width="11.2" height="105.4"/>
+    <rect x="366.0" y="146.8" width="11.2" height="103.2"/>
+    <rect x="397.1" y="142.4" width="11.2" height="107.6"/>
+    <rect x="428.3" y="144.0" width="11.2" height="106.0"/>
+    <rect x="459.4" y="134.4" width="11.2" height="115.6"/>
+    <rect x="490.6" y="132.0" width="11.2" height="118.0"/>
+    <rect x="521.7" y="131.8" width="11.2" height="118.2"/>
+    <rect x="552.9" y="132.6" width="11.2" height="117.4"/>
+    <rect x="584.0" y="139.8" width="11.2" height="110.2"/>
+    <rect x="615.2" y="131.2" width="11.2" height="118.8"/>
+    <rect x="646.3" y="132.2" width="11.2" height="117.8"/>
+    <rect x="677.5" y="123.2" width="11.2" height="126.8"/>
+    <rect x="708.7" y="126.0" width="11.2" height="124.0"/>
+    <rect x="739.8" y="130.8" width="11.2" height="119.2"/>
+    <rect x="771.0" y="128.4" width="11.2" height="121.6"/>
+    <rect x="802.1" y="125.2" width="11.2" height="124.8"/>
+    <rect x="833.3" y="115.2" width="11.2" height="134.8"/>
+    <rect x="864.4" y="129.6" width="11.2" height="120.4"/>
+  </g>
+  <text class="s-sm" x="85.6" y="268" text-anchor="middle">0</text>
+  <text class="s-sm" x="241.3" y="268" text-anchor="middle">5</text>
+  <text class="s-sm" x="397.1" y="268" text-anchor="middle">10</text>
+  <text class="s-sm" x="552.9" y="268" text-anchor="middle">15</text>
+  <text class="s-sm" x="708.7" y="268" text-anchor="middle">20</text>
+  <text class="s-sm" x="864.4" y="268" text-anchor="middle">25</text>
+  <text class="s-sm" x="475" y="292" text-anchor="middle">decoder 層（model.model.layers[i]）</text>
+  <text class="s-sm" x="20" y="34">‖W_it − W_pt‖ / ‖W_pt‖</text>
+  <rect x="600" y="22" width="14" height="14" style="fill: var(--accent-warm); fill-opacity: .75"/><text class="s-sm" x="620" y="34">MLP（gate／up／down）</text>
+  <rect x="600" y="300" width="14" height="14" style="fill: var(--accent); fill-opacity: .75"/><text class="s-sm" x="620" y="312">attention（q／k／v／o）</text>
+</svg>
+<figcaption>圖 G.3 — 每一層從 pt 到 it 的相對變化，橘色是 MLP、藍色是 attention（<code>logs/facts_gemma.txt</code> 的 weights 段 per layer 表）。MLP 每層 0.071–0.091，attention 0.049–0.067；兩者合計每層 0.065–0.084，最前面幾層最低、第 12 層之後大致持平在 0.08 上下。</figcaption>
+</figure>
+
+<p>每一層都改了，沒有哪一層幾乎不動；每一層都是 MLP 改得比 attention 多，後半段的層比最前面幾層略多。為什麼是這個形狀，技術報告沒有討論，本機也沒有做實驗分辨原因，這裡只記錄現象。權重的相對變化只是一種量法：平均不到一成的改動，就足以讓行為完全不同（下一小節）。</p>
+
+<h3 id="behaviour">G.6.3　同一個輸入，兩種反應</h3>
+
+<p>四個輸入，兩個模型都用 greedy 生成（每一步都取機率最高的 token；<code>logs/facts_gemma.txt</code> 的 behaviour 段；引號內是模型原文，<code>\n</code> 是換行）：</p>
+
+<p><b>(1) Q1 的問題，套上 chat template</b>（31 個 token，就是第 1 章「有 template」的那條路）：</p>
+<ul>
+<li>pt：「Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words. Answer in 200 words. Answer in 200 words. …」。它不認得 <code>&lt;start_of_turn&gt;model</code> 是「該你回答了」，只把前文最像的東西接下去：把題目抄一遍，再一直重複最後一句。第一個 token 是 <code>Please</code>（0.1872）。</li>
+<li>it：「Supervised and unsupervised learning are two fundamental approaches in machine learning. …」，第一個 token <code>Super</code> 的機率 0.6631，直接開始回答。</li>
+</ul>
+
+<p><b>(2) 同一個問題，不套 template</b>（23 個 token，第 1 章「沒有 template」那條路）：兩者的第一個 token 都是換行 <code>\n\n</code>（pt 0.4585、it 0.9182）。pt 接著寫一段一再重複的定義（「The model is trained on a set of labeled data and the model is trained to predict …」）；it 寫成條列的 Markdown（「**Supervised Learning:** …」）。it 即使沒有 template 也會「回答」，只是格式不同：第 1 章 Q1 比較的正是這種差別。</p>
+
+<p><b>(3) 「The capital of France is」</b>：pt 接「a city of contrasts. It is a city of art, culture, and history. It is a」；it 接「Paris. \n\nIs this statement true or false?\n\nThe statement is **true**.」pt 只是在續寫一段像網頁的文字，it 則把它當成一個要回應的問題。</p>
+
+<p><b>(4) 「Professor Hung-yi Lee teaches」</b>：pt 接「in the Department of English at the University of California, Irvine. He is the author of」；it 接「at the University of California, Berkeley. He is a renowned expert in the field of artificial intelligence and」。<b>兩個都是錯的</b>：李宏毅老師在台灣大學任教，本作業所屬的課程就是台大的 ML 2025。模型會用流暢、有自信的語氣講出錯誤的事實，模型卡的 Limitations 也寫了：「They may generate incorrect or outdated factual statements.」</p>
+
+<div class="note">
+<h4>pt 與 it 的差別在「行為」，不在「知識」</h4>
+<p>四個例子合起來看：it 沒有比 pt 多知道什麼（第 4 例兩者都錯），它學會的是<b>互動的方式</b>：看到對話格式就回答、回答完會收尾、會把一句話當成問題來回應。post-training 只把權重矩陣改了不到一成，改的正是這一層「怎麼用已有的知識」。這是推論，綜合了本節的四個例子與 G.4.2 節技術報告的描述；本機沒有用評測集量兩者的知識量。技術報告 Table 17 有一組相關的數字：2B 的 MMLU（知識型選擇題）pt 52.2、it 56.1，微調後也只多了幾分。</p>
+</div>
+
+<h2 id="ability">G.7　能力與限制</h2>
+
+<p>技術報告與模型卡都附了評測。這些是業界常用的考題集：MMLU 是涵蓋幾十個學科的知識型選擇題、HellaSwag 與 ARC-c 是常識與推理題、GSM8K 與 MATH 是數學題、HumanEval 是寫程式題。「5-shot」是指題目前面先附 5 個示範例題再問，「pass@1」是指生成一次程式就通過測試的比例。兩份文件的數字<b>不完全一樣</b>，引用時要註明出處：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>評測（pt 版 2B）</th><th class="num">技術報告 Table 13</th><th class="num">模型卡</th></tr></thead>
+<tbody>
+<tr><td>MMLU（5-shot）</td><td class="num">52.2</td><td class="num">51.3</td></tr>
+<tr><td>HellaSwag（10-shot）</td><td class="num">72.9</td><td class="num">73.0</td></tr>
+<tr><td>ARC-c（25-shot）</td><td class="num">55.7</td><td class="num">55.4</td></tr>
+<tr><td>GSM8K（5-shot）</td><td class="num">24.3</td><td class="num">23.9</td></tr>
+<tr><td>HumanEval（pass@1）</td><td class="num">20.1</td><td class="num">17.7</td></tr>
+<tr><td>MATH（4-shot）</td><td class="num">16.0</td><td class="num">15.0</td></tr>
+</tbody>
+</table></div>
+
+<p>兩份文件都沒有說明差異從哪裡來，本書不猜。用來比較的話，技術報告同一張表的第一代 Gemma 2B 是 MMLU 42.3，第二代多了將近 10 分；同表 Gemma 2 9B 是 71.3、27B 是 75.2。2B 是三個尺寸裡最弱的，這是它換來「一張 GPU 跑得動」的代價。</p>
+
+<p>對話能力的部分，技術報告 Table 14 列出 LMSYS Chatbot Arena（由人類盲測兩兩比較、算出 Elo 分數的排行榜）：<code>gemma-2-2b-it</code> 的 Elo 是 1126（±10），<code>gpt-3.5-turbo-0613</code> 是 1116。Google 部落格據此寫「Gemma 2 2B surpasses all GPT-3.5 models on the Chatbot Arena」（分數擷取於 2024-07-30）。這是一個時間點的排行榜分數，不同時間、不同對手組合都會變。</p>
+
+<p>本書會直接碰到的限制：</p>
+<ul>
+<li><b>主要是英文</b>：G.4.1 節引過「primarily-English data」。</li>
+<li><b>會編造事實</b>：G.6.3 節的第 4 例。</li>
+<li><b>對格式敏感</b>：技術報告 Table 11 量了 MMLU 在 12 種提示格式下分數的標準差，Gemma 2 2B 是 2.1，9B 是 0.9、27B 是 1.0，報告的說法是「The Gemma 2B models are slightly less format-robust than the larger ones」。第 1 章看到「同一個問題，套不套 template，回答與分數差很多」，第 2 章看到雙 <code>&lt;bos&gt;</code> 換成單 <code>&lt;bos&gt;</code> 回答就變了，都是這個特性的實例。</li>
+<li><b>上下文長度 8192</b>：本作業的序列最長只有幾百個 token，碰不到。</li>
+</ul>
+
+<h2 id="scope">G.8　Gemma Scope：為 Q7 準備的顯微鏡</h2>
+
+<p>和 Gemma 2 2B 同一天發表的 Gemma Scope，是 Q7 的主角。論文摘要（<code>logs/sources_gemma.txt</code> 的 [S] 段）：</p>
+
+<blockquote class="src"><p>In this work, we introduce Gemma Scope, an open suite of JumpReLU SAEs trained on all layers and sub-layers of Gemma 2 2B and 9B and select layers of Gemma 2 27B base models. We primarily train SAEs on the Gemma 2 pre-trained models, but additionally release SAEs trained on instruction-tuned Gemma 2 9B for comparison.</p><cite>— Lieberum et al., Gemma Scope, arXiv:2408.05147</cite></blockquote>
+
+<p>SAE（sparse autoencoder，稀疏自編碼器）把模型某一層的 hidden state（2304 維）拆成上萬個「feature」的組合，而且每次只有少數幾個 feature 是亮的；理想上每個 feature 對應一個人看得懂的概念。JumpReLU 是 Gemma Scope 採用的一種 SAE 設計（決定 feature 亮不亮的函數），細節留到第 8、9 章。這裡要記住的是摘要的第二句：<b>2B 的 SAE 是在 pt 上訓練的</b>，論文只為 9B 另外釋出了 it 版的 SAE。</p>
+
+<figure class="listing"><figcaption>hw3.py:373–380 — load_sae：Q7 載入的是 pt 版的 SAE</figcaption>
+<pre class="py" data-hot="376"><code>    from sae_lens import SAE
+
+    sae, cfg_dict, sparsity = SAE.from_pretrained(
+        release="gemma-scope-2b-pt-res-canonical",
+        sae_id="layer_20/width_16k/canonical",
+    )
+    print(sae, cfg_dict, sparsity)
+    return sae.to(DEVICE)</code></pre>
+</figure>
+
+<p><code>sae_lens</code> 是載入這些 SAE 的 Python 套件；release 名稱裡的 <code>2b-pt-res</code> 就是「2B、pt、residual stream」（residual stream 指每一層 decoder 輸出、一路往下一層傳的那條主幹向量，也就是 hidden state），<code>width_16k</code> 是這個 SAE 有約 16k 個 feature。也就是說，Q7 拿一個在 pt 上校正過的 SAE，去解讀 it 模型的 hidden state。這樣做可以嗎？本書在規劃階段實測過（<code>logs/facts_review1_ptit.txt</code>）：用 Q7 的三句測試句，把 pt 與 it 的 hidden state 分別交給同一個 SAE。以第三句、SAE 訓練時的那一層為例，重建誤差（FVU，越小越好）it 是 0.290、pt 是 0.238，it 略大但同一個數量級；Q7 關心的 feature 10004 在兩個模型上都在 <code>▁travel</code> 那個位置最亮（it 71.23、pt 51.82）。<b>數值會變，結論不變</b>，這是那三句話的實測，不是一般性的結論。G.6.2 節的「權重矩陣只改了約 7.6%」提供了一個合理的背景：兩個模型的內部表示本來就很接近（推論）。</p>
+
+<h2 id="license">G.9　授權、下載與檔案</h2>
+
+<p>Gemma 的權重是開放的，但不是無條件公開：</p>
+<ul>
+<li><b>授權</b>：模型卡標註的 license 是 <code>gemma</code>，也就是 Google 的 Gemma Terms of Use，不是 MIT、Apache 這類常見的開源授權。</li>
+<li><b>gated</b>：Hugging Face 上的 <code>google/gemma-2-2b-it</code> 是 gated（有門禁的）模型。要先在模型頁登入、按下同意授權，再在 HF 帳號設定裡建立一個 read token（唯讀權杖），讓程式用它存取。作業投影片（repo 裡的 <code>HW03/hw3.pdf</code>）p.5–11 一步一步示範；在本機登入的指令與沒有授權時的錯誤訊息見<a href="ch00.html#env">第 0 章 0.1 節</a>。連模型卡（README）本身都要登入後才讀得到。</li>
+<li><b>檔案</b>：it 版下載下來是兩個 BF16 的 safetensors（共約 5.23 GB），加上 tokenizer（<code>tokenizer.json</code> 17.5 MB、SentencePiece 的 <code>tokenizer.model</code> 4.2 MB；<code>logs/facts_gemma.txt</code> 的 files 段）與模型卡；本機的 HF 快取裡整個 repo 佔 5.251 GB（第 0 章 0.4 節）。pt 版是 fp32，約 10.5 GB，本作業用不到，只有本章的對照與 Q7 的審稿實驗下載過。</li>
+</ul>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：模型卡的範例和 hw3.py 不一樣</h4>
+<p>模型卡示範 chat template 時，最後是這樣把 prompt 交給模型的：<code>tokenizer.encode(prompt, add_special_tokens=False, return_tensors="pt")</code>。<code>add_special_tokens=False</code> 讓 tokenizer <b>不要</b>再加一個 <code>&lt;bos&gt;</code>，因為 template 的字串已經以 <code>&lt;bos&gt;</code> 開頭。hw3.py 的 Q1、Q2 照原版 Colab 用預設值，於是模型收到兩個 <code>&lt;bos&gt;</code>：這就是全書第一個「刻意保留的怪地方」R1（<a href="ch01.html#r1">第 1 章 1.7 節</a>）。模型的官方文件本身就示範了正確寫法。</p>
+</div>
+
+<h2 id="pitfalls">G.10　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 2B 當成精確的參數量</h4>
+<dl>
+<dt>症狀</dt><dd>用 2 × 10<sup>9</sup> × 2 bytes 估記憶體，或說「這個模型有 20 億個參數」。</dd>
+<dt>後果</dt><dd>實際是 2,614,341,888 個，比 20 億多了三成；fp16 佔 4.87 GiB，不是 2 × 10<sup>9</sup> × 2 bytes ≈ 3.7 GiB。</dd>
+<dt>正解</dt><dd class="fix">2B 是級別名稱；精確數字照 <a href="ch00.html#params">第 0 章 0.8 節</a>用 PyTorch 數，技術報告也會寫成 2.6B。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>對 pt 模型套 chat template</h4>
+<dl>
+<dt>症狀</dt><dd>下載 <code>google/gemma-2-2b</code>（沒有 <code>-it</code>）來做 Q1，回答只是一直重複題目；或用 pt 自己的 tokenizer 呼叫 <code>apply_chat_template</code>，直接丟出 <code>ValueError: Cannot use chat template functions because tokenizer.chat_template is not set …</code>（本機實測，<code>logs/facts_gemma.txt</code> 的 tokenizer 段）。</dd>
+<dt>後果</dt><dd>以為程式寫錯，或以為模型壞了。</dd>
+<dt>正解</dt><dd class="fix">pt 沒學過對話格式，它的 tokenizer 也沒有 chat template（<a href="#files">G.6.1 節</a>）。作業用的是 <code>-it</code>。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 it 比 pt 「懂得比較多」</h4>
+<dl>
+<dt>症狀</dt><dd>相信 it 版講的事實，因為它語氣比較像在回答問題。</dd>
+<dt>後果</dt><dd>把編造的內容當真，例如它說李宏毅老師在 UC Berkeley。</dd>
+<dt>正解</dt><dd class="fix">post-training 主要改變的是互動方式（<a href="#behaviour">G.6.3 節</a>）；事實要另外查證。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>技術報告、模型卡、config 的數字混著用</h4>
+<dl>
+<dt>症狀</dt><dd>說詞表是 256128、MMLU 是 51.3，又拿 config 的 256000 去算 embedding 參數。</dd>
+<dt>後果</dt><dd>前後對不上，看起來像算錯。</dd>
+<dt>正解</dt><dd class="fix">每個數字註明出處；要和程式對照時，以 config 與實際張量為準（<a href="#paper-vs-config">G.5.1 節</a>、<a href="#ability">G.7 節</a>）。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 Gemma Scope 的 SAE 是為 it 訓練的</h4>
+<dl>
+<dt>症狀</dt><dd>把 Q7 的 feature 數值當成 SAE 在它校正過的模型上的表現。</dd>
+<dt>後果</dt><dd>高估了 SAE 在作業裡的重建品質。</dd>
+<dt>正解</dt><dd class="fix">2B 的 SAE 是在 pt 上訓練的（<a href="#scope">G.8 節</a>）；本機實測用在 it 上數值會變、結論不變。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>Gemma 是 Google 用 Gemini 的研究與技術做出的開放權重模型家族；Gemma 2 有 2B、9B、27B，2B 於 2024-07-31 發表，同日發表的還有 Gemma Scope。</li>
+<li>名字：<code>gemma-2</code> 是第二代，<code>2b</code> 是級別（實際 2,614,341,888 個參數，報告也寫 2.6B），<code>-it</code> 是 instruction-tuned；沒有尾巴的 <code>gemma-2-2b</code> 是預訓練版 pt。</li>
+<li>預訓練用 2 兆個主要是英文的 token，而且 2B 是用 knowledge distillation 學老師模型的機率分布；post-training 依序做 SFT、RLHF、模型平均，並教會它以 <code>&lt;end_of_turn&gt;&lt;eos&gt;</code> 收尾（第 4 章 R3 的來源）。</li>
+<li>架構：decoder-only、local／global attention 交替、GQA、soft-cap 50／30、pre 與 post RMSNorm、GeGLU、RoPE、8192 context、tied embedding。技術報告的 non-embedding 參數和本機一個不差；實物上只差詞表的 128 列（256128 vs 256000，原因兩份文件都沒說）；FFN 18432 vs 9216 推論是算法不同。</li>
+<li>pt 與 it 的 config 只差停止 token 與 dtype，tokenizer 詞表相同但 pt 沒有 chat template；attention 與 MLP 的權重矩陣只變了約 7.6%（MLP 約 8%、attention 約 5.7%，每一層都有改；norm 幾乎不動）；行為卻完全不同，而兩者都會編造事實。</li>
+<li>Q7 用的 SAE 是在 pt 上訓練的；hw3.py 照原版用了兩個 <code>&lt;bos&gt;</code>，模型卡自己示範的是 <code>add_special_tokens=False</code>。</li>
+</ul>
+</div>
+
+<p>下一章是第 0 章：把這個模型實際載入、印出它的結構，逐層量出形狀與參數。</p>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. <code>google/gemma-2-2b-it</code> 這個名字的四段各代表什麼？為什麼說「2B」不是精確數字？</summary>
+<p><code>google</code> 是 Hugging Face 上的組織；<code>gemma-2</code> 是 Gemma 第二代；<code>2b</code> 是尺寸級別；<code>-it</code> 是 instruction-tuned，對應的預訓練版是沒有尾巴的 <code>gemma-2-2b</code>。實際參數是 2,614,341,888 個，約 26 億，技術報告也寫成 2.6B；2B 只是三個尺寸（2B、9B、27B）裡的級別名稱。</p>
+</details>
+
+<details class="quiz"><summary>2. knowledge distillation 和一般的 next token prediction 差在哪裡？用第 2 章彩虹那一題的機率表說明「學生學到的東西」多了什麼。</summary>
+<p>一般預訓練的目標是 one-hot：只有實際出現的那個 token 算對。蒸餾的目標是老師模型對下一個 token 的整個機率分布。以第 2 章第一輪為例，如果實際文字接的是 Indigo，one-hot 只告訴學生「答案是 Indigo」；分布則告訴它 Indigo 0.3068、Green 0.2624、Red 0.2012……，也就是「其他顏色也很合理、各有幾分合理」。學生從每一個位置學到的資訊因此多得多。（這裡借用第 2 章的數字只為說明形式：那張表是 Gemma-2-2b-it 自己的輸出，不是它訓練時老師給的分布。）</p>
+</details>
+
+<details class="quiz"><summary>3. 第 4 章 R3 看到：停止 token 只剩 <code>&lt;eos&gt;</code> 時，模型生成 <code>&lt;end_of_turn&gt;</code> 之後，下一步幾乎一定接 <code>&lt;eos&gt;</code>。技術報告怎麼解釋這個習慣？pt 版的 config 為什麼只有一個停止 token？</summary>
+<p>技術報告第 4 節說 Gemma 2 的 it 模型被訓練成「explicitly ends generations with &lt;end_of_turn&gt;&lt;eos&gt; tokens」，所以它說完話會先打 <code>&lt;end_of_turn&gt;</code> 再打 <code>&lt;eos&gt;</code>。it 的 config 因此把 1（<code>&lt;eos&gt;</code>）與 107（<code>&lt;end_of_turn&gt;</code>）都列為停止 token。pt 沒有經過對話格式的微調，不會用 <code>&lt;end_of_turn&gt;</code> 收尾，config 的 <code>eos_token_id</code> 只有 1（本機實測兩份 config 只差這一欄與 dtype）。</p>
+</details>
+
+<details class="quiz"><summary>4. 技術報告說 2B 的 embedding 參數是 590,118,912，第 0 章用 PyTorch 數出來是 589,824,000。差了多少？從哪裡來？哪一個數字可以拿來算 hw3.py 的記憶體？</summary>
+<p>差 294,912 = 128 × 2304。報告的詞表是 256128，590,118,912 = 256128 × 2304；Hugging Face 釋出的 checkpoint 詞表是 256000，589,824,000 = 256000 × 2304。為什麼差 128 列兩份文件都沒說。算 hw3.py 的記憶體要用實際載入的張量，也就是 256000 列的版本；non-embedding 的 2,024,517,888 兩邊完全相同。</p>
+</details>
+
+<details class="quiz"><summary>5. 把同一句 Q1 的問題套上 chat template，分別交給 pt 與 it，本機看到什麼？從這個例子與「李宏毅老師在哪裡教書」的例子，可以說 post-training 主要改變了什麼？</summary>
+<p>pt 把題目抄一遍，接著一直重複「Answer in 200 words.」；it 直接開始回答（第一個 token <code>Super</code>，機率 0.6631）。問到李宏毅老師，pt 說 UC Irvine 英文系，it 說 UC Berkeley，兩個都錯（他在台大）。合起來看，post-training 改變的主要是互動方式（看到對話格式就回答、回答完會收尾），而不是讓模型多知道事實；這是推論，本機沒有用評測集量知識量。技術報告的 MMLU pt 52.2、it 56.1 也只差幾分。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Gemma Team, <i>Gemma 2: Improving Open Language Models at a Practical Size</i>, 2024, <a href="https://arxiv.org/abs/2408.00118">arXiv:2408.00118</a>：本章的主要來源。第 2 節架構、第 3 節預訓練與蒸餾、第 4 節 post-training 與對話格式、第 5 節的消融實驗都值得讀。</li>
+<li>Hugging Face 模型卡：<a href="https://huggingface.co/google/gemma-2-2b-it">google/gemma-2-2b-it</a>（需要登入並同意授權才看得到全文）。用法、chat template、評測、限制都在裡面。</li>
+<li>Lieberum et al., <i>Gemma Scope: Open Sparse Autoencoders Everywhere All At Once on Gemma 2</i>, 2024, <a href="https://arxiv.org/abs/2408.05147">arXiv:2408.05147</a>：Q7 用的 SAE 從哪裡來。</li>
+<li>Hinton, Vinyals, Dean, <i>Distilling the Knowledge in a Neural Network</i>, 2015, <a href="https://arxiv.org/abs/1503.02531">arXiv:1503.02531</a>：knowledge distillation 的經典論文，技術報告引用的就是這篇。</li>
+<li>Google 部落格：<a href="https://developers.googleblog.com/en/smaller-safer-more-transparent-advancing-responsible-ai-with-gemma/">Smaller, Safer, More Transparent: Advancing Responsible AI with Gemma</a>（2024-07-31，Gemma 2 2B、ShieldGemma、Gemma Scope 的發表文）。</li>
+<li>重跑本章的實測：先照<a href="index.html#env">目錄頁 3.2 節</a>建好 <code>.venv</code>、照<a href="ch00.html#env">第 0 章 0.1 節</a>登入 HF，並在 <code>google/gemma-2-2b</code> 與 <code>google/gemma-2-2b-it</code> 兩個模型頁都同意授權（只做作業的話只需要 it 版；pt 版是本章對照才用到）。然後在 repo 根目錄執行 <code>.venv/bin/python docs/tools/hw03_gemma.py</code>。第一次會下載約 10.5 GB 的 pt 權重；權重差異在 CPU 上逐個張量讀進來比較；行為比較要把兩個模型同時放上 GPU，約需 10 GiB。結果印在終端機，不會寫進或覆寫 <code>docs/HW03/logs/facts_gemma.txt</code>，可以拿來逐段對照：files、config、tokenizer 與 weights 段應該逐位相同；behaviour 段在相同的 GPU 與套件版本下應該相同，換了 GPU 或版本，生成的文字可能在後段開始不同；load 段的秒數每次都不同。G.8 節 pt 與 it 的 SAE 對照由另一個指令產生：<code>.venv/bin/python docs/tools/hw03_facts.py ptit</code>（同樣需要兩個模型的授權，另外會下載 Q7 用的 SAE），輸出就是 <code>logs/facts_review1_ptit.txt</code> 的 ptit 段，同樣只印在終端機。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><a href="ch00.html">第 0 章 →</a></nav>
+<footer class="chap-footer">本教材依據 <a href="https://github.com/lordleeber/ML2025-Spring-pytorch">lordleeber/ML2025-Spring-pytorch</a> 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程；Gemma 技術報告以 CC BY 4.0 授權，本章引用其原文並註明出處。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>

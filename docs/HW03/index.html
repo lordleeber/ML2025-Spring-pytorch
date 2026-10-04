@@ -684,9 +684,10 @@ uv sync
 
 <h2 id="toc">4　章節目錄</h2>
 
-<p>全書 13 頁：第 0 章打底，接著一篇補充章講貫穿全書的 KV cache，第 1–9 章依作業題號推進，第 10 章總結，最後是附錄。每章的對應函式、行號與重點見<a href="outline.html">全書大綱</a>。章節還在撰寫中，寫好的章會在這裡加上連結。</p>
+<p>全書 14 頁：先用一篇補充章認識作業用的模型 Gemma-2-2b-it，第 0 章打底，接著一篇補充章講貫穿全書的 KV cache，第 1–9 章依作業題號推進，第 10 章總結，最後是附錄。每章的對應函式、行號與重點見<a href="outline.html">全書大綱</a>。章節還在撰寫中，寫好的章會在這裡加上連結。</p>
 
 <ol class="toc">
+<li><span class="toc-title"><a href="ch00a.html">補充章　認識 Gemma-2-2b-it：這份作業拆的是什麼模型</a></span><p class="toc-desc">Gemma 家族與發表時間、名字的每一段、知識蒸餾與 post-training、技術報告的架構描述對照本機 config；pt 與 it 並排實測：權重矩陣只改了約 7.6%，行為完全不同。</p></li>
 <li><span class="toc-title"><a href="ch00.html">第 0 章　開工前：環境、CLI 與 Gemma-2-2b-it 模型總覽</a></span><p class="toc-desc">腳本的骨架、模型從哪裡載入、26 層 decoder 的形狀與 2,614,341,888 個參數怎麼算出來。</p></li>
 <li><span class="toc-title"><a href="ch00b.html">補充章　KV cache：生成時模型記住了什麼</a></span><p class="toc-desc">生成一個 token 為什麼不必重算前面；cache 存了什麼、佔多少記憶體、省多少時間；為什麼留在模型上的 cache 會改變 greedy 的答案。</p></li>
 <li><span class="toc-title"><a href="ch01.html">第 1 章　Q1 Chat template：同一個問題，兩種 prompt</a></span><p class="toc-desc">套不套對話格式，回答與 coherence 分數差在哪裡；雙 <code>&lt;bos&gt;</code> 從哪裡來。</p></li>

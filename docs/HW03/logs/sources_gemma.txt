@@ -1,0 +1,664 @@
+# Gemma 補充章引用的外部來源原文摘錄（2026-10-04 擷取；逐字，未翻譯）
+
+## [P] Gemma Team, Gemma 2: Improving Open Language Models at a Practical Size, arXiv:2408.00118v3 (02 Oct 2024), https://arxiv.org/html/2408.00118v3
+### 行號是本機把 HTML 轉成純文字後的行號，只供定位
+Abstract
+In this work, we introduce Gemma 2, a new addition to the Gemma family of lightweight, state-of-the-art open models, ranging in scale from 2 billion to 27 billion parameters.
+In this new version, we apply several known technical modifications to the Transformer architecture, such as interleaving local-global attentions (Beltagy et al., 2020a) and group-query attention (Ainslie et al., 2023).
+We also train the 2B and 9B models with knowledge distillation (Hinton et al., 2015) instead of next token prediction.
+The resulting models deliver the best performance for their size, and even offer competitive alternatives to models that are 2-3 \times bigger.
+We release all our models to the community.
+Large language models (LLMs) have demonstrated strong capabilities in language understanding, generation, and reasoning (Radford et al., 2019; Raffel et al., 2019; Brown et al., 2020).
+Scaling has been key to this recent progress, with many new capabilities only emerging at scale (Brown et al., 2020).
+The newest large models not only reach unprecedented performance on reasoning benchmarks (Achiam et al., 2023), but they also demonstrate multimodal and multilingual capabilities (Gemini Team, 2024) and even the ability to use context lengths of over 1M tokens (Gemini Team, 2024).
+Small-scale models have also shown a rapid increase in performance, but these gains are largely derived from increasing the length of training (Touvron et al., 2023; Jiang et al., 2023; Gemma Team, 2024).
+This approach only scales logarithmically with dataset size (Hoffmann et al., 2022), and the latest small models require up to 15T tokens to improve the state of the art by less than 1-2% (AI@Meta, 2024).
+Yet, these continued improvements provide evidence that small models are still under-trained.
+In this work, we explore alternatives to improve small model performance without solely increasing training length. One solution is to improve the quality of information received by the network at each training step by replacing the next token prediction task with a richer objective.
+In particular, we focus our efforts on knowledge distillation (Hinton et al., 2015), which replaces the one-hot vector seen at each token with the distribution of potential next tokens computed from a large model.
+This approach is often used to reduce the training time of smaller models by giving them richer gradients.
+In this work, we instead train for large quantities of tokens with distillation in order to simulate training beyond the number of available tokens.
+Concretely, we use a large language model as a teacher to train small models, namely 2B and 9B models, on a quantity of tokens that is more than 50 \times the compute-optimal quantity predicted by the theory (Hoffmann et al., 2022).
+Along with the models trained with distillation, we also release a 27B model trained from scratch for this work.
+We also leverage several known modifications of Transformers, namely the interleaving of global and local attention layers from Beltagy et al. (2020a), and the Grouped-Query Attention (GQA) mechanism of Ainslie et al. (2023).
+Overall, Gemma 2 significantly advances state-of-the-art performance relative to comparable-scale open models and are even competitive with some models more than twice their size (xAI, 2024; AI@Meta, 2024; Jiang et al., 2023; Almazrouei et al., 2023), across a variety of automated benchmarks and human evaluations. Example domains include question answering (Clark et al., 2019; Kwiatkowski et al., 2019), commonsense reasoning (Sakaguchi et al., 2019; Suzgun et al., 2022), mathematics and science (Cobbe et al., 2021; Hendrycks et al., 2020), and coding (Austin et al., 2021; Chen et al., 2021).
+While thorough testing of our models has been conducted, these tests cannot cover all applications and scenarios in which Gemma 2 may be used. With this in mind, all Gemma 2 users should conduct rigorous safety testing specific to their use case before deployment or use.
+In this technical report, we provide an overview of models, including the architecture, training, and pre- and post-training recipes for Gemma 2. We also provide detailed evaluations across a wide variety of quantitative and qualitative benchmarks, as well as both standard academic benchmarks and human-preference evaluations. Finally, we discuss our approach to safe and responsible deployment and outline the broader implications of Gemma 2, its limitations, and advantages.
+ | Parameters
+ | 2B
+ | 9B
+ | 27B
+ | d_model
+ | 2304
+ | 3584
+ | 4608
+ | Layers
+ | 26
+ | 42
+ | 46
+ | Pre-norm
+ | yes
+ | yes
+ | yes
+ | Post-norm
+ | yes
+ | yes
+ | yes
+ | Non-linearity
+ | GeGLU
+ | GeGLU
+ | GeGLU
+ | Feedforward dim
+ | 18432
+ | 28672
+ | 73728
+ | Head type
+ | GQA
+ | GQA
+ | GQA
+ | Num heads
+ | 8
+ | 16
+ | 32
+ | Num KV heads
+ | 4
+ | 8
+ | 16
+ | Head size
+ | 256
+ | 256
+ | 128
+ | Global att. span
+ | 8192
+ | 8192
+ | 8192
+ | Sliding window
+ | 4096
+ | 4096
+ | 4096
+ | Vocab size
+ | 256128
+ | 256128
+ | 256128
+ | Tied embedding
+ | yes
+ | yes
+ | yes
+Table 1: Overview of the main model parameters and design choices. See the section on model architectures for more details.
+2 Model Architecture
+Similar to previous Gemma models (Gemma Team, 2024), the Gemma 2 models are based on a decoder-only transformer architecture (Vaswani et al., 2017).
+We summarize the main parameters and architecture choices in Table 1.
+A few architectural elements are similar to the first version of Gemma models; namely, a context length of 8192 tokens, the use of Rotary Position Embeddings (RoPE) (Su et al., 2021), and the approximated GeGLU non-linearity (Shazeer, 2020). A few elements differ between Gemma 1 and Gemma 2, including using deeper networks. We summarize the key differences below.
+Local Sliding Window and Global Attention. We alternate between a local sliding window attention (Beltagy et al., 2020b; Beltagy et al., 2020a) and global attention (Luong et al., 2015) in every other layer. The sliding window size of local attention layers is set to 4096 tokens, while the span of the global attention layers is set to 8192 tokens.
+Logit soft-capping. We cap logits (Bello et al., 2016) in each attention layer and the final layer such that the value of the logits stays between -\text{soft\_cap} and +\text{soft\_cap} . More specifically, we cap the logits with the following function:
+ | \text{logits}\leftarrow\text{soft\_cap}*\tanh(\text{logits}/\text{soft\_cap}). 
+We set the soft_cap parameter to 50.0 for the self-attention layers and to 30.0 for the final layer.
+ | Model
+Embedding
+Parameters
+Non-embedding
+Parameters
+ | 2B
+ | 590,118,912
+ | 2,024,517,888
+ | 9B
+ | 917,962,752
+ | 8,324,201,984
+ | 27B
+ | 1,180,237,824
+ | 26,047,480,320
+Table 2: Parameter counts for the Gemma models.
+We inherit from the large Gemini vocabulary (256k entries), that is designed to work on a large number of languages, hence, the larger embedding parameter counts compared to models that are limited to one or a few languages.
+Post-norm and pre-norm with RMSNorm. To stabilize training, we use RMSNorm (Zhang and Sennrich, 2019) to normalize the input and output of each transformer sub-layer, the attention layer, and the feedforward layer.
+Grouped-Query Attention (Ainslie et al., 2023).
+We use GQA with \text{num\_groups}=2 , based on ablations showing increased speed at inference time while maintaining downstream performance.
+3 Pre-training
+We provide a brief overview of the parts of our pre-training that differs from Gemma 1.
+3.1 Training Data
+We train Gemma 2 27B on 13 trillion tokens of primarily-English data, the 9B model on 8 trillion tokens, and the 2B on 2 trillion tokens.
+These tokens come from a variety of data sources, including web documents, code, and science articles. Our models are not multimodal and are not trained specifically for state-of-the-art multilingual capabilities.
+The final data mixture was determined through ablations similar to the approach in Gemini 1.0 (Gemini Team, 2023).
+Tokenizer.
+We use the same tokenizer as Gemma 1 and Gemini: a SentencePiece tokenizer with split digits, preserved whitespace, and byte-level encodings (Kudo and Richardson, 2018).
+The resulting vocabulary has 256k entries.
+Filtering.
+We use the same data filtering techniques as Gemma 1. Specifically, we filter the pre-training dataset to reduce the risk of unwanted or unsafe utterances, filter out certain personal information or other sensitive data, decontaminate evaluation sets from our pre-training data mixture, and reduce the risk of recitation by minimizing the proliferation of sensitive outputs.
+3.2 Knowledge Distillation
+Given a large model used as a teacher, we learn smaller models by distilling from the probability given by the teacher of each token x given its context x_{c} , i.e., P_{T}(x\penalty\ |\penalty\ x_{c}) .
+More precisely, we minimize the negative log-likelihood between the probabilities from the teacher and the student:
+ | \min_{P_{S}}\sum_{x}-P_{T}(x\penalty\ |\penalty\ x_{c})\log P_{S}(x\penalty\ |\penalty\ x_{c}), 
+where P_{S} is the parameterized probability of the student.
+Note that knowledge distillation was also used in Gemini 1.5 (Gemini Team, 2024).
+3.3 Compute Infrastructure
+We train our models with TPUv4, TPUv5e, and TPUv5p as outlined in Table 3.
+For the 2B model, we train on a 2x16x16 configuration of TPUv5e, totaling 512 chips, with 512-way data replication and 1-way model sharding.
+For the 9B model, we train on an 8x16x32 configuration of TPUv4, totaling 4096 chips, with 1024-way data replication and 4-way model sharding.
+For the 27B model, we train on an 8x24x32 configuration of TPUv5p, totaling 6144 chips, with 768-way data replication and 8-way model sharding.
+The optimizer state is further sharded using techniques similar to ZeRO-3 (Ren et al., 2021).
+For scales beyond a single pod, we perform a data-replica reduction over the data center network, using the Pathways approach of Barham et al. (2022).
+We also use the ’single controller’ programming paradigm of Jax (Roberts et al., 2023) and Pathways (Barham et al., 2022). As in Gemma 1, we use the GSPMD partitioner (Xu et al., 2021) for training step computation and the MegaScale XLA compiler (XLA, 2019).
+ | Context
+ | Relevant Token
+ | User turn
+ | user
+ | Model turn
+ | model
+ | Start of conversation turn
+ | <start_of_turn>
+ | End of conversation turn
+ | <end_of_turn>
+ | Beginning of sequence
+ | <bos>
+ | End of sequence
+ | <eos>
+Table 4: Relevant formatting control tokens used for Gemma models.
+4 Post-Training
+For post-training, we fine-tune our pre-trained models into instruction-tuned models.
+First, we apply supervised fine-tuning (SFT) on a mix of text-only, English-only synthetic and human-generated prompt-response pairs. We then apply RLHF on top of these models with the reward model trained on labelled English-only preference data and the policy based on the same prompts as the SFT phase. Finally, we average the models obtained after each phase to improve their overall performance. The final data mixtures and post-training recipe, which includes tuned hyperparameters, were chosen on the basis of improving helpfulness while minimizing model harms related to safety and hallucinations.
+We extended the post-training data from Gemma 1.1 with a mixture of internal and external public data. In particular, we use the prompts, but not the answers from LMSYS-chat-1M (Zheng et al., 2023). All of our data go through a filtering stage described below.
+Supervised fine-tuning (SFT). We run behavioral cloning on synthetic and real prompts, and responses predominantly synthetically generated by the teacher, that is a larger model. We also run distillation from the teacher on the student’s distribution (Agarwal et al., 2024; Gu et al., 2024).
+Reinforcement Learning from Human Feedback (RLHF). We use a similar RLHF algorithm as Gemma 1.1 (Gemma Team, 2024) but a different reward model, which is an order of magnitude larger than the policy. The new reward model is also oriented more towards conversational capabilities, specifically multi-turn.
+Model merging. We average different models obtained by running our pipeline with different hyperparameters (Ramé et al., 2024).
+Data filtering. When using synthetic data, we run several stages of filtering to remove examples that show certain personal information, unsafe or toxic model outputs, mistaken self-identification data, and duplicated examples. Following Gemini, we find that including subsets of data that encourage better in-context attribution, hedging, and refusals to minimize hallucinations improves performance on factuality metrics, without degrading model performance on other metrics.
+Formatting. Gemma 2 models are fine-tuned with the same control tokens as Gemma 1 models, as detailed in Table 4, but a different formatting schema. See the dialogue example in Table 5. Notice that the model explicitly ends generations with <end_of_turn><eos> tokens, while previously it only generated <eos>. For the motivation behind this formatting structure, see Gemma 1.
+5 Ablations
+In this section, we focus on the main finding of this work, which is the impact of knowledge distillation on small language models.
+ | from scratch
+ | distilled
+ | Average (3 bench.)
+ | 60.3
+ | 67.7
+Table 6: Comparison between a 2B model trained over 500B tokens either from scratch or with distillation from a 7B model.
+Distillation versus from scratch.
+In Table 6, we show that distilling from a larger model improves performance compared to training from scratch.
+Note that 500B is 10 \times more than the compute-optimal number of tokens for a 2B model.
+We distill from a 7B model to keep a ratio similar to our target distillation from 27B to 9B.
+ | 200M
+ | 400M
+ | 1B
+ | from scratch
+ | 23
+ | 19
+ | 17
+ | distilled (7B)
+ | 21
+ | 17
+ | 15
+Table 7: Perplexity measured on a validation set of models of different sizes trained with or without distillation. The teacher has 7B parameters.
+Impact of distillation w.r.t. model size. In Table 7, we measure the impact of distillation as model size increases.
+We observe that the gain remains as the model size is scaled.
+In this ablation, we maintain the size of the teacher at 7B and train smaller models to simulate the same gap as between our final teacher and student sizes.
+ | MHA
+ | GQA
+ | Average (4 bench.)
+ | 50.3
+ | 50.8
+Table 8: Comparing the impact of replacing Multi-Head Attention (MHA) with GQA on a 9B model averaged over 4 benchmarks.
+GQA versus MHA.
+In Table 8, we compare two instances of our 9B with MHA or GQA.
+We observe overall few changes in performance between both models as measured on several benchmarks. We choose GQA since it requires fewer parameters and is faster at inference time.
+Wide versus deep.
+In Table 9, we show that a deeper 9B network is slightly better than a wider 9B for the same number of parameters.
+Although the gap is small, it is consistent across benchmarks and warrants the switch to a deeper architecture.
+ | Wide
+ | Deep
+ | Average (4 bench.)
+ | 50.8
+ | 52.0
+Table 9: Wide versus deep 9B models. Performance on 4 benchmarks, higher is better.
+Changing sliding window size. In Table 10, we show that we can change the sliding window size of the local attention layers of the models during inference with moderate impact on perplexity.
+Adjusting the size of the sliding window can thus be a leverage for slight inference speed gain.
+ | sliding window
+ | 4096
+ | 2048
+ | 1024
+ | perplexity (val. set)
+ | 1.63
+ | 1.63
+ | 1.64
+Table 10: Impact of changing the sliding window size at inference time for the 9B model.
+Impact of formatting. We measure performance variance on MMLU across prompt/evaluation formatting variations.
+Table 11 shows the standard deviations of MMLU scores for 12 formatting/evaluation combinations, a proxy for undesired performance variability.
+The Gemma 2B models are slightly less format-robust than the larger ones.
+Notably, Mistral 7B is significantly less robust than our models.
+ | Standard Deviation
+ | Gemma 1 2B
+ | 1.5
+ | Gemma 2 2B
+ | 2.1
+ | Mistral 7B
+ | 6.9
+ | Gemma 1 7B
+ | 0.7
+ | Gemma 2 9B
+ | 0.9
+ | Gemma 2 27B
+ | 1.0
+Table 11: Standard deviations of MMLU scores for 12 combinations of formatting and evaluation.
+Evaluating the 2B and 9B models
+ | Gemma-1
+ | Gemma-2
+ | Mistral
+ | LLaMA-3
+ | Gemma-1
+ | Gemma-2
+ | Gemma-2
+ | Benchmark
+ | metric
+ | 2B
+ | 2B
+ | 7B
+ | 8B
+ | 7B
+ | 9B
+ | 27B
+ | MMLU
+ | 5-shot
+ | 42.3
+ | 52.2
+ | 62.5
+ | 66.6
+ | 64.4
+ | 71.3
+ | 75.2
+ | ARC-C
+ | 25-shot
+ | 48.5
+ | 55.7
+ | 60.5
+ | 59.2
+ | 61.1
+ | 68.4
+ | 71.4
+ | GSM8K
+ | 5-shot
+ | 15.1
+ | 24.3
+ | 39.6
+ | 45.7
+ | 51.8
+ | 68.6
+ | 74.0
+ | AGIEval
+ | 3-5-shot
+ | 24.2
+ | 31.5
+ | ∗44.0†
+ | †45.9†
+ | †44.9†
+ | 52.8
+ | 55.1
+ | DROP
+ | 3-shot, F1
+ | 48.5
+ | 51.2
+ | ∗63.8∗
+ | 58.4
+ | 56.3
+ | 69.4
+ | 74.2
+ | BBH
+ | 3-shot, CoT
+ | 35.2
+ | 41.9
+ | ⋄56.0⋄
+ | ⋄61.1⋄
+ | ⋄59.0⋄
+ | 68.2
+ | 74.9
+ | Winogrande
+ | 5-shot
+ | 66.8
+ | 71.3
+ | 78.5
+ | 76.1
+ | 79.0
+ | 80.6
+ | 83.7
+ | HellaSwag
+ | 10-shot
+ | 71.7
+ | 72.9
+ | 83.0
+ | 82.0
+ | 82.3
+ | 81.9
+ | 86.4
+ | MATH
+ | 4-shot
+ | 11.8
+ | 16.0
+ | 12.7
+ | -
+ | 24.3
+ | 36.6
+ | 42.3
+ | ARC-e
+ | 0-shot
+ | 73.2
+ | 80.6
+ | 80.5
+ | -
+ | 81.5
+ | 88.0
+ | 88.6
+ | PIQA
+ | 0-shot
+ | 77.3
+ | 78.4
+ | 82.2
+ | -
+ | 81.2
+ | 81.7
+ | 83.2
+ | SIQA
+ | 0-shot
+ | 49.7
+ | 51.9
+ | ∗47.0∗
+ | -
+ | 51.8
+ | 53.4
+ | 53.7
+ | Boolq
+ | 0-shot
+ | 69.4
+ | 72.7
+ | ∗83.2∗
+ | -
+ | 83.2
+ | 84.2
+ | 84.8
+ | TriviaQA
+ | 5-shot
+ | 53.2
+ | 60.4
+ | 62.5
+ | -
+ | 63.4
+ | 76.6
+ | 83.7
+ | NQ
+ | 5-shot
+ | 12.5
+ | 17.1
+ | 23.2
+ | -
+ | 23.0
+ | 29.2
+ | 34.5
+ | HumanEval
+ | pass@1
+ | 22.0
+ | 20.1
+ | 26.2
+ | -
+ | 32.3
+ | 40.2
+ | 51.8
+ | MBPP
+ | 3-shot
+ | 29.2
+ | 30.2
+ | ∗40.2∗
+ | -
+ | 44.4
+ | 52.4
+ | 62.6
+ | Average (8)
+ | 44.0
+ | 50.0
+ | 61.0
+ | 61.9
+ | 62.4
+ | 70.2
+ | 74.4
+ | Average (all)
+ | 44.2
+ | 48.7
+ | 55.6
+ | -
+ | 57.9
+ | 64.9
+ | 69.4
+Table 13: 
+Comparison of models in the range of 2B to 9B parameters, as well as our 27B model, on a variety of benchmarks.
+We report the average performance on the 8 benchmarks where we can compare with LLaMA-3, and on all the benchmarks (all).
+The numbers for LLaMA-3 8B are either from the HuggingFace leaderboard or their blogpost.
+† we report the evaluation used in LLaMA-3 for the baselines, it leads to +3% compared to our evaluation: Gemma-1 7B achieves 44.9% instead of 41.7%, and Mistral 7B, 44% instead of 41.2%.
+⋄ we report the evaluation used in LLaMA-3 for the baselines, it
+leads to +4% compared to our evaluation for Gemma-1 7B, i.e., 59.0% instead of 55.1%.
+∗ these are evaluations run by us for Gemma 1 (Gemma Team, 2024).
+In this set of experiments, we compare our new 2B and 9B trained with distillation to our previous models and several standard open models in Gemma Team (2024).
+We observe overall a massive improvement in our models compared to previous versions, by up to 10% in some benchmarks for the 9B model.
+The two 2B models were trained with a similar number of tokens (2T for Gemma 2 and 3T for Gemma 1) and we still observe a significant improvement for the new models.
+This confirms that distillation significantly improves the quality of models even when trained on the same number of tokens.
+In this section, we evaluate our IT models on a set of human evaluations as well as standard academic benchmarks. The Gemma 2 models push the frontier for post-trained open-weights models, setting a new state of the art on the LMSYS Chatbot Arena (Chiang et al., 2024).
+LMSYS Chatbot Arena
+Gemma 2 Instruction Tuned models were evaluated on the Chatbot Arena (Chiang et al., 2024) in blind side by side evaluations by human raters against other state of the art models. We report Elo scores in Table 14. Gemma 2.6B, 9B and 27B strongly outperform all other open models in the same range of parameters, with notably: Gemma 27B (Elo 1218) ranked higher than Llama 3 70B (Elo 1206), Gemma 9B (Elo 1187) similar as GPT-4-0314 (Elo 1186), Gemma 2.6B (Elo 1126) ranked higher than GPT-3.5-Turbo-0613 (Elo 1116).
+ | gemma-2-2b-it
+ | 1126
+ | +10 / -10
+ | +
+ | gpt-3.5-turbo-0613
+ | 1116
+ | +3 / -4
+ | -
+ | mixtral-8x7b-instruct-v0.1
+ | 1114
+ | +0 / -0
+ | -
+Table 14: Evaluation of Gemma 2 Instruction Tuned models on the Chatbot Arena (Chiang et al., 2024). The models are evaluated against each other through blind side by side evaluations by human raters. Each model is attributed a score, based on the Elo rating system.
+Standard Benchmarks
+It has been observed in Llama-3 (AI@Meta, 2024) that instruction fine-tuning can improve the performance of the models on few-shot benchmarks despite not being trained to target few-shot capabilities.
+In Table 17, we show a similar improvement across our models.
+Overall, we observe improvements on the order of several percentage points.
+We conjecture that IT models are better at understanding formatted questions, while pre-trained models are sensitive to formatting.
+ | 2B
+ | 9B
+ | 27B
+ | Model
+ | PT
+ | IT
+ | PT
+ | IT
+ | PT
+ | IT
+ | MMLU
+ | 52.2
+ | 56.1
+ | 71.3
+ | 72.3
+ | 75.2
+ | 76.2
+ | MBPP
+ | 30.2
+ | 36.6
+ | 52.4
+ | 59.2
+ | 62.6
+ | 67.4
+Table 17: Comparing pre-trained (PT) and instruction fine-tuned (IT) models of different sizes on few-shot benchmarks.
+
+## [C] Hugging Face 模型卡 google/gemma-2-2b-it（README.md，需登入；https://huggingface.co/google/gemma-2-2b-it）
+---
+license: gemma
+library_name: transformers
+### Description
+
+Gemma is a family of lightweight, state-of-the-art open models from Google,
+built from the same research and technology used to create the Gemini models.
+They are text-to-text, decoder-only large language models, available in English,
+with open weights for both pre-trained variants and instruction-tuned variants.
+Gemma models are well-suited for a variety of text generation tasks, including
+question answering, summarization, and reasoning. Their relatively small size
+makes it possible to deploy them in environments with limited resources such as
+a laptop, desktop or your own cloud infrastructure, democratizing access to
+state of the art AI models and helping foster innovation for everyone.
+
+#### Running the model on a GPU using different precisions
+
+The native weights of this model were exported in `bfloat16` precision.
+
+You can also use `float32` if you skip the dtype, but no precision increase will occur (model weights will just be upcasted to `float32`). See examples below.
+
+### Chat Template
+
+The instruction-tuned models use a chat template that must be adhered to for conversational use.
+The easiest way to apply it is using the tokenizer's built-in chat template, as shown in the following snippet.
+
+Let's load the model and apply the chat template to a conversation. In this example, we'll start with a single user interaction:
+
+```py
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import transformers
+import torch
+
+model_id = "google/gemma-2-2b-it"
+dtype = torch.bfloat16
+
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    device_map="cuda",
+    torch_dtype=dtype,)
+
+chat = [
+    { "role": "user", "content": "Write a hello world program" },
+]
+prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+```
+
+At this point, the prompt contains the following text:
+
+```
+<bos><start_of_turn>user
+Write a hello world program<end_of_turn>
+<start_of_turn>model
+```
+
+As you can see, each turn is preceded by a `<start_of_turn>` delimiter and then the role of the entity
+(either `user`, for content supplied by the user, or `model` for LLM responses). Turns finish with
+the `<end_of_turn>` token.
+
+You can follow this format to build the prompt manually, if you need to do it without the tokenizer's
+chat template.
+### Inputs and outputs
+
+*   **Input:** Text string, such as a question, a prompt, or a document to be
+    summarized.
+*   **Output:** Generated English-language text in response to the input, such
+    as an answer to a question, or a summary of a document.
+
+## Model Data
+
+Data used for model training and how the data was processed.
+
+### Training Dataset
+
+These models were trained on a dataset of text data that includes a wide variety
+of sources. The 27B model was trained with 13 trillion tokens, the 9B model was
+trained with 8 trillion tokens, and 2B model was trained with 2 trillion tokens.
+Here are the key components:
+
+* Web Documents: A diverse collection of web text ensures the model is exposed
+  to a broad range of linguistic styles, topics, and vocabulary. Primarily
+  English-language content.
+* Code: Exposing the model to code helps it to learn the syntax and patterns of
+  programming languages, which improves its ability to generate code or
+  understand code-related questions.
+* Mathematics: Training on mathematical text helps the model learn logical
+  reasoning, symbolic representation, and to address mathematical queries.
+
+The combination of these diverse data sources is crucial for training a powerful
+language model that can handle a wide variety of different tasks and text
+formats.
+
+## Implementation Information
+
+Details about the model internals.
+
+### Hardware
+
+Gemma was trained using the latest generation of
+[Tensor Processing Unit (TPU)][tpu] hardware (TPUv5p).
+
+### Software
+
+Training was done using [JAX][jax] and [ML Pathways][ml-pathways].
+
+## Evaluation
+
+Model evaluation metrics and results.
+
+### Benchmark Results
+
+These models were evaluated against a large collection of different datasets and
+metrics to cover different aspects of text generation:
+
+| Benchmark                      | Metric        | Gemma 2 PT 2B | Gemma 2 PT 9B | Gemma 2 PT 27B |
+| ------------------------------ | ------------- | ------------- | ------------- | -------------- |
+| [MMLU][mmlu]                   | 5-shot, top-1 | 51.3          | 71.3          | 75.2           |
+| [HellaSwag][hellaswag]         | 10-shot       | 73.0          | 81.9          | 86.4           |
+| [PIQA][piqa]                   | 0-shot        | 77.8          | 81.7          | 83.2           |
+| [SocialIQA][socialiqa]         | 0-shot        | 51.9          | 53.4          | 53.7           |
+| [BoolQ][boolq]                 | 0-shot        | 72.5          | 84.2          | 84.8           |
+| [WinoGrande][winogrande]       | partial score | 70.9          | 80.6          | 83.7           |
+| [ARC-e][arc]                   | 0-shot        | 80.1          | 88.0          | 88.6           |
+| [ARC-c][arc]                   | 25-shot       | 55.4          | 68.4          | 71.4           |
+| [TriviaQA][triviaqa]           | 5-shot        | 59.4          | 76.6          | 83.7           |
+| [Natural Questions][naturalq]  | 5-shot        | 16.7          | 29.2          | 34.5           |
+| [HumanEval][humaneval]         | pass@1        | 17.7          | 40.2          | 51.8           |
+| [MBPP][mbpp]                   | 3-shot        | 29.6          | 52.4          | 62.6           |
+| [GSM8K][gsm8k]                 | 5-shot, maj@1 | 23.9          | 68.6          | 74.0           |
+| [MATH][math]                   | 4-shot        | 15.0          | 36.6          | 42.3           |
+| [AGIEval][agieval]             | 3-5-shot      | 30.6          | 52.8          | 55.1           |
+| [DROP][drop]                   | 3-shot, F1    | 52.0          | 69.4          | 72.2           |
+| [BIG-Bench][big-bench]         | 3-shot, CoT   | 41.9          | 68.2          | 74.9           |
+
+### Limitations
+
+* Training Data
+  * The quality and diversity of the training data significantly influence the
+    model's capabilities. Biases or gaps in the training data can lead to
+    limitations in the model's responses.
+  * The scope of the training dataset determines the subject areas the model can
+    handle effectively.
+* Context and Task Complexity
+  * LLMs are better at tasks that can be framed with clear prompts and
+    instructions. Open-ended or highly complex tasks might be challenging.
+  * A model's performance can be influenced by the amount of context provided
+    (longer context generally leads to better outputs, up to a certain point).
+* Language Ambiguity and Nuance
+  * Natural language is inherently complex. LLMs might struggle to grasp subtle
+    nuances, sarcasm, or figurative language.
+* Factual Accuracy
+  * LLMs generate responses based on information they learned from their
+    training datasets, but they are not knowledge bases. They may generate
+    incorrect or outdated factual statements.
+* Common Sense
+  * LLMs rely on statistical patterns in language. They might lack the ability
+    to apply common sense reasoning in certain situations.
+
+### Ethical Considerations and Risks
+
+The development of large language models (LLMs) raises several ethical concerns.
+In creating an open model, we have carefully considered the following:
+
+
+## [S] Lieberum et al., Gemma Scope: Open Sparse Autoencoders Everywhere All At Once on Gemma 2, arXiv:2408.05147
+Abstract:Sparse autoencoders (SAEs) are an unsupervised method for learning a sparse decomposition of a neural network's latent representations into seemingly interpretable features. Despite recent excitement about their potential, research applications outside of industry are limited by the high cost of training a comprehensive suite of SAEs. In this work, we introduce Gemma Scope, an open suite of JumpReLU SAEs trained on all layers and sub-layers of Gemma 2 2B and 9B and select layers of Gemma 2 27B base models. We primarily train SAEs on the Gemma 2 pre-trained models, but additionally release SAEs trained on instruction-tuned Gemma 2 9B for comparison. We evaluate the quality of each SAE on standard metrics and release these results. We hope that by releasing these SAE weights, we can help make more ambitious safety and interpretability research easier for the community. Weights and a tutorial can be found at this https URL and an interactive demo can be found at this https URL
+[Submitted on 9 Aug 2024 (v1), last revised 19 Aug 2024 (this version, v2)]
+
+## [B] Google 部落格發表日（頁面 datePublished）
+- 2024-02-21 Gemma: Google introduces new state-of-the-art open models（blog.google/technology/developers/gemma-open-models/）：「We’re releasing model weights in two sizes: Gemma 2B and Gemma 7B . Each size is released with pre-trained and instruction-tuned variants.」
+- 2024-06-27 Google launches Gemma 2, its next generation of open models（blog.google/technology/developers/google-gemma-2/）：「Available in both 9 billion (9B) and 27 billion (27B) parameter sizes」
+- 2024-07-31 Smaller, Safer, More Transparent: Advancing Responsible AI with Gemma（developers.googleblog.com）：「three new additions to the Gemma 2 family: Gemma 2 2B ... 2. ShieldGemma ... 3. Gemma Scope – a new model interpretability tool」；「Gemma 2 2B surpasses all GPT-3.5 models on the Chatbot Arena ... LMSYS Chatbot Arena leaderboard scores captured on July 30th, 2024.」
+
+## [H] Hugging Face API 的 repo createdAt（repo 建立時間，不等於公開發表日）與 gated
+- google/gemma-2b-it 2024-02-08T13:23:59.000Z gated= manual license= gemma
+- google/gemma-2-2b 2024-07-16T08:07:29.000Z gated= manual license= gemma
+- google/gemma-2-2b-it 2024-07-16T10:51:39.000Z gated= manual license= gemma
+- google/gemma-2-9b-it 2024-06-24T08:05:41.000Z gated= manual license= gemma
+- google/gemma-2-27b-it 2024-06-24T08:05:04.000Z gated= manual license= gemma
+- google/gemma-scope-2b-pt-res 2024-07-19T10:26:53.000Z gated= False license= cc-by-4.0
