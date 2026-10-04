@@ -788,6 +788,18 @@
   - 沒打 `exit` 就結束輸入（管線讀完，等同在終端機按 Ctrl-D）：hw3.py:124 的 `input("You: ")` 丟出 `EOFError: EOF when reading a line`，結束碼 1。已經跑完的輪次照常輸出、圖也已存檔。
   - `exit` 要單獨一行、完全相符（`iter(callable, sentinel)` 比對的是整個字串），`Exit` 或 `exit ` 不會結束（由程式碼讀出，沒有實測）。
 
+## ch02 寫作時查證的事項（雲端，2026-10-04）
+
+- **投影片 p.14–15（Q2，1 分）**：p.14 題目要觀察「the possibility of the model response and the format of the prompt」，對話範本模型回答寫 xxxx（S5）。p.15 三小題：(1) 第三輪完整 prompt（0.4，填空）；(2) 第一輪機率最高的第一個 token（0.2，填空）；(3) 選出錯誤的敘述（0.4，選擇，選項不在投影片裡）。
+- **原版 Colab**：第 18 格是「## Q2: Multi-turn conversations」標題，第 19 格是整個互動迴圈（`user_input.lower() == "exit"` 不分大小寫，結束印 `Chatbot: Goodbye!`；hw3.py 的 `iter(..., "exit")` 完全比對、不印）。
+- **prompt 長度拆解（計算值）**：第 1 輪 27 = 2（雙 `<bos>`）+ 3 + 17（第一句話，facts_env_model_tok.txt）+ 5。第 2、3 輪多 32、23 個；把回填的回答算成 3 個 token（顏色名 + `<end_of_turn>` + `\n`），新的 user 段是 29、20 個。這個拆法沒有直接量，ch02 圖 2.1 標為推算。
+- **top-10 的 forward 與 generate 是兩次計算**：:141 不傳 cache，forward 自建 prompt 長度的 HybridCache（補充章 K.4）；:162 的 generate 照 K.8 準備 cache。三輪 top-10 第 1 名與生成的第一個 token 都一致（Indigo、Orange、Green）。
+- **第 1 輪前兩名 logit**：Indigo 24.125、Green 23.969，差 0.156，約 10 格 fp16 間距（0.0156，計算值）。
+- **圖**：q2_round*_top_tokens.png 的 x 軸範圍每張不同（第 1 輪約到 0.3，第 2、3 輪約到 0.5）；顏色依名次（coolwarm），不是依 token；第 2 輪有兩條都標「Orange」（`'Orange'` 與 `' Orange'`），圖上分不出空白。
+- **review_ch02_q2.txt 的 `exit=0`／`exit=1`** 是錄製時另外印的結束碼，不是 hw3.py 的輸出。log 第 1 行的指令把三句話縮寫成 `<Q2_TURNS 的三句話，各一行>`；ch02 給了展開後的 `printf '%s\n' ... exit | ...; echo "exit=$?"`，沒有照字面重跑。
+- **check_book.py 圖號**：ch02 有 1 張 SVG 與 3 張 `<img>` 結果圖，圖號 2.1–2.4 都寫在 figcaption，check_book 只數 SVG，會報「1 張 svg 但有 4 個圖號」，屬已知、不用修。
+- **ch02 第一次交代的名詞**：兩參數 `iter(callable, sentinel)`、哨兵值、EOF／EOFError、stderr、管線不回顯、seaborn `hue`、causal LM「位置 i 預測第 i+1 個」、`attention_mask`。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
