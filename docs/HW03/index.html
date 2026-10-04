@@ -648,10 +648,11 @@ footer.chap-footer {
 <li><b>Q4 的 top-p 其實同時開著 top-k=50</b>：top-k 是「只從機率最高的 k 個 token 裡抽」，top-p 是「只從累積機率達到 p 的那群 token 裡抽」，作業要比較兩者。但 transformers 的 <code>model.generate</code> 沒指定 top_k 時會用預設值 50，所以「top-p 組」其實兩個規則都開著（第 4 章）。</li>
 <li><b>Q5 的句子向量把 padding 也平均進去</b>：六句話長度不同，一起送進模型時短句會補上 <code>&lt;pad&gt;</code> 湊成同樣長度；把每個位置的向量平均成句子向量時，這些補位也被算進去了（第 6 章）。</li>
 <li><b>Q6 的 attention heatmap 標籤整排錯位一格</b>（第 7 章）。</li>
+<li><b>Q6 的 heatmap 最後一列算錯了</b>：Q6 自己配的 KV cache 長度剛好 22 格，最後一步寫到最後一格時，sliding 層的 cache 會整個往前捲一格、把 <code>&lt;bos&gt;</code> 擠掉，所以熱圖的最後一列和正確的值差很多；其他列與生成的文字不受影響（第 7 章）。這一條是寫第 7 章前才發現的。</li>
 <li><b>Q7 取 hidden state 的索引差一</b>：SAE 是另外訓練好的一個小模型，專門把<b>某一層</b> decoder block 輸出的向量（hidden state）拆成上萬個稀疏的 feature。這個 SAE 是在 block 20 的輸出上訓練的，程式餵給它的卻是 block 19 的輸出（第 8 章）。</li>
 </ul>
 
-<p>完整清單（10 條程式問題、5 條投影片與程式不一致）以及各自分到哪一章，見<a href="outline.html#issues">全書大綱的對照表</a>。</p>
+<p>完整清單（11 條程式問題、5 條投影片與程式不一致）以及各自分到哪一章，見<a href="outline.html#issues">全書大綱的對照表</a>。</p>
 
 <h2 id="before">3　讀之前要準備什麼</h2>
 
@@ -696,7 +697,7 @@ uv sync
 <li><span class="toc-title"><a href="ch04.html">第 4 章　Q4（上）取樣：top-k、top-p 與 generate 的隱藏預設值</a></span><p class="toc-desc">從 logits 到抽出一個 token；沒寫出來的 top_k=50 與 eos_token_id。</p></li>
 <li><span class="toc-title"><a href="ch05.html">第 5 章　Q4（下）self-BLEU、seed 與可重現性</a></span><p class="toc-desc">怎麼用一個數字量「20 句有多像」；設了 seed 為什麼還不一定一樣。</p></li>
 <li><span class="toc-title"><a href="ch06.html">第 6 章　Q5 句子表示與 t-SNE：同一個字，不同語境</a></span><p class="toc-desc">最後一層 hidden state 取平均當句子向量，Apple 的兩個意思為什麼分得開。</p></li>
-<li><span class="toc-title">第 7 章　Q6 Attention map：逐步生成時誰在看誰</span><p class="toc-desc">KV cache、attention 矩陣的形狀，以及大量注意力流向 <code>&lt;bos&gt;</code> 的 attention sink。</p></li>
+<li><span class="toc-title"><a href="ch07.html">第 7 章　Q6 Attention map：逐步生成時誰在看誰</a></span><p class="toc-desc">KV cache、attention 矩陣的形狀，以及大量注意力流向 <code>&lt;bos&gt;</code> 的 attention sink。</p></li>
 <li><span class="toc-title">第 8 章　Q7（上）Gemma Scope SAE 與 feature 10004</span><p class="toc-desc">稀疏自編碼器是什麼、JumpReLU 門檻；兩句話的最大 activation 該怎麼比。</p></li>
 <li><span class="toc-title">第 9 章　Q7（下）逐 token、逐層的 activation</span><p class="toc-desc">「layer 24」到底是哪一層；把只在一層校正過的量尺拿去量別層。</p></li>
 <li><span class="toc-title">第 10 章　總結與三級題庫</span><p class="toc-desc">全書串起來看 Gemma 2 的一次 forward；入門、進階、挑戰三級實作題。</p></li>

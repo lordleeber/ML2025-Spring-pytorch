@@ -932,7 +932,7 @@ footer.chap-footer {
 <li><b>attention 的形狀</b>。第一步是 (1, 8, 3, 22)，之後每步 (1, 8, 1, 22)：寬度 22 是 cache 長度，和上面量到的 (1, 8, 32, 544) 是同一回事。這些形狀與 heatmap 怎麼畫，是 <a href="outline.html#ch07">第 7 章</a>的主題。</li>
 </ul>
 
-<p>Q6 把長度配得剛剛好，一格不多。如果少配一格會怎樣？<code>docs/tools/hw03_cache_overflow.py</code> 建一個 3 格的 cache，prefill <code>"Google "</code> 的 3 個 token，再往第 4 個位置寫一格。在 repo 根目錄執行：</p>
+<p>Q6 把長度配得剛剛好，一格不多。剛好配滿也有代價：最後一步寫進最後一格時，會碰到 sliding 層 cache 的捲動邊界，讓熱圖的最後一列算錯（R11，<a href="ch07.html#r11">第 7 章 7.7 節</a>）。如果少配一格會怎樣？<code>docs/tools/hw03_cache_overflow.py</code> 建一個 3 格的 cache，prefill <code>"Google "</code> 的 3 個 token，再往第 4 個位置寫一格。在 repo 根目錄執行：</p>
 
 <pre class="shell cmd">.venv/bin/python docs/tools/hw03_cache_overflow.py</pre>
 

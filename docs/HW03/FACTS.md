@@ -228,6 +228,10 @@
     - **原因已實測確認**（見「大綱審稿補測（第 1 輪）」的 R10 一節）：Q1 沒有動到亂數狀態。差別來自 `model.generate` 把 HybridCache 留在 `model._cache` 重複使用；Q1 留下長度 544 的 cache，Q4 就用 544 格而不是 62 格算，數值差一點點，翻掉了一次取樣。
     - 教材不要宣稱「設了 seed 就一定一樣」。
 
+11. **Q6 heatmap 的最後一列是錯的（R11，寫第 7 章前發現）**：
+    - hw3.py:320、:324 配 `HybridCache(max_cache_len = 20 + 3 − 1 = 22)`；最後一步寫入位置 21 = 22 − 1，觸發 `HybridCache._sliding_update` 的捲動（transformers 4.47.0 `cache_utils.py:1677`），sliding 層 cache 的 `<bos>` 被擠掉。
+    - 只有第 21 列錯；生成的文字不受影響；多配一格（23）就全部吻合。原版 Colab 第 28 格同樣寫法。細節見「ch07 前置補測」。
+
 ## 模型（ch00 模型總覽用；logs/facts_env_model_tok.txt）
 
 - **config**：
@@ -1035,6 +1039,18 @@
   - 不受影響的：生成的 20 個 token（與 `generate` 相同；`generate` 配 prompt + max_new_tokens = 23 格，不會觸發）。Q1 的 cache 544 = 32 + 512，最後一次 forward 寫在位置 542，也不觸發。
   - 原版 Colab 第 28 格寫法相同（`total_tokens = generation_tokens + next_token_id.size(1) - 1`、`HybridCache(..., max_cache_len=total_tokens, ...)`），所以原版也有。
   - 影響到既有的數字：FACTS「Q6 實測」L10 H7「第 1 列以後平均 0.373」與「每列最大值所在的欄」最後一個（6）都包含第 21 列；排除第 21 列或改用一次 forward 的值時要重算（一次 forward 的第 1–21 列 `<bos>` 平均 0.3941）。img/exp_q6_attention_true_labels.png 用的是同一個矩陣，最後一列同樣是錯的。
+
+## ch07 寫作時查證的事項（雲端，2026-10-04）
+
+- **`_sliding_update` 逐字核對**：雲端從 GitHub `v4.47.0` tag 讀 `cache_utils.py`，:1664–1690 與 FACTS 一致；ch07 逐字引用 :1675–1690。sliding cache 形狀 `min(config.sliding_window, max_cache_len)` 在 :1643–1648。
+- **捲動後的格子（依原始碼推出）**：最後一步 `indices = [1, 2, …, 21, 0]`，sliding 層 cache 變成：第 0–19 格 = 原本第 1–20 格（Google … ▁products），第 20 格 = 原本空著的第 21 格（全 0），第 21 格 = 新 token。所以 sliding 層第 21 列的第 j 欄（j ≤ 19）是第 j + 1 個 token、第 20 欄是空格、第 21 欄是新 token 自己。global 層（`_static_update`）沒有捲，欄的意義不變，只是 query 與新 token 的 k、v 因前面 sliding 層的輸出不同而改變。
+- **從圖上看到的**（本書目視，與原始碼推出的一致）：hw3.py 的 L0 H0 圖最後一列最亮的格子落在倒數第 3 欄（▁products 捲到第 19 欄），而不是倒數第 2 欄。
+- **R11 已編入全書清單**：outline.html 第 4 節對照表加 R11（「repo 問題清單」改成 11 條）、ch07 卡片加一條；index.html 2.2 節加一條、「10 條程式問題」改成 11；ch00b K.5.1「Q6 把長度配得剛剛好」後補一句回指 ch07.html#r11。
+- **投影片 p.21–23（Q6，0.8 分）**：p.21 是 self-attention 示意圖（引李宏毅 2021 課程）；p.22 任務「Plot and observe the figure of the attention map」，prompt "Google "、20 個 token、建議 layer 10 head 7；p.23 四小題（各 0.2）：兩題選正確敘述、兩題判斷對錯。選項不在投影片裡。
+- **原版 Colab**：第 27 格標題「## Q6: Observe the Attention Weight」，第 28 格是整個 Q6（`model.eval()` 在格子裡、TODO 註解附 transformers 文件連結、`plot_attention` 定義在格子裡）。
+- **FACTS 裡含錯誤第 21 列的數字**（ch07 引用時都註明了）：L10 H7「第 1 列以後平均 0.373」（一次 forward 是 0.3941）、「每列最大值所在的欄」最後一個 6、對角線平均 0.084、L0 H0 的 `<bos>` 平均 0.198、L25 H0 的平均 0.763。
+- **ch07 標為推論或沒有跑過的**：previous-token head 常在淺層出現；attention sink 的成因（引 Xiao et al. 2023）；`<bos>` 大範數、attention sink、第 8 章大 SAE activation 的關聯；捲動後空的第 20 格分得到權重；`--layer-idx` 超出範圍時在 :346 出錯；R7 修法的兩行與直接改 hw3.py:320 的 23 格版本（矩陣會變成 (22, 23)）都沒有照字面跑過。
+- **ch07 第一次交代的名詞**：attention map／heatmap、query 列與 key 欄、previous-token head、attention sink、prefill／decode（回指）、`_sliding_update` 的捲動、一次 forward 與逐步生成的比對。
 
 ## 圖檔清單（docs/HW03/img/，16 張）
 
