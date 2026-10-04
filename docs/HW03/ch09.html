@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 9 章　Q7（下）逐 token、逐層的 activation — HW03 Understanding Transformers 教材</title>
+<!-- INLINE-ASSETS -->
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  figure.fig img { display: block; max-width: 100%; margin: 0 auto; border-radius: 6px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch08.html">← 第 8 章</a><span class="disabled">第 10 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 9 章　Q7（下）逐 token、逐層的 activation</h1>
+  <p class="chap-lead">第 8 章的 SAE 與 feature 10004 不變，換一句話（「Time travel will become a reality as technology continues to advance.」），從兩個方向看：Q7.4–7.6 固定一層，看 13 個 token 各自亮多少；Q7.7–7.9 固定一個 token，看它在 hidden_states 的 27 個索引上怎麼變化。兩題都把這個只在 block 20 的輸出上訓練過的 SAE，拿去量它沒見過的層。這一章先讀兩個畫圖函式，再用「SAE 在每一層重建得多好」這把尺，說明哪些數字可以讀、哪些幾乎沒有意義，以及投影片說的「layer 24」到底是哪一層（S4）。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">Q7.4–7.6 把 <code>hidden_states[24]</code> 交給 SAE：13 個 token 裡 <code>▁travel</code> 最亮（74.17）。投影片稱它「layer 24」，其實是 block 23 的輸出，而 SAE 是在 block 20 的輸出（<code>[21]</code>）上訓練的（S4）。本機讓同一個 SAE 重建每一個索引：重建誤差 FVU 在 <code>[21]</code> 最低（0.290），往兩邊都變差，形成 U 形；FVU 小於 1 的只有索引 17–24，Q7.4 的 <code>[24]</code> 已經是 0.918。Q7.7–7.9 的 x 軸寫「Layer」，其實是索引 0–26；最後一格 <code>[26]</code> 經過最後的 norm，範數從約 540 掉到約 100，feature 幾乎全滅。把它縮放回去，feature 會回來，但方向也變了，所以<b>尺度是主因之一，不是唯一原因</b>。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:409–429（<code>plot_token_activations</code>）、:432–453（<code>plot_layer_activations</code>）、:472–478（<code>q7</code> 的後半，Q7.4–7.9）。</li>
+    <li>本章的實測來自 hw3.py 的兩次輸出：預設的 <code>logs/run_seed0.txt</code>（Q7 段第 241–258 行）與換旗標的 <code>logs/run_q7_layer21_tok123.txt</code>（指令 <code>--q 7 --sae-layer-idx 21 --token-idx 1 2 3</code>），共五張圖；以及事實腳本 <code>docs/tools/hw03_facts.py</code> 的 <code>q7</code>、<code>rescale26</code>、<code>pre_ch08</code>、<code>pre_ch09</code> 段（<code>logs/facts_q4_q7.txt</code>、<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code>、<code>logs/facts_pre_ch08.txt</code>、<code>logs/facts_pre_ch09.txt</code>），與旗標超出範圍的紀錄 <code>logs/run_q7_bad_flags.txt</code>。log 在 <code>docs/HW03/logs/</code>，圖在 <code>docs/HW03/img/</code>。</li>
+    <li>FACTS 指本機的事實清單 <code>docs/HW03/FACTS.md</code>；本章引的是「Q7 實測」「ch08 前置補測」「ch09 把索引 26 縮放回 norm 前的尺度」「ch09 前置補測」四節。</li>
+    <li>SAE 的式子、JumpReLU 與門檻、FVU 與 L0 的定義、R5（<code>[20]</code> vs <code>[21]</code>）、R6（<code>&lt;bos&gt;</code>）都在<a href="ch08.html">第 8 章</a>；hidden_states 的 27 個索引與範數在<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>。這一章只回指。S4 是<a href="outline.html#issues">全書大綱問題對照表</a>裡「投影片與程式不一致」的第 4 條。</li>
+  </ul>
+</div>
+
+<h2 id="task">9.1　這一題要做什麼</h2>
+
+<p>投影片 p.26–27 是 Q7 的後六小題，句子都是「Time travel will become a reality as technology continues to advance.」：</p>
+
+<ul>
+<li><b>Problem 7-4～7-6（p.26，各 0.2 分）</b>：「based on the activations for each token in layer 24 about feature 10004, which of the following statement is correct?」，三題都是選擇題，看 layer 24 上每個 token 的值。</li>
+<li><b>Problem 7-7～7-9（p.27，各 0.2 分）</b>：第 1 題問「Based on the activation plots across all layers, which of the following statement is INCORRECT?」，提示是「You can alter the tokens and observe the figure. (e.g. the lower/deeper layers tend to process complex information)」；第 2、3 題是「這個敘述是對還是錯」。</li>
+</ul>
+
+<p>敘述的內容都在 Gradescope 上，不在投影片與 Colab 裡。本書不編選項，也不把任何敘述寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）；這一章講清楚圖上每一點是怎麼算出來的、哪些點可以當真，並列出本機的數字。</p>
+
+<p>hw3.py 的這兩題對應原版 Colab 第 36–39 格（第 36、38 格是「## Q7.4~7.6」「## Q7.7~7.9」標題）。原版第 37 格最後是這樣呼叫的：</p>
+
+<pre class="py">######################## (Q7.4 ~ 7.6) ########################
+# Simply observe the figure
+layer_idx = 24
+prompt = "Time travel will become a reality as technology continues to advance."
+plot_token_activations(model, tokenizer, sae, prompt, feature_idx, layer_idx)
+###################################################################</pre>
+
+<p>第 39 格最後：</p>
+
+<pre class="py">######################## (Q7.7 ~ 7.9) ########################
+# Alter the token index to observe the figure
+token_idx = 1
+prompt = "Time travel will become a reality as technology continues to advance."
+plot_layer_activations(model, tokenizer, sae, prompt, token_idx)
+###################################################################</pre>
+
+<p>原版要你直接改 <code>layer_idx</code>、<code>token_idx</code> 這兩個變數。hw3.py 的差別：</p>
+
+<ul>
+<li><b>旗標</b>：<code>layer_idx</code> 改成 <code>--sae-layer-idx</code>（預設 24），<code>token_idx</code> 改成 <code>--token-idx</code>（預設 1，可以一次給好幾個，每個各畫一張圖；<a href="ch00.html#flags">第 0 章旗標表</a>）。</li>
+<li><b>印出數值</b>：原版只畫圖；hw3.py 另外把每個 token 的值（:419–420）、每個索引的值（:443–444）印出來，本章的數字可以直接從終端機讀。</li>
+<li><b>其他</b>：和第 8 章一樣，SAE 在 <code>load_sae</code> 裡一次搬到 GPU，函式加 <code>@torch.no_grad()</code>，轉 numpy 前多一個 <code>.float()</code>，<code>plt.show()</code> 改成存檔，檔名帶上索引（<code>q7_token_activations_L24.png</code>、<code>q7_layer_activations_tok1.png</code>）。</li>
+</ul>
+
+<h2 id="token">9.2　Q7.4–7.6：一層、每個 token</h2>
+
+<figure class="listing"><figcaption>hw3.py:409–429 — plot_token_activations：一個索引上，每個 token 的 feature 值</figcaption>
+<pre class="py" data-hot="411,412,413,415,416,417,418,420,423,427"><code>@torch.no_grad()
+def plot_token_activations(model, tokenizer, sae, prompt, feature_idx=10004, layer_idx=0):
+    token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"].to(DEVICE)
+    token_list = tokenizer.convert_ids_to_tokens(token_ids.squeeze().tolist())
+    outputs = model(token_ids, output_hidden_states=True)
+
+    layer_idx = layer_idx if layer_idx is not None else sae.cfg.hook_layer
+    feature_acts = sae.encode(outputs.hidden_states[layer_idx]).squeeze()
+    print(f"feature_acts shape: {feature_acts.shape}")
+    activations = feature_acts[:, feature_idx].squeeze().float().cpu().numpy()
+    for t, a in zip(token_list, activations):
+        print(f"  {t!r:&gt;16}  {a:.4f}")
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(range(len(token_list)), activations, color="blue", alpha=0.7)
+    plt.xticks(range(len(token_list)), token_list, rotation=45)
+    plt.xlabel("Tokens")
+    plt.ylabel(f"Activation Value (Feature {feature_idx})")
+    plt.title(f"Token-wise Activations for Layer {layer_idx}")
+    plt.grid(True)
+    save_fig(f"q7_token_activations_L{layer_idx}.png")</code></pre>
+</figure>
+
+<p>逐段讀：</p>
+
+<ul>
+<li><b>:411–413</b>：切 token（<code>tokenizer(...)</code> 和第 8 章的 <code>tokenizer.encode</code> 一樣會在前面加 <code>&lt;bos&gt;</code>），把 id 轉回 token 字串當 x 軸標籤，一次 forward 拿到 27 個 hidden state。這句切成 13 個 token：<code>&lt;bos&gt;</code> 加 12 個字詞。</li>
+<li><b>:415</b>：<code>layer_idx</code> 是 <code>None</code> 時改用 <code>sae.cfg.hook_layer</code>。原版的 docstring 也寫「None uses sae.cfg.hook_layer」。hw3.py 的旗標是整數、預設 24，這一行實際上走不到 <code>None</code> 那一支；就算走到，拿到的也是 <code>[20]</code>，和第 8 章的 R5 一樣差了一層。</li>
+<li><b>:416</b>：把 <code>hidden_states[layer_idx]</code> 交給 SAE，<code>.squeeze()</code> 去掉 batch 那一維。印出的形狀是 <code>[13, 16384]</code>：13 個 token，每個 16384 個 feature。<b><code>layer_idx</code> 是 hidden_states 的索引，不是 block 編號</b>（S4，<a href="#s4">9.4 節</a>）。</li>
+<li><b>:418–420</b>：取第 10004 欄，逐 token 印出來。</li>
+<li><b>:422–429</b>：畫成長條圖，標題寫「Layer {layer_idx}」，存成 <code>q7_token_activations_L{layer_idx}.png</code>。</li>
+</ul>
+
+<figure class="listing"><figcaption>hw3.py:472–478 — q7 的後半：同一句話，先逐 token、再逐層</figcaption>
+<pre class="py" data-hot="472,474,477,478"><code>    prompt = "Time travel will become a reality as technology continues to advance."
+    ######################## (Q7.4 ~ 7.6) ########################
+    plot_token_activations(model, tokenizer, sae, prompt, feature_idx, args.sae_layer_idx)
+
+    ######################## (Q7.7 ~ 7.9) ########################
+    for token_idx in args.token_idx:
+        plot_layer_activations(model, tokenizer, sae, prompt, token_idx, feature_idx)</code></pre>
+</figure>
+
+<p>預設 <code>--sae-layer-idx 24</code> 時，hw3.py 印出的是（<code>logs/run_seed0.txt</code> 第 241–255 行，逐字；本機的絕對路徑改寫成相對路徑）：</p>
+
+<pre class="shell">feature_acts shape: torch.Size([13, 16384])
+           '&lt;bos&gt;'  22.5960
+            'Time'  10.8022
+         '▁travel'  74.1713
+           '▁will'  24.2492
+         '▁become'  20.4319
+              '▁a'  19.4009
+        '▁reality'  13.2850
+             '▁as'  18.8962
+     '▁technology'  0.0000
+      '▁continues'  0.0000
+             '▁to'  0.0000
+        '▁advance'  7.2241
+               '.'  46.4142
+[saved] HW03/outputs/q7_token_activations_L24.png</pre>
+
+<figure class="fig">
+<img src="img/q7_token_activations_L24.png" alt="layer 24 的逐 token 長條圖：travel 約 74 最高，句號約 46 次之，technology、continues、to 三根是 0">
+<figcaption>圖 9.1 — hw3.py 的輸出 <code>q7_token_activations_L24.png</code>（預設 <code>--sae-layer-idx 24</code>，指令 <code>.venv/bin/python HW03/hw3.py --seed 0</code>）。標題的「Layer 24」是 <code>hidden_states[24]</code>，也就是 block 23 的輸出。x 軸標籤的 <code>▁</code> 是 token 前的空白記號。</figcaption>
+</figure>
+
+<p>讀這張圖：</p>
+
+<ul>
+<li><code>▁travel</code> 最大，74.17；其次是句尾的 <code>.</code> 46.41。</li>
+<li><code>▁technology</code>、<code>▁continues</code>、<code>▁to</code> 三個是 0。</li>
+<li>其他 token 大多在 10–25 之間，<code>&lt;bos&gt;</code> 也有 22.60（第 8 章 R6 的同一個現象）。</li>
+<li><code>▁advance</code> 的 7.2241 只比門檻 7.1234 多一點點；JumpReLU 下，非零的值都在門檻以上（<a href="ch08.html#jumprelu">第 8 章 8.4 節</a>）。</li>
+</ul>
+
+<p>這些是「這個 SAE 在 <code>hidden_states[24]</code> 上的輸出」。它們能代表多少意思，要看 SAE 在這一層重建得好不好，這是 <a href="#s4">9.4 節</a>的主題。</p>
+
+<h2 id="l21">9.3　換到 SAE 本來的位置：<code>--sae-layer-idx 21</code></h2>
+
+<p>SAE 是在 block 20 的輸出、也就是 <code>hidden_states[21]</code> 上訓練的（<a href="ch08.html#r5">第 8 章 8.8 節</a>）。把旗標改成 21，就是在它本來的位置上看同一句話。本機跑的指令是 <code>.venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3</code>（<code>--token-idx</code> 是下一節要用的），Q7.4–7.6 的部分印出（<code>logs/run_q7_layer21_tok123.txt</code> 第 21–35 行，逐字；路徑改寫成相對路徑）：</p>
+
+<pre class="shell">feature_acts shape: torch.Size([13, 16384])
+           '&lt;bos&gt;'  30.9524
+            'Time'  0.0000
+         '▁travel'  71.2294
+           '▁will'  13.5252
+         '▁become'  9.6190
+              '▁a'  17.8892
+        '▁reality'  0.0000
+             '▁as'  10.5246
+     '▁technology'  0.0000
+      '▁continues'  0.0000
+             '▁to'  0.0000
+        '▁advance'  0.0000
+               '.'  29.1788
+[saved] HW03/outputs/q7_token_activations_L21.png</pre>
+
+<figure class="fig">
+<img src="img/var_q7_token_activations_L21.png" alt="layer 21 的逐 token 長條圖：travel 約 71 最高，bos 與句號約 30，Time、reality 與後面四個 token 是 0">
+<figcaption>圖 9.2 — <b>換旗標的輸出</b>：<code>.venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3</code> 存的 <code>q7_token_activations_L21.png</code>，本書另存成 <code>img/var_q7_token_activations_L21.png</code>。這是 SAE 訓練時用的位置（block 20 的輸出）。</figcaption>
+</figure>
+
+<p>和 <code>[24]</code> 比：<code>▁travel</code> 仍然最大（71.23），但 <code>Time</code>、<code>▁reality</code>、<code>▁advance</code> 從非零變成 0，非零的 token 從 10 個變成 7 個（都含 <code>&lt;bos&gt;</code>）。為什麼 <code>Time</code> 與 <code>▁reality</code> 是 0？第 8 章手算過這一句在 <code>[21]</code> 上的預激活（<code>logs/facts_pre_ch08.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>token</th><th class="num"><code>[21]</code> 的預激活</th><th>和門檻 7.1234 比</th><th class="num">輸出</th></tr></thead>
+<tbody>
+<tr><td><code>Time</code></td><td class="num">5.056</td><td>&gt; 0 但低於門檻</td><td class="num">0</td></tr>
+<tr><td><code>▁reality</code></td><td class="num">5.217</td><td>&gt; 0 但低於門檻</td><td class="num">0</td></tr>
+<tr><td><code>▁advance</code></td><td class="num">−1.741</td><td>≤ 0</td><td class="num">0</td></tr>
+<tr><td><code>▁as</code></td><td class="num">10.525</td><td>超過</td><td class="num">10.5246</td></tr>
+</tbody>
+</table></div>
+
+<p><code>Time</code> 和 <code>▁reality</code> 都是正的，只是沒過門檻，所以被 JumpReLU 歸零；一般的 ReLU 會留下約 5。到了 <code>[24]</code>，它們的值變成 10.80 與 13.29，過了門檻。<code>[24]</code> 上亮的 token 比較多，和下一節看到的「SAE 在 <code>[24]</code> 上每個 token 有 417.4 個 feature 亮」是同一個方向：在它沒訓練過的層上，SAE 整體亮得比較多。這是兩組數字並列的觀察，本機沒有逐一追每個 token 為什麼過門檻。</p>
+
+<h2 id="s4">9.4　「layer 24」是哪一層，這把量尺在那裡準不準（S4）</h2>
+
+<p>先把名字對齊。<code>hidden_states</code> 的索引比 block 編號大 1（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>）：</p>
+
+<ul>
+<li>投影片 p.26 的「layer 24」、hw3.py 的 <code>--sae-layer-idx 24</code>、圖 9.1 標題的「Layer 24」，都是 <code>hidden_states[24]</code>，也就是 <b>block 23</b>（0 起算）的輸出。</li>
+<li>SAE 訓練時用的是 block 20 的輸出，<code>hidden_states[21]</code>。</li>
+</ul>
+
+<p>所以 Q7.4–7.6 是拿一個在 block 20 上校正過的量尺，去量三層之後的 hidden state。第 8 章說過，量尺準不準看 FVU（重建誤差佔原本變異的比例；0 是完美，1 代表和「每個位置都猜這句話的平均向量」一樣差）與 L0（每個 token 平均幾個 feature 非零），定義在<a href="ch08.html#r5">第 8 章 8.8 節</a>。本機讓同一個 SAE 重建 prompt c 在全部 27 個索引上的 hidden state（<code>logs/facts_pre_ch09.txt</code>，都排除 <code>&lt;bos&gt;</code>）：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 370" role="img" aria-label="同一個 SAE 重建 prompt c 每個 hidden_states 索引時的 FVU：索引 0 到 16 大多在 1.4 到 5 之間，索引 12 最高約 5；17 到 24 低於 1，21 最低 0.290；25 與 26 又升到 2.6 與 3.6">
+  <text class="s-sm" x="20" y="22" text-anchor="start">FVU（越低越好）對 hidden_states 索引，prompt c；虛線是 FVU = 1</text>
+  <rect x="559" y="40" width="231" height="240" style="fill: var(--ok); fill-opacity: 0.12"/>
+  <text class="s-sm" x="674" y="56" text-anchor="middle" style="fill: var(--ok)">FVU &lt; 1：索引 17–24</text>
+  <line x1="70" y1="280" x2="850" y2="280" stroke="var(--fg)" stroke-width="1"/>
+  <line x1="70" y1="40" x2="70" y2="280" stroke="var(--fg)" stroke-width="1"/>
+  <line x1="70" y1="236" x2="850" y2="236" stroke="var(--bad)" stroke-width="1" stroke-dasharray="5 4"/>
+  <text class="s-sm" x="62" y="284" text-anchor="end">0</text>
+  <text class="s-sm" x="62" y="240" text-anchor="end">1</text>
+  <text class="s-sm" x="62" y="196" text-anchor="end">2</text>
+  <text class="s-sm" x="62" y="152" text-anchor="end">3</text>
+  <text class="s-sm" x="62" y="108" text-anchor="end">4</text>
+  <text class="s-sm" x="62" y="64" text-anchor="end">5</text>
+  <text class="s-sm" x="80" y="298" text-anchor="middle">0</text>
+  <text class="s-sm" x="225" y="298" text-anchor="middle">5</text>
+  <text class="s-sm" x="370" y="298" text-anchor="middle">10</text>
+  <text class="s-sm" x="515" y="298" text-anchor="middle">15</text>
+  <text class="s-sm" x="660" y="298" text-anchor="middle">20</text>
+  <text class="s-sm" x="805" y="298" text-anchor="middle">25</text>
+  <polyline points="80,208.9 109,181.5 138,163.2 167,178.2 196,171.1 225,181.7 254,186.3 283,197.2 312,207.8 341,211.5 370,219.6 399,171.2 428,60.5 457,92.0 486,158.6 515,189.8 544,215.8 573,242.0 602,248.6 631,255.2 660,259.8 689,267.2 718,260.7 747,253.2 776,239.6 805,164.6 834,123.6" style="fill: none; stroke: var(--accent); stroke-width: 2"/>
+  <circle cx="428" cy="60.5" r="4" style="fill: var(--accent)"/>
+  <text class="s-sm" x="440" y="58" text-anchor="start">[12] 4.988</text>
+  <circle cx="660" cy="259.8" r="5" style="fill: var(--accent-warm)"/>
+  <circle cx="689" cy="267.2" r="5" style="fill: var(--ok)"/>
+  <circle cx="776" cy="239.6" r="5" style="fill: var(--accent-warm)"/>
+  <circle cx="834" cy="123.6" r="5" style="fill: var(--bad)"/>
+  <line x1="660" y1="265" x2="660" y2="318" stroke="var(--accent-warm)" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="689" y1="272" x2="689" y2="340" stroke="var(--ok)" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="776" y1="245" x2="776" y2="318" stroke="var(--accent-warm)" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="834" y1="129" x2="834" y2="340" stroke="var(--bad)" stroke-width="1" stroke-dasharray="2 3"/>
+  <text class="s-sm" x="652" y="330" text-anchor="end">[20] 0.458　hw3.py 的 Q7.2</text>
+  <text class="s-sm" x="689" y="354" text-anchor="middle">[21] 0.290　SAE 的位置</text>
+  <text class="s-sm" x="776" y="330" text-anchor="middle">[24] 0.918　Q7.4</text>
+  <text class="s-sm" x="892" y="354" text-anchor="end">[26] 3.555　norm 後</text>
+</svg>
+<figcaption>圖 9.3 — 同一個 SAE（在 <code>[21]</code> 上訓練）重建 prompt c 每一個 hidden_states 索引時的 FVU，排除 <code>&lt;bos&gt;</code>（<code>logs/facts_pre_ch09.txt</code> 的 27 個值，本書手繪）。在 <code>[21]</code> 最低，往兩邊都變差；綠色區域是 FVU &lt; 1 的索引 17–24。</figcaption>
+</figure>
+
+<p>幾個代表性的索引（prompt c；prompt a 的趨勢相同）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>索引</th><th>是什麼</th><th class="num">FVU</th><th class="num">L0</th><th class="num">10004 的最大值（不含 <code>&lt;bos&gt;</code>，都在 <code>▁travel</code>）</th></tr></thead>
+<tbody>
+<tr><td><code>[0]</code></td><td>embedding</td><td class="num">1.616</td><td class="num">21.7</td><td class="num">0（13 個 token 全是 0）</td></tr>
+<tr><td><code>[10]</code></td><td>block 9 的輸出</td><td class="num">1.372</td><td class="num">41.9</td><td class="num">20.53</td></tr>
+<tr><td><code>[12]</code></td><td>block 11 的輸出</td><td class="num">4.988</td><td class="num">214.3</td><td class="num">21.89</td></tr>
+<tr><td><code>[17]</code></td><td>block 16 的輸出</td><td class="num">0.863</td><td class="num">78.5</td><td class="num">27.32</td></tr>
+<tr><td><code>[20]</code></td><td>block 19 的輸出（hw3.py 的 Q7.2–7.3）</td><td class="num">0.458</td><td class="num">60.9</td><td class="num">58.06</td></tr>
+<tr><td><b><code>[21]</code></b></td><td><b>block 20 的輸出（SAE 的位置）</b></td><td class="num"><b>0.290</b></td><td class="num">88.2</td><td class="num">71.23</td></tr>
+<tr><td><code>[24]</code></td><td>block 23 的輸出（Q7.4 預設）</td><td class="num">0.918</td><td class="num">417.4</td><td class="num">74.17</td></tr>
+<tr><td><code>[25]</code></td><td>block 24 的輸出</td><td class="num">2.623</td><td class="num">981.2</td><td class="num">78.85</td></tr>
+<tr><td><code>[26]</code></td><td>block 25（最後一個 block）的輸出，再經過最後的 norm</td><td class="num">3.555</td><td class="num">31.5</td><td class="num">11.76</td></tr>
+</tbody>
+</table></div>
+
+<p>怎麼讀這張表與圖 9.3：</p>
+
+<ul>
+<li><b>U 形</b>：SAE 在它訓練的 <code>[21]</code> 重建得最好，離得越遠越差。FVU 小於 1 的只有索引 17–24；prompt a 是 17–23，它的 <code>[24]</code> 已經是 1.057（同一份 log）。</li>
+<li><b>Q7.4 預設的 <code>[24]</code> 在邊緣</b>：FVU 0.918，接近「和猜平均值一樣差」；L0 417.4，是 <code>[21]</code> 的 4.7 倍（計算值）。原本「每個 token 只亮幾十個 feature」的稀疏性已經不在了。</li>
+<li><b><code>[25]</code> 最極端</b>：每個 token 平均 981.2 個 feature 非零，FVU 2.623。</li>
+<li><b><code>[26]</code> 是另一種失效</b>：L0 只剩 31.5，看起來很稀疏，FVU 卻是 3.555。原因是向量變得很短（<a href="#idx26">9.6 節</a>）。</li>
+<li><b>前段（0–16）大多 FVU 在 1.4 以上</b>，<code>[12]</code>、<code>[13]</code> 甚至超過 4。在這些索引上，SAE 的輸出幾乎沒有「重建了這個向量」的意義。</li>
+</ul>
+
+<p>結論：Q7.4–7.6 與 Q7.7–7.9 圖上的每一個數字，都是「<b>這個 SAE 在那個索引上的輸出</b>」。在 FVU 遠大於 1 的索引上，它不能讀成「模型在這一層有沒有想到時光旅行」；在 FVU 小於 1 的 17–24 之間，數字的意義比較強，但也只有 <code>[21]</code> 是 SAE 真正校正過的地方。這是作業設計的簡化（只用一個 SAE 看所有層），不是程式錯誤；Gemma Scope 其實為每一層各訓練了 SAE（<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>的論文摘要：「trained on all layers and sub-layers」），作業只載入了第 20 層的那一個。</p>
+
+<h2 id="layers">9.5　Q7.7–7.9：一個 token、每一層</h2>
+
+<figure class="listing"><figcaption>hw3.py:432–453 — plot_layer_activations：一個 token，在 27 個索引上的 feature 值</figcaption>
+<pre class="py" data-hot="438,440,441,442,444,447,448,451"><code>@torch.no_grad()
+def plot_layer_activations(model, tokenizer, sae, prompt, token_idx=0, feature_idx=10004):
+    token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"].to(DEVICE)
+    token_list = tokenizer.convert_ids_to_tokens(token_ids.squeeze().tolist())
+    outputs = model(token_ids, output_hidden_states=True)
+
+    num_layers = len(outputs.hidden_states)
+    activations = []
+    for layer_idx in range(num_layers):
+        feature_acts = sae.encode(outputs.hidden_states[layer_idx]).squeeze()
+        activations.append(feature_acts[token_idx, feature_idx].item())
+    print(f"Token {token_idx} = {token_list[token_idx]!r}, activations per layer:")
+    print("  " + ", ".join(f"L{i}:{a:.2f}" for i, a in enumerate(activations)))
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(range(num_layers), activations, marker="o", linestyle="-", color="blue")
+    plt.xlabel("Layer")
+    plt.ylabel(f"Activation Value (Feature {feature_idx})")
+    plt.title(f"Activation Across Layers for Token '{token_list[token_idx]}'")
+    plt.xticks(range(num_layers))
+    plt.grid(True)
+    save_fig(f"q7_layer_activations_tok{token_idx}.png")</code></pre>
+</figure>
+
+<ul>
+<li><b>:438</b>：<code>num_layers = len(outputs.hidden_states)</code> 是 <b>27</b>，不是 26。變數名叫 layers，數的其實是 hidden_states 的個數：embedding 1 個加上 26 個 block 的輸出（最後一個經過 norm）。</li>
+<li><b>:440–442</b>：對 27 個索引各 encode 一次（每次都是整句 13 個 token），取第 <code>token_idx</code> 個 token 的 10004 號。</li>
+<li><b>:444</b>：印成 <code>L0:…, L1:…</code>。這裡的「L」也是索引。</li>
+<li><b>:448</b>：x 軸標成「Layer」，刻度 0–26。<b>圖上的「Layer k」是 <code>hidden_states[k]</code></b>：0 是 embedding，k（1–25）是 block k − 1 的輸出，26 是最後 norm 之後。</li>
+</ul>
+
+<p><code>token_idx</code> 是 13 個 token 裡的位置，0 是 <code>&lt;bos&gt;</code>。預設 1 是 <code>Time</code>。本機在 <code>logs/run_q7_layer21_tok123.txt</code> 一次看了 1、2、3 三個 token（第 36–44 行，逐字；路徑改寫）：</p>
+
+<pre class="shell">Token 1 = 'Time', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:0.00, L10:0.00, L11:8.58, L12:13.95, L13:15.92, L14:15.34, L15:12.07, L16:11.07, L17:8.72, L18:0.00, L19:0.00, L20:0.00, L21:0.00, L22:0.00, L23:0.00, L24:10.80, L25:10.19, L26:0.00
+[saved] HW03/outputs/q7_layer_activations_tok1.png
+Token 2 = '▁travel', activations per layer:
+  L0:0.00, L1:7.70, L2:8.21, L3:0.00, L4:11.02, L5:15.30, L6:14.94, L7:16.03, L8:19.34, L9:18.49, L10:20.53, L11:21.18, L12:21.89, L13:19.98, L14:20.71, L15:18.68, L16:18.60, L17:27.32, L18:27.84, L19:44.30, L20:58.06, L21:71.23, L22:70.61, L23:73.96, L24:74.17, L25:78.85, L26:11.76
+[saved] HW03/outputs/q7_layer_activations_tok2.png
+Token 3 = '▁will', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:0.00, L10:7.51, L11:0.00, L12:0.00, L13:0.00, L14:0.00, L15:0.00, L16:0.00, L17:8.59, L18:0.00, L19:10.95, L20:11.33, L21:13.53, L22:15.18, L23:21.28, L24:24.25, L25:23.87, L26:0.00
+[saved] HW03/outputs/q7_layer_activations_tok3.png</pre>
+
+<p>預設只跑 <code>Time</code> 的那一條，和全部題目一起跑時（<code>logs/run_seed0.txt</code> 第 256–258 行）完全相同。</p>
+
+<figure class="fig">
+<img src="img/q7_layer_activations_tok1.png" alt="Time 的逐層折線：索引 0 到 10 是 0，11 到 17 升到約 16 再降，18 到 23 又是 0，24、25 約 10，26 是 0">
+<figcaption>圖 9.4 — hw3.py 的輸出 <code>q7_layer_activations_tok1.png</code>（預設 <code>--token-idx 1</code>，<code>Time</code>；指令 <code>.venv/bin/python HW03/hw3.py --seed 0</code>）。x 軸的「Layer」是 hidden_states 的索引 0–26。</figcaption>
+</figure>
+
+<figure class="fig">
+<img src="img/var_q7_layer_activations_tok2.png" alt="travel 的逐層折線：從索引 1 開始非零，大致一路上升到 25 約 79，26 掉到約 12">
+<figcaption>圖 9.5 — <b>換旗標的輸出</b>：<code>.venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3</code> 存的 <code>q7_layer_activations_tok2.png</code>（<code>▁travel</code>），本書另存成 <code>img/var_q7_layer_activations_tok2.png</code>。<code>--sae-layer-idx</code> 不影響這張圖。</figcaption>
+</figure>
+
+<figure class="fig">
+<img src="img/var_q7_layer_activations_tok3.png" alt="will 的逐層折線：索引 10 和 17 有零星的值，19 起從約 11 升到 24 約 24，26 是 0">
+<figcaption>圖 9.6 — <b>換旗標的輸出</b>：同一條指令存的 <code>q7_layer_activations_tok3.png</code>（<code>▁will</code>），本書另存成 <code>img/var_q7_layer_activations_tok3.png</code>。</figcaption>
+</figure>
+
+<p>三條曲線各有特點：</p>
+
+<ul>
+<li><b><code>Time</code></b>：索引 11–17 有一段（最高是 13 的 15.92），18–23 全是 0（包括 SAE 的 <code>[21]</code>：預激活 5.056，沒過門檻，9.3 節），24、25 又出現 10.80、10.19，26 是 0。</li>
+<li><b><code>▁travel</code></b>：從索引 1 就開始非零（7.70，3 是 0），大致一路上升，中間有小回落（例如 12→13 是 21.89→19.98），在 <code>[21]</code> 是 71.23、<code>[25]</code> 是 78.85，到 26 掉到 11.76。</li>
+<li><b><code>▁will</code></b>：前段只有 10、17 兩個零星的值，19 起從 10.95 升到 24 的 24.25，26 是 0。</li>
+</ul>
+
+<p>對照圖 9.3 再讀一次：<code>Time</code> 的那段「11–17」落在 FVU 2.5–5 的區間，那裡的值是 SAE 在量尺最不準的地方給出的；在 FVU 小於 1 的 17–24 裡，<code>Time</code> 只有 17、24 兩點非零。<code>▁travel</code> 在 17–24 之間從 27.32 升到 74.17，這一段是三條曲線裡最可信的部分。這些是同一份數字的兩種讀法，本機沒有更多實驗去分辨哪一段「真的」代表時光旅行的概念。</p>
+
+<h2 id="idx26">9.6　為什麼最後一格掉下去</h2>
+
+<p>三條曲線在索引 26 都掉到 0 或很小：<code>▁travel</code> 從 78.85 掉到 11.76，<code>Time</code> 與 <code>▁will</code> 掉到 0。<code>[26]</code> 不是 block 25（最後一個 block）的原始輸出，而是再經過最後的 <code>model.norm</code>（RMSNorm）之後的值（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>）。norm 把向量的長度壓回固定的尺度。<code>Time</code> 這個 token 的 hidden state 範數，依索引 0–26（<code>logs/facts_q4_q7.txt</code>）：</p>
+
+<pre class="shell">hidden_states L2 norm per index for token 'Time' (1): [72.0, 78.0, 82.0, 88.0, 85.0, 90.0, 125.0, 127.0, 225.0, 242.0, 380.0, 515.0, 654.0, 700.0, 683.0, 681.0, 724.0, 659.0, 571.0, 518.0, 539.0, 546.0, 568.0, 561.0, 566.0, 540.0, 117.0]</pre>
+
+<p>在 SAE 的 <code>[21]</code> 是 546，<code>[25]</code> 是 540，到 <code>[26]</code> 突然只剩 117，短了約 4.6 倍（計算值；其他 token 從 <code>[25]</code> 到 <code>[26]</code> 短了約 4.9–11.8 倍，由下面的範數算出）。SAE 的編碼是 x · W_enc + b_enc 再比門檻，向量短了這麼多，內積也跟著縮小，很容易全部落到門檻以下。這是很自然的解釋，但它說的只是「尺度」。<code>[25]</code> 和 <code>[26]</code> 之間其實隔了兩件事：<code>[25]</code> 是 block 24 的輸出，<code>[26]</code> 是 block 25 的輸出再經過 norm。所以兩者的方向也可能不同：block 25 自己會加東西上去，norm 也會依每個維度的權重重新縮放。</p>
+
+<p>本機做了一個直接的檢查（rescale26）：把 <code>[26]</code> 的每個 token 向量放大到和 <code>[25]</code> 一樣長，方向不動，再交給 SAE。feature 10004 的值（<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>輸入</th><th class="num"><code>&lt;bos&gt;</code></th><th class="num">Time</th><th class="num">▁travel</th><th class="num">▁will</th><th class="num">▁technology</th><th class="num">▁continues</th><th class="num">▁to</th><th class="num">.</th></tr></thead>
+<tbody>
+<tr><td><code>hidden_states[25]</code></td><td class="num">15.31</td><td class="num">10.19</td><td class="num">78.85</td><td class="num">23.87</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">55.78</td></tr>
+<tr><td><code>hidden_states[26]</code>（hw3.py 的做法）</td><td class="num">0</td><td class="num">0</td><td class="num">11.76</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11.39</td></tr>
+<tr><td><code>[26]</code> 每個 token 放大到 <code>[25]</code> 的長度</td><td class="num">0</td><td class="num">15.41</td><td class="num">84.92</td><td class="num">40.58</td><td class="num">19.14</td><td class="num">11.71</td><td class="num">21.99</td><td class="num">64.69</td></tr>
+</tbody>
+</table></div>
+
+<p>同一份 log 的另外兩行：每個 token 的範數，<code>[25]</code> 是 540–946（<code>&lt;bos&gt;</code> 4244），<code>[26]</code> 是 80–149；<code>[25]</code> 與 <code>[26]</code> 同一個 token 的 cosine（方向相似度，1 是同方向）只有 0.467–0.802，大多在 0.63–0.68 之間。</p>
+
+<p>兩件事要一起讀：</p>
+
+<ul>
+<li><b>尺度確實是主因之一</b>：放大回去，feature 10004 回來了，<code>▁travel</code> 84.92 甚至比 <code>[25]</code> 的 78.85 還高。</li>
+<li><b>但不只是尺度</b>：原本在 <code>[25]</code> 是 0 的 <code>▁technology</code>、<code>▁continues</code>、<code>▁to</code>，放大後也變成 19.14、11.71、21.99；兩個索引的向量方向差很多（cosine 約 0.65）。放大後的 <code>[26]</code> 並沒有變回 <code>[25]</code>，SAE 看到的是另一個向量。方向的差異有多少來自最後一個 block、多少來自 norm 的逐維縮放，這個實驗沒有分開（推論：兩者都有份）。</li>
+</ul>
+
+<p>所以「最後一格掉下去」的正確說法是：<b>最後的 norm 把向量縮短了好幾倍（<code>Time</code> 約 4.6 倍），這是主因之一；向量的方向也變了（最後一個 block 加上 norm），這一格本來就不是 SAE 該量的東西。</b>「純粹是尺度問題」這種說法，被上面那三個從 0 變非零的 token 否定了。</p>
+
+<h2 id="hint">9.7　怎麼讀投影片 p.27 的提示</h2>
+
+<p>p.27 第 1 小題的提示寫「the lower/deeper layers tend to process complex information」，意思是要你從逐層的圖上，想想哪些層在處理比較「複雜」的資訊。「越深的層處理越抽象、越複雜的資訊」是可解釋性研究常見的一般說法；本書引它，只因為投影片寫了，本機沒有驗證這個一般說法。</p>
+
+<p>拿本章的圖去對這類說法時，要先記住兩個前提：</p>
+
+<ul>
+<li><b>量尺只在一層校正過</b>：曲線上的每一點都用同一個 SAE 量，FVU 小於 1 的只有索引 17–24（圖 9.3）。「feature 10004 在索引 13 很亮」只能說是「這個 SAE 在 <code>[13]</code> 上的輸出」，那裡的 FVU 是 4.273。</li>
+<li><b>x 軸是索引不是 block</b>：圖上的「Layer 24」是 block 23；「Layer 26」是 norm 之後，不是第 26 個 block（Gemma 只有 26 個 block，編號 0–25）。</li>
+</ul>
+
+<p>在這兩個前提下，本章能給的觀察是：在 SAE 比較可信的 17–24 之間，<code>▁travel</code> 與 <code>▁will</code> 大致隨索引上升（<code>▁travel</code> 從 27.32 到 74.17，22 有小回落；<code>▁will</code> 從 8.59 到 24.25，18 是 0），<code>Time</code> 大多是 0。這是一句話、一個 feature、一個 SAE 的實測，不是「模型在第幾層想到時光旅行」的證據。Gradescope 上的敘述要怎麼判斷，留給你自己對照圖與這些前提。</p>
+
+<h2 id="flags">9.8　旗標的邊界</h2>
+
+<p>兩個旗標都沒有檢查範圍：</p>
+
+<ul>
+<li><code>--sae-layer-idx</code> 是 hidden_states 的索引，合法的是 0–26。</li>
+<li><code>--token-idx</code> 是 prompt c 裡的位置，13 個 token，合法的是 0–12（0 是 <code>&lt;bos&gt;</code>）。</li>
+</ul>
+
+<p>超出時（<code>logs/run_q7_bad_flags.txt</code>，traceback 的尾段，逐字）：</p>
+
+<pre class="shell">$ .venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 27
+    plot_token_activations(model, tokenizer, sae, prompt, feature_idx, args.sae_layer_idx)
+  File ".venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "HW03/hw3.py", line 416, in plot_token_activations
+    feature_acts = sae.encode(outputs.hidden_states[layer_idx]).squeeze()
+                              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+IndexError: tuple index out of range
+exit=1
+
+$ .venv/bin/python HW03/hw3.py --q 7 --token-idx 13
+    plot_layer_activations(model, tokenizer, sae, prompt, token_idx, feature_idx)
+  File ".venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "HW03/hw3.py", line 442, in plot_layer_activations
+    activations.append(feature_acts[token_idx, feature_idx].item())
+                       ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: index 13 is out of bounds for dimension 0 with size 13
+exit=1</pre>
+
+<p>要注意的是<b>錯誤出現的時間</b>：兩者都是在 Q7.1–7.3 已經跑完、印出、存好兩張直方圖之後才出錯；<code>--token-idx 13</code> 甚至先跑完 Q7.4–7.6、存好長條圖，到 Q7.7 才停下（FACTS「ch09 前置補測」）。所以終端機上會先看到一大段正常的輸出，最後才是 traceback，結束碼 1。</p>
+
+<h2 id="dont-trust">9.9　讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：S4 投影片的「layer 24」是 block 23，而且 SAE 沒在那裡訓練過</h4>
+<p><b>投影片說的</b>：p.26「based on the activations for each token in layer 24 about feature 10004」；p.27 的圖 x 軸是「Layer」。</p>
+<p><b>程式做的</b>：hw3.py:416 與原版 Colab 第 37 格把 <code>outputs.hidden_states[24]</code> 交給 SAE。<code>hidden_states[24]</code> 是 <b>block 23</b>（0 起算）的輸出，不是 block 24；Q7.7–7.9 的「Layer 0–26」也是索引，0 是 embedding、26 是最後 norm 之後（<a href="#s4">9.4 節</a>、<a href="#layers">9.5 節</a>）。同一種差一，第 8 章的 R5 在 Q7.2–7.3 也碰到了（<a href="ch08.html#r5">第 8 章 8.8 節</a>）。</p>
+<p><b>後果</b>：SAE 是在 block 20 的輸出（<code>[21]</code>）上訓練的。拿去量別的索引，重建誤差 FVU 從 <code>[21]</code> 的 0.290 升到 <code>[24]</code> 的 0.918、<code>[25]</code> 的 2.623、<code>[26]</code> 的 3.555；FVU 小於 1 的只有索引 17–24（prompt c）。在其他索引上，feature 的值只能說是「這個 SAE 在那裡的輸出」，不能讀成「模型在這一層有沒有這個概念」。</p>
+<p><b>正確的讀法</b>：把「layer k」一律讀成 <code>hidden_states[k]</code> = block k − 1 的輸出；要在 SAE 本來的位置看，用 <code>--sae-layer-idx 21</code>（<a href="#l21">9.3 節</a>）。真的要逐層比較，應該每一層用各自訓練的 SAE；Gemma Scope 為每一層都釋出了 SAE，hw3.py 只載入第 20 層那一個（推論：換用各層的 SAE 需要改 <code>load_sae</code> 的 <code>sae_id</code>，本機沒有做過）。這是作業設計的簡化，hw3.py 為了和原版一致沒有改。</p>
+<p><b>為什麼文件看不出來</b>：投影片、旗標名稱 <code>--sae-layer-idx</code>、圖的標題「Layer 24」與 x 軸「Layer」，全都用「layer」稱呼一個索引；SAE 的 <code>hook_layer</code> 也叫「layer」，意思卻是 block 編號。只有對照 <code>hidden_states</code> 的定義（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>）才看得出來。</p>
+</div>
+
+<h2 id="lab">9.10　動手做</h2>
+
+<div class="lab">
+<h4>自己跑 Q7.4–7.9</h4>
+<p><b>1. 預設</b>（在 repo 根目錄；需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>；Q7 沒有隨機性，不需要 <code>--seed</code>）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 7</pre>
+<p>Q7.1–7.3 的輸出見<a href="ch08.html#lab">第 8 章 8.10 節</a>。之後依序印出 9.2 節那 15 行（<code>feature_acts shape</code>、13 個 token、<code>[saved] …/HW03/outputs/q7_token_activations_L24.png</code>），再印 <code>Token 1 = 'Time', activations per layer:</code>、一行 <code>L0:…, L26:…</code>、<code>[saved] …/q7_layer_activations_tok1.png</code>，數字和 9.2、9.5 節相同。Q7 整題約 2.5 秒（含載入 SAE、不含載入 Gemma；<a href="ch00.html#time-mem">第 0 章 0.10 節</a>）。</p>
+<p><b>2. 換到 SAE 的位置、一次看三個 token</b>（同樣在 repo 根目錄）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3</pre>
+<p>輸出應該和 9.3、9.5 節貼的完全相同：Q7.4–7.6 的長條圖存成 <code>HW03/outputs/q7_token_activations_L21.png</code>，Q7.7–7.9 存三張 <code>q7_layer_activations_tok1.png</code>、<code>_tok2.png</code>、<code>_tok3.png</code>。<code>tok1</code> 會覆蓋第 1 步的同名檔，內容相同（<code>--sae-layer-idx</code> 不影響 Q7.7–7.9）。Q7.2–7.3 的兩個 <code>max_activation</code> 也不變（第 8 章的 R5）。</p>
+<p><b>3. 每個索引的 FVU 與最後一格的縮放實驗</b>（事實腳本，在 repo 根目錄，會載入模型與 SAE，每段幾秒；結果印在終端機）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch09
+.venv/bin/python docs/tools/hw03_facts.py rescale26</pre>
+<p>第一條的輸出格式就是 <code>logs/facts_pre_ch09.txt</code>：prompt c 與 prompt a 各 27 行，每行是 <code>[索引] FVU … L0 … 10004 max … at '…'</code>，可以拿來對圖 9.3。第二條就是 <code>logs/facts_review1_shapes_q4steps_rescale26.txt</code> 的 rescale26 段：三行 feature 10004 的值（<code>[25]</code>、<code>[26]</code>、放大後的 <code>[26]</code>），以及範數與 cosine 三行，對 9.6 節的表。</p>
+<p><b>4. 旗標的邊界</b>：跑 <code>.venv/bin/python HW03/hw3.py --q 7 --token-idx 13</code>，先看到 Q7.1–7.6 的正常輸出，最後是 9.8 節的 <code>IndexError</code>；用 <code>echo $?</code> 看結束碼是 1。改成 <code>--token-idx 0</code> 會畫 <code>&lt;bos&gt;</code> 的那一條，它在 <code>[21]</code> 是 30.95（第 8 章 R6 的同一個值）。<!-- TODO(本機實測): hw3.py --q 7 --token-idx 0 印出的 <bos> 逐層數值（facts_q4_q7.txt 的 q7 段有 prompt c 每個 token × 每個索引的表，<bos> 那一列 [21] 是 31.0；確認 hw3.py 印出的 L21 與它一致） --></p>
+</div>
+
+<h2 id="pitfalls">9.11　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把「Layer 24」讀成第 24 個 block</h4>
+<dl>
+<dt>症狀</dt><dd>「layer 24 是倒數第二層」。</dd>
+<dt>後果</dt><dd><code>hidden_states[24]</code> 是 block 23 的輸出；Gemma 的 block 編號是 0–25（S4）。</dd>
+<dt>正解</dt><dd class="fix">索引 k = block k − 1 的輸出；0 是 embedding，26 是最後 norm 之後。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把逐層曲線讀成「模型在第幾層想到時光旅行」</h4>
+<dl>
+<dt>症狀</dt><dd>「Time 在第 13 層最亮，所以模型在第 13 層理解了時間」。</dd>
+<dt>後果</dt><dd>那一點的 FVU 是 4.273，SAE 在那裡幾乎沒有重建能力。</dd>
+<dt>正解</dt><dd class="fix">只說「這個 SAE 在 <code>[13]</code> 上的輸出」；可信的範圍是 FVU &lt; 1 的索引 17–24，最可信的是 <code>[21]</code>。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>說最後一格掉下去「純粹是尺度問題」</h4>
+<dl>
+<dt>症狀</dt><dd>「norm 只是把向量縮短，放大回去就一樣了」。</dd>
+<dt>後果</dt><dd>放大回去後 <code>▁technology</code>、<code>▁continues</code>、<code>▁to</code> 從 0 變成非零，<code>[25]</code> 與 <code>[26]</code> 的 cosine 只有約 0.65。</dd>
+<dt>正解</dt><dd class="fix">尺度是主因之一；norm 也改變了方向。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 <code>--sae-layer-idx</code> 會改變 Q7.2–7.3 或 Q7.7–7.9</h4>
+<dl>
+<dt>症狀</dt><dd>改了旗標，期待兩個 <code>max_activation</code> 或逐層的圖跟著變。</dd>
+<dt>後果</dt><dd>它只傳給 <code>plot_token_activations</code>（:474）；Q7.2–7.3 寫死 <code>hook_layer</code>（第 8 章 R5），Q7.7–7.9 本來就跑全部索引。</dd>
+<dt>正解</dt><dd class="fix">只有 Q7.4–7.6 的長條圖與檔名會變。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 L0 小就代表 SAE 量得準</h4>
+<dl>
+<dt>症狀</dt><dd>看到 <code>[26]</code> 的 L0 只有 31.5，覺得它和 <code>[21]</code> 一樣稀疏、一樣好。</dd>
+<dt>後果</dt><dd><code>[26]</code> 的 FVU 是 3.555；稀疏是因為向量太短、大部分預激活過不了門檻。</dd>
+<dt>正解</dt><dd class="fix">FVU 與 L0 要一起看；先看 FVU 有沒有小於 1。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>旗標給錯，以為程式一開始就會報錯</h4>
+<dl>
+<dt>症狀</dt><dd><code>--token-idx 13</code> 跑了一陣子、存了好幾張圖，以為沒問題。</dd>
+<dt>後果</dt><dd>錯誤到 Q7.7 才出現，前面存的圖是好的，但這一題沒有跑完，結束碼 1。</dd>
+<dt>正解</dt><dd class="fix"><code>--sae-layer-idx</code> 給 0–26、<code>--token-idx</code> 給 0–12。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>Q7.4–7.6：<code>plot_token_activations</code> 把 <code>hidden_states[--sae-layer-idx]</code> 交給 SAE，形狀 [13, 16384]；預設 <code>[24]</code> 上 <code>▁travel</code> 74.17 最大，<code>▁technology</code>、<code>▁continues</code>、<code>▁to</code> 是 0。</li>
+<li>換到 SAE 的位置 <code>[21]</code>：<code>▁travel</code> 71.23；<code>Time</code>（預激活 5.056）、<code>▁reality</code>（5.217）低於門檻 7.1234，變成 0。</li>
+<li>S4：投影片的「layer 24」是 <code>hidden_states[24]</code> = block 23 的輸出。同一個 SAE 的 FVU 對索引是 U 形：<code>[21]</code> 0.290 最低、<code>[24]</code> 0.918、<code>[25]</code> 2.623、<code>[26]</code> 3.555，FVU &lt; 1 只有 17–24；L0 在 <code>[25]</code> 暴增到 981.2。</li>
+<li>Q7.7–7.9：<code>plot_layer_activations</code> 對 27 個索引各 encode 一次，x 軸「Layer」是索引 0–26。<code>▁travel</code> 大致一路上升到 78.85，<code>Time</code> 有兩段，<code>▁will</code> 在後段上升。</li>
+<li>最後一格：<code>[26]</code> 經過最後的 norm，<code>Time</code> 的範數從 <code>[25]</code> 的 540 掉到 117；放大回去 feature 會回來（<code>▁travel</code> 84.92），但原本是 0 的 token 也亮了、cosine 約 0.65，所以尺度是主因之一，不是唯一原因。</li>
+<li>讀逐層的圖時，數字是「這個 SAE 在那個索引上的輸出」，不是「模型在第幾層想到什麼」。</li>
+</ul>
+<p>七題到這裡全部讀完。下一章是全書的總結：把第 0 章的架構圖和七題的探針位置疊在一起，用一張表回顧所有「讀 code 不盡信文件」的條目，最後是分三級的實作題庫，每一題都附上本機量過的數字可以對答案。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. hw3.py 預設的 Q7.4–7.6 量的是哪一個 block 的輸出？SAE 是在哪一個 block 的輸出上訓練的？</summary>
+<p><code>--sae-layer-idx 24</code> 傳的是 <code>hidden_states[24]</code>，也就是 block 23（0 起算）的輸出。SAE 的 <code>hook_name</code> 是 <code>blocks.20.hook_resid_post</code>，block 20 的輸出，對應 <code>hidden_states[21]</code>。差了三個 block（S4）。</p>
+</details>
+
+<details class="quiz"><summary>2. 在 <code>[21]</code> 上，<code>Time</code> 的 feature 10004 是 0；它的預激活是 5.056。為什麼是 0？一般的 ReLU 會輸出多少？</summary>
+<p>JumpReLU 只保留超過門檻的值，10004 號的門檻是 7.1234，5.056 沒過，所以輸出 0。一般的 ReLU 會輸出 5.056。</p>
+</details>
+
+<details class="quiz"><summary>3. 圖 9.3 的 FVU 在 <code>[12]</code> 是 4.988。這對讀 <code>Time</code> 在索引 11–17 那一段的值有什麼影響？</summary>
+<p>FVU 遠大於 1，表示 SAE 在那裡重建得比「每個位置都猜平均值」還差得多，它的 feature 值幾乎沒有「這個向量裡有什麼」的意義。<code>Time</code> 在 11–17 的值只能說是「這個 SAE 在那些索引上的輸出」，不能讀成模型在那幾層想到了時間。</p>
+</details>
+
+<details class="quiz"><summary>4. 把 <code>[26]</code> 放大到 <code>[25]</code> 的長度後，feature 10004 回來了。為什麼還不能說「掉下去純粹是尺度問題」？</summary>
+<p>放大後原本在 <code>[25]</code> 是 0 的 <code>▁technology</code>、<code>▁continues</code>、<code>▁to</code> 也變成非零（19.14、11.71、21.99），而且 <code>[25]</code> 與 <code>[26]</code> 的 cosine 只有 0.47–0.80。norm 不只改長度，也改了方向；放大後的向量並沒有變回 <code>[25]</code>。</p>
+</details>
+
+<details class="quiz"><summary>5. 執行 <code>hw3.py --q 7 --token-idx 13</code>，什麼時候會出錯？在那之前會發生什麼？</summary>
+<p>prompt c 只有 13 個 token（0–12），13 超出範圍。錯誤發生在 Q7.7 的 <code>plot_layer_activations</code>（hw3.py:442，<code>IndexError: index 13 is out of bounds for dimension 0 with size 13</code>）；在那之前 Q7.1–7.6 都會正常跑完、印出並存圖。結束碼是 1。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Lieberum et al., <i>Gemma Scope: Open Sparse Autoencoders Everywhere All At Once on Gemma 2</i>, 2024, <a href="https://arxiv.org/abs/2408.05147">arXiv:2408.05147</a>：每一層、每一種子層都有各自的 SAE；本作業只用了第 20 層的那一個。</li>
+<li>Rajamanoharan et al., <i>Jumping Ahead: Improving Reconstruction Fidelity with JumpReLU Sparse Autoencoders</i>, 2024, <a href="https://arxiv.org/abs/2407.14435">arXiv:2407.14435</a>：JumpReLU 與重建品質（FVU 類指標）的取捨。</li>
+<li>transformers 文件 <a href="https://huggingface.co/docs/transformers/main_classes/output">Model outputs</a>：<code>hidden_states</code> 是「embedding 的輸出加上每一層的輸出」，對照第 0 章 0.9 節的實測。</li>
+<li>matplotlib 文件 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.bar.html">pyplot.bar</a>、<a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html">pyplot.plot</a>：兩個畫圖函式用到的 API。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch08.html">← 第 8 章</a><span class="disabled">第 10 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+</body>
+</html>
