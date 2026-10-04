@@ -828,6 +828,17 @@
 - **byte fallback**：詞表裡找不到的字元拆成 UTF-8 位元組 token。`𠀀`（U+20000，f0 a0 80 80）→ `<0xF0>` 457、`<0xA0>` 377、`<0x80>` 345、`<0x80>` 345；`𓀀` 同理。上面所有字串都沒有出現 `<unk>`（id 3），decode 都還原。
 - **詞表統計**：256000 個；以 `▁` 開頭的 125,261 個；位元組 token `<0x00>`–`<0xFF>` 共 255 個，缺 `<0x09>`（id 226 是 `\t` 本身）；單字的 CJK 統一漢字（U+4E00–U+9FFF）token 9,772 個。
 
+## ch03 寫作時查證的事項（雲端，2026-10-04）
+
+- **不揭露答案的做法**：ch03 全章不出現 18809、12636、42599、235290、`▁Hung`／`Hung`／`yi` 作為 token，也不描述 Hung-yi 的切法；預設句子輸出的中間三行換成「…（這三行是空格 (1)–(4) 的答案，請自己跑）」；`In 2025, GPT-4o costs $2.50.` 的輸出省略 `▁GPT`、`-`、`4`、`o` 四行（其中 `-` 235290 與空格有關）。洩漏冷讀指出「三行」與「前 9 行／後 6 行」可推出中間有 3 個 token；投影片 p.17 本身就列出這三行，且三行的寫法是使用者指定的，保留。
+- **投影片 p.16–17**：p.16 題目「How is the prompt being tokenized into? Please write the corresponding token index.」，右邊是 OpenAI tokenizer（GPT-3.5 & GPT-4）的截圖，只是示意。p.17 配分 2 × 0.1 + 2 × 0.15，題目「You need to write the corresponding token / token index」，表用底線 `_`（U+005F）代替 `▁`（U+2581）。
+- **原版 Colab**：第 20 格是「## Q3: Tokenization of Sentence」標題，第 21 格是 TODO（`#@param {type:"string"}` 表單、註解推薦 HF LLM Course 的 Tokenizers 一節）。
+- **`q3` 沒用到 `model`**，但 `main` 一律先載入模型，所以 `--q 3` 仍需要 GPU。
+- **`$2.50` 與 shell 引號**：review_ch03_q3.txt 記的指令用雙引號，在 bash 互動 shell 裡 `$2` 應該會被展開，但 log 的輸出有 `▁$`、`2`，當時沒被展開；原因 log 沒記。ch03 建議單引號，並留了 TODO。
+- **沒有量、ch03 標為推論的**：`convert_tokens_to_ids("_love")` 的回傳值（推論為 unk id 3）；`" you and you"` 兩個 you 都是 `▁you`；`"I love you"` 加 `<bos>` 共 4 個；詞表沒有「空白加數字」token；`you`／`▁you` 的 embedding 相似度；`--sentence` 不加引號時 argparse 的錯誤訊息。
+- **Gemma 第一代技術報告（arXiv:2403.08295）對 tokenizer 的描述**（拆數字、保留空白、byte fallback）是從記憶引用，ch03 註明「沒有逐字核對原文」。
+- **ch03 第一次交代的名詞**：SentencePiece、subword、`▁`（U+2581）、`convert_ids_to_tokens` 與 `decode` 的差別、byte fallback、UTF-8 位元組 token、全形／半形標點、`#@param`。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
