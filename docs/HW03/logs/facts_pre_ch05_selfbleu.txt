@@ -1,0 +1,51 @@
+
+===== run_q4_seed0.txt: printed self-BLEU [0.2029, 0.5542] =====
+--- top-k: 20 sentences, 20 distinct; recomputed self-BLEU 0.2029 (log 0.2029); with SmoothingFunction().method1 0.2270
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 146, = 1 in 0; asymmetric unordered pairs 110/190
+    warnings raised (always): {'The hypothesis contains 0 counts of 4-gram overlaps.': 146, 'The hypothesis contains 0 counts of 3-gram overlaps.': 36, 'The hypothesis contains 0 counts of 2-gram overlaps.': 2}
+    most common sentence x1: 'He is highly regarded as a top expert in machine learning education.'
+--- top-p: 20 sentences, 8 distinct; recomputed self-BLEU 0.5542 (log 0.5542); with SmoothingFunction().method1 0.5542
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 0, = 1 in 98; asymmetric unordered pairs 128/190
+    warnings raised (always): {}
+    most common sentence x10: 'Professor Lee is highly regarded as a leading expert in machine learning education.'
+
+===== run_q4_k200_p0999_seed0.txt: printed self-BLEU [0.1343, 0.0625] =====
+--- top-k: 20 sentences, 19 distinct; recomputed self-BLEU 0.1343 (log 0.1343); with SmoothingFunction().method1 0.1616
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 184, = 1 in 2; asymmetric unordered pairs 90/190
+    warnings raised (always): {'The hypothesis contains 0 counts of 4-gram overlaps.': 184, 'The hypothesis contains 0 counts of 3-gram overlaps.': 70, 'The hypothesis contains 0 counts of 2-gram overlaps.': 6}
+    most common sentence x2: 'Professor Lee is highly regarded as an expert in machine learning education.'
+--- top-p: 20 sentences, 20 distinct; recomputed self-BLEU 0.0625 (log 0.0625); with SmoothingFunction().method1 0.0972
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 290, = 1 in 0; asymmetric unordered pairs 38/190
+    warnings raised (always): {'The hypothesis contains 0 counts of 2-gram overlaps.': 48, 'The hypothesis contains 0 counts of 3-gram overlaps.': 200, 'The hypothesis contains 0 counts of 4-gram overlaps.': 290}
+    most common sentence x1: 'He is renowned as a leading authority on machine learning, distinguished for his excellence in teaching.'
+
+===== run_seed0.txt: printed self-BLEU [0.202, 0.5542] =====
+--- top-k: 20 sentences, 20 distinct; recomputed self-BLEU 0.2020 (log 0.2020); with SmoothingFunction().method1 0.2265
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 150, = 1 in 0; asymmetric unordered pairs 108/190
+    warnings raised (always): {'The hypothesis contains 0 counts of 4-gram overlaps.': 150, 'The hypothesis contains 0 counts of 3-gram overlaps.': 40, 'The hypothesis contains 0 counts of 2-gram overlaps.': 4}
+    most common sentence x1: 'He is highly regarded as a top expert in machine learning education.'
+--- top-p: 20 sentences, 8 distinct; recomputed self-BLEU 0.5542 (log 0.5542); with SmoothingFunction().method1 0.5542
+    380 ordered pairs: BLEU < 1e-10 (effectively 0) in 0, = 1 in 98; asymmetric unordered pairs 128/190
+    warnings raised (always): {}
+    most common sentence x10: 'Professor Lee is highly regarded as a leading expert in machine learning education.'
+
+===== pair breakdowns (run_q4_seed0.txt top-k) =====
+hyp 0 'He is highly regarded as a top expert in machine learning education.'
+ref 2 'He is highly regarded as a leading expert in machine learning education and instruction.'
+  lengths 12/14; p1..p4 10/12, 8/11, 6/10, 4/9; BP 0.8465; BLEU 0.5367
+hyp 2 'He is highly regarded as a leading expert in machine learning education and instruction.'
+ref 0 'He is highly regarded as a top expert in machine learning education.'
+  lengths 14/12; p1..p4 10/14, 8/13, 6/12, 4/11; BP 1.0000; BLEU 0.5317
+hyp 0 'He is highly regarded as a top expert in machine learning education.'
+ref 1 'Professor Lee is widely recognized as a leading expert in machine learning and is highly esteemed for his teaching skills.'
+  lengths 12/20; p1..p4 8/12, 5/11, 2/10, 1/9; BP 0.5134; BLEU 0.1471
+hyp 0 'He is highly regarded as a top expert in machine learning education.'
+ref 0 'He is highly regarded as a top expert in machine learning education.'
+  lengths 12/12; p1..p4 12/12, 11/11, 10/10, 9/9; BP 1.0000; BLEU 1.0000
+
+split() keeps punctuation attached: ['learning', 'education.']
+
+===== the 'zero' value =====
+hyp: He is highly regarded as a top expert in machine learning education.
+ref: Professor Lee is a renowned machine learning educator.
+sentence_bleu = 6.223629500679345e-155 ; sys.float_info.min = 2.2250738585072014e-308

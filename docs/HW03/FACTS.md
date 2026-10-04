@@ -895,6 +895,30 @@
 - **top_k=200 vs top_p=0.999, top_k=0**（各自從 seed 0，20 句逐句相同，467 步）：top_p 每步留下中位數 26、最少 1、最多 14,579 個；396 步少於 200 個。重新正規化後兩邊機率差的最大值：中位數 0.00051、最大 0.0186；只有 top_p 留下的 token 的機率合計：中位數 0、最大 0.0510。
 - **k=2 第 0 句 step 9 的 `-`**：接在 `… as a top` 後面，greedy 往下是 `-`、`notch`、`▁expert`、`▁in`…（top-notch）。
 
+## ch05 前置補測（本機，2026-10-04；`docs/tools/hw03_selfbleu.py` → logs/facts_pre_ch05_selfbleu.txt；logs/review_ch05_noseed.txt）
+
+- **從 log 重算**：`hw03_selfbleu.py` 把 hw3.py log 裡的句子解析回來（跨行的句子也算；nltk 的警告走 stderr，會夾在 log 的句子列表中間，要先剔除），用 `hw3.compute_self_bleu` 重算。run_q4_seed0、run_q4_k200_p0999_seed0、run_seed0 的 6 個分數全部和 log 印的相同（0.2029／0.5542、0.1343／0.0625、0.2020／0.5542）。
+- **各組的句對統計**（20 句，380 個有序句對 = 每句當 hypothesis × 其他 19 句）：
+
+  | log、組 | 不同句子數 | BLEU 實際為 0 的對數 | BLEU = 1 的對數 | 加 SmoothingFunction().method1 |
+  |---|---|---|---|---|
+  | run_q4_seed0 k=2 | 20 | 146 | 0 | 0.2270（原 0.2029） |
+  | run_q4_seed0 p=0.6 | 8（最多的一句出現 10 次） | 0 | 98 | 0.5542（不變） |
+  | k200 log k=200 | 19 | 184 | 2 | 0.1616（原 0.1343） |
+  | k200 log p=0.999 | 20 | 290 | 0 | 0.0972（原 0.0625） |
+  | run_seed0 k=2 | 20 | 150 | 0 | 0.2265（原 0.2020） |
+
+  - p=0.6 那句出現 10 次的是 `Professor Lee is highly regarded as a leading expert in machine learning education.`。
+- **「0」其實不是 0**：nltk 3.10.3 在某個 n-gram 階數完全沒有重疊時，會把那一階的精確度換成極小值，而不是直接回傳 0。例如 hyp `He is highly regarded as a top expert in machine learning education.`、ref `Professor Lee is a renowned machine learning educator.` 得到 6.22e-155。上表「實際為 0」是用 < 1e-10 判斷的。
+- **警告**：nltk 的 UserWarning（`The hypothesis contains 0 counts of N-gram overlaps. Therefore the BLEU score evaluates to 0, ... Consider using lower n-gram order or use SmoothingFunction()`）在 run_q4_seed0 k=2 實際觸發了 4-gram 146 次、3-gram 36 次、2-gram 2 次。log 裡卻只印出 4-gram、3-gram、2-gram 各 1 次，因為 Python 預設同一個位置、同一則訊息只顯示一次。p=0.6 組一次都沒觸發。
+- **不對稱**：BLEU(a→b) 與 BLEU(b→a) 一般不同（brevity penalty 只罰 hypothesis 比 reference 短，精確度的分母是 hypothesis 的 n-gram 數）。run_q4_seed0 k=2 的 190 個無序句對裡有 110 對不對稱。例子（k=2 第 0、2 句）：
+  - hyp 0（12 個詞）→ ref 2（14 個詞）：p1..p4 = 10/12、8/11、6/10、4/9，BP 0.8465，BLEU 0.5367。
+  - 反過來：10/14、8/13、6/12、4/11，BP 1.0000，BLEU 0.5317。
+  - 第 0 句對第 1 句（20 個詞）：8/12、5/11、2/10、1/9，BP 0.5134，BLEU 0.1471。
+  - 自己對自己：BLEU 1.0000。
+- **split() 不拆標點**：`education.` 是一個詞，和 `education` 不同。
+- **不給 --seed 連跑兩次**（`hw3.py --q 4`，logs/review_ch05_noseed.txt）：第 1 次 0.2128／0.4758，第 2 次 0.2857／0.5076，句子也不同。原版 Colab 不設 seed，所以每次執行的分數都不一樣。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -927,6 +951,8 @@
 - review_ch03.txt：ch03 審稿補測（shell 引號、argparse 錯誤、`hw03_facts.py review_ch03` 的輸出）。
 - facts_pre_ch04.txt：`hw03_facts.py pre_ch04` 的輸出（過濾器作用在 Q2 第 1 輪與 Q4 第一步、逐步重現 Q4 第 0 句）。
 - review_ch04.txt：`hw03_facts.py review_ch04` 的輸出（hw3.py 順序下的 eos [1, 107]、top_k=0 對照，碰到上限的句子，top_k=200 與 top_p=0.999 的逐步比較）。
+- facts_pre_ch05_selfbleu.txt：`docs/tools/hw03_selfbleu.py` 的輸出（從 log 重算 self-BLEU、句對統計、BLEU 拆解）。
+- review_ch05_noseed.txt：不給 `--seed` 連跑兩次 `hw3.py --q 4` 的前 3 句與分數。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

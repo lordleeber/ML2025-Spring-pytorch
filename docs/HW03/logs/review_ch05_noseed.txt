@@ -1,0 +1,21 @@
+# 只保留每組的前 3 句（0.–2.，上面 3 行是 top-k、下面 3 行是 top-p）與 self-BLEU 兩行；完整輸出沒有存。
+$ .venv/bin/python HW03/hw3.py --q 4   # 第 1 次，不給 --seed
+0. Professor Lee is highly regarded for his expertise and contributions to the field of machine learning.
+1. Professor Lee is highly regarded for his exceptional expertise in machine learning education.
+2. He is widely recognized as an outstanding teacher in the field of machine learning.
+0. Professor Lee is highly regarded for his expertise in machine learning, making him a top teacher in the field.
+1. Professor Lee is highly regarded for his expertise in machine learning, making him a top-notch teacher in the field.
+2. Professor Lee is highly regarded for his expertise in machine learning, making him one of the leading educators in the field.
+self-BLEU Score for top_k (k=2): 0.2128
+self-BLEU Score for top_p (p=0.6): 0.4758
+
+$ .venv/bin/python HW03/hw3.py --q 4   # 第 2 次，不給 --seed
+0. He is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded for his expertise in machine learning education.
+0. He is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded for his expertise in machine learning and is considered a top teacher in the field.
+self-BLEU Score for top_k (k=2): 0.2857
+self-BLEU Score for top_p (p=0.6): 0.5076
+
