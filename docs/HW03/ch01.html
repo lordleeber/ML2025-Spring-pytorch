@@ -585,7 +585,7 @@ footer.chap-footer {
 </style>
 </head>
 <body>
-<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">← 第 0 章</a><span class="disabled">第 2 章 →</span></nav>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00b.html">← 補充章 KV cache</a><span class="disabled">第 2 章 →</span></nav>
 <header class="chap-header">
   <p class="book-title">ML2025 Spring HW03 教材</p>
   <h1>第 1 章　Q1 Chat template：同一個問題，兩種 prompt</h1>
@@ -826,7 +826,7 @@ Please tell me about the key differences between supervised learning and unsuper
 
 <p>「可以重現」的範圍是同一台機器、同一套軟體版本。換一張 GPU 或換版本，fp16 運算的最後幾位可能不同，只要某一步前兩名的分數夠接近，argmax 就可能翻過去，後面的回答整段改寫（推論，本機只有一張 GPU，沒有跨機比較過）。這也是為什麼投影片 p.12 的填空題寫「Error with 0.5 is accepted」，允許分數有誤差。</p>
 
-<p>本機還量到一個更意外的前提：<b>同一台機器上，前一次 <code>generate</code> 留下的 KV cache 長度也會改變 greedy 的結果</b>。<code>generate</code> 會把 KV cache 留在 <code>model._cache</code>，下一次呼叫只要長度夠用就沿用（<a href="ch00.html#dispatch">第 0 章 0.2.2 節</a>）。Q1 先跑有 template 的那條路，配置了 32 + 512 = 544 格；接著沒有 template 的那條路只需要 23 + 512 = 535 格，於是沿用那 544 格。把沒有 template 的那條路換成各種 cache 長度單獨跑（<code>docs/tools/hw03_q1_cache.py</code>，<code>logs/review_ch01_cache.txt</code>）：</p>
+<p>本機還量到一個更意外的前提：<b>同一台機器上，前一次 <code>generate</code> 留下的 KV cache 長度也會改變 greedy 的結果</b>。<code>generate</code> 會把 KV cache 留在 <code>model._cache</code>，下一次呼叫只要長度夠用就沿用（<a href="ch00b.html#reuse">補充章 K.8 節</a>；cache 是什麼、「格」是什麼，見<a href="ch00b.html#layout">補充章 K.3–K.5 節</a>）。Q1 先跑有 template 的那條路，配置了 32 + 512 = 544 格；接著沒有 template 的那條路只需要 23 + 512 = 535 格，於是沿用那 544 格。把沒有 template 的那條路換成各種 cache 長度單獨跑（<code>docs/tools/hw03_q1_cache.py</code>，<code>logs/review_ch01_cache.txt</code>）：</p>
 
 <div class="tablewrap"><table>
 <thead><tr><th>沒有 template 那條路用的 cache</th><th class="num">新 token</th><th class="num">字數</th><th class="num">coherence</th></tr></thead>
@@ -865,7 +865,7 @@ Please tell me about the key differences between supervised learning and unsuper
 
 <p>這兩個 id 的 list 是 Q4 的伏筆：Q4 自己傳了 <code>eos_token_id=tokenizer.eos_token_id</code>，也就是只有 1，把 107 蓋掉了，所以 Q4 的句子遇到 <code>&lt;end_of_turn&gt;</code> 不會停（第 4 章）。</p>
 
-<p>另外，Q1 跑完 <code>generate</code> 會在模型物件上留下一份 KV cache，後面的題目會沿用它，並因此影響 Q4 的取樣結果，見 <a href="ch00.html#dispatch">第 0 章 0.2.2 節</a>，第 5 章詳談。</p>
+<p>另外，Q1 跑完 <code>generate</code> 會在模型物件上留下一份 KV cache，後面的題目會沿用它，並因此影響 Q4 的取樣結果，見 <a href="ch00b.html#reuse">補充章 K.8 節</a>，第 5 章詳談。</p>
 
 <h2 id="extract">1.4　怎麼把回答切出來</h2>
 
@@ -1182,7 +1182,7 @@ input_ids = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_pr
 </ul>
 
 </main>
-<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">← 第 0 章</a><span class="disabled">第 2 章 →</span></nav>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00b.html">← 補充章 KV cache</a><span class="disabled">第 2 章 →</span></nav>
 <footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
 <script id="inline-js">
 /* repo → HTML 教材 — 頁面強化腳本

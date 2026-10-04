@@ -739,6 +739,46 @@
   - 連續兩則 user：`jinja2.exceptions.TemplateError: Conversation roles must alternate user/assistant/user/assistant/...`。
 - **沒有量的**：跨 GPU 時 argmax 是否翻轉（本機只有一張 GPU），ch01 維持推論。
 
+## KV cache 補充章實測（本機，2026-10-04；logs/facts_kvcache.txt、logs/facts_kvcache_overflow.txt）
+
+頁面：`docs/HW03/ch00b.html`（補充章，節號與圖號用 K.n）。`check_book.py` 的圖號檢查只認「圖 數字.數字」，對這一頁會報「3 張 svg 但有 0 個圖號」，屬已知、不用修。transformers 原始碼的節錄用 `python3 docs/tools/build_ch00b.py --check docs/HW03/ch00b.html` 逐字核對（需要本機 .venv）。
+
+指令：`.venv/bin/python docs/tools/hw03_facts.py kvcache`（約 107 s）；溢位測試另跑 `docs/tools/hw03_cache_overflow.py`（會弄壞 CUDA context，所以獨立一支）。輸入是 Q1 有 template 的 prompt（hw3.py 的寫法，雙 `<bos>`，T = 32），greedy；每次測量前都把 `model._cache` 清成 None。
+
+- **有沒有 cache，生成 Q1 的回答**（max_new_tokens=512，兩者都停在 240 個新 token）：
+  - use_cache=True：5.69 s（42.2 tok/s）；use_cache=False：6.10 s（39.3 tok/s）。
+  - 生成的 token 從第 234 個新 token 開始不同（`▁available` vs `▁data`）。
+  - 送進模型的 token 總數（計算值）：有 cache 32 + 239 = 271；沒有 cache Σ(32+i), i=0..239 = 36,360，約 134 倍。
+  - 強制生成 1024 個新 token（`min_new_tokens=max_new_tokens=1024`）：有 cache 26.3 s、沒有 cache 52.6 s；峰值 allocated 5.77 vs 5.75 GiB。
+  - `generate(..., use_cache=False)` 在 transformers 4.47 會印一段 `--- Logging error ---` 的 traceback（transformers 自己 `logger.warning_once` 的格式化錯誤，訊息是 "You have set `use_cache` to `False`, but cache_implementation is set to hybrid. cache_implementation will have no effect."），程式照常繼續。
+- **一步要多久**（每個數字是多次的中位數）：
+  - prefill 32 個 token：24.7 ms；有 cache 的 decode 一步：22.7 ms（64 步，22.1–24.8）。
+  - 沒有 cache 時，一步就是把整段重算一次：32 個 token 22.2 ms、64 個 21.7、128 個 22.6、256 個 31.3、271 個 35.5、512 個 49.4、1024 個 90.0、2048 個 218.7、4096 個 604.3 ms。
+  - 有 cache 時，cache 裡已有 512／1024／2048／4096 個 token，decode 一步是 23.1／22.9／23.3／24.2 ms。
+  - 解讀（推論）：短序列時一次 forward 的時間大多是固定開銷（26 層、每層多個小 kernel），所以 300 個 token 以內有沒有 cache 差不多；序列越長，沒有 cache 的一步越貴，有 cache 幾乎不變。
+- **一次 forward 整段 vs generate 逐步的 logits**（同一串 271 個 token）：
+  - 240 步裡每一步都有差異（沒有一步完全相同），每步最大差異的平均 0.0390、最大 0.0625。
+  - 239/240 步的 argmax 與 generate 選的 token 相同；不同的是第 234 步：generate 的前兩名是 `▁available` 19.0469、`▁data` 19.0312（差一格 fp16 精度，19 附近是 0.0156），一次 forward 的 argmax 是 `▁data`。這也是 use_cache=False 從第 234 個 token 開始不同的原因。
+- **cache 的樣子**（`model._cache`，Q1 生成完）：
+  - HybridCache，max_cache_len 544，26 層，`is_sliding` 是 [True, False, True, False, …]（偶數層 sliding）。
+  - 每層 key、value 各一個 (1, 4, 544, 256) float16；有 271 格寫了非零值（32 + 239），之後的格子全是 0。
+  - 總共 57,933,824 bytes = 0.0540 GiB；每一格 106,496 bytes（= 26 層 × 2（k、v）× 4 組 × 256 維 × 2 bytes）。
+  - `HybridCache(max_cache_len=8192)`：sliding 層 (1, 4, 4096, 256)、global 層 (1, 4, 8192, 256)，總共 654,311,424 bytes = 0.609 GiB。若 26 層都是 8192 格會是 872,415,232 bytes = 0.8125 GiB（計算值）。
+  - 若 k、v 也有 8 個 head（不用 GQA），每格 212,992 bytes，cache 加倍（計算值）。
+  - forward 時傳 `past_key_values=DynamicCache()` 也能跑，回傳 DynamicCache，layer 0 的 key 是 (1, 4, 32, 256)（剛好 32 格，不預留）。
+  - forward 時 `use_cache=True` 但不給 cache：模型自己建一個 max_cache_len = 32（prompt 長度）的 HybridCache（modeling_gemma2.py:711–719）。
+- **前綴的 k、v 不受後面 token 影響**：Q7 prompt c（13 個 token）整段 prefill，與只 prefill 前 6 個 token，兩份 cache 在位置 0–5 的 key、value，26 層裡最大差異都是 0.0078（數學上相同；fp16 運算的形狀不同造成的捨入差）。
+- **沒寫入的格子拿到的注意力是 0**：
+  - prefill 時 attentions 是 26 個 (1, 8, 32, 544)：寬度是 cache 的長度，不是序列長度。第 32 格以後的權重，全部層、head、列加總是 0.0；每列加總與 1 的差最多 3.36e-04（fp16 捨入）。
+  - decode 第 1 步 attentions 是 (1, 8, 1, 544)，第 33 格以後的權重加總也是 0.0。
+  - mask 的值是 fp16 的最小值 −65504（`torch.finfo(torch.float16).min`），在 soft-cap 之後加上去（modeling_gemma2.py:183–194）。
+- **cache 長度不同時，差異從哪裡開始**（Q1 沒有 template，cache 535 vs 544，decode 第 3 步）：最早不同的是第 7 層的 self_attn；已寫入格子上的 attention 權重差 0.00037，attention 輸出差 0.0020。為什麼是第 7 層、為什麼 softmax 的結果會因為多出幾個被遮掉的格子而改變，沒有追（推論：加總的運算順序不同）。
+- **手動建的 HybridCache 少一格**（logs/facts_kvcache_overflow.txt）：3 格的 cache prefill 3 個 token 正常；往第 3 格（第 4 個位置）寫時，`model(...)` 照常回傳、沒有例外，stderr 印出 160 行 `IndexKernel.cu:111 … Assertion ... "index out of bounds" failed.`，到 `torch.cuda.synchronize()` 才丟出 `AcceleratorError: CUDA error: device-side assert triggered`。之後這個 process 的 CUDA 都不能用了。
+- **原始碼位置**（transformers 4.47.0）：
+  - `cache_utils.py`：`class HybridCache` :1561（docstring :1562–1565 寫明是給 `torch.compile` 用、sliding 與 global 交替）；`__init__` :1604–1662（`is_sliding` :1637–1639，兩種形狀 :1642–1648，每層 `torch.zeros` 配置 :1649–1662）；`_sliding_update` :1664–1690；`_static_update` :1692–1698；`update` :1700–1724；`get_seq_length` :1729–1738；`reset` :1740–1745；`batch_size` property :1747–1753（這就是 ch00 提到的 deprecation 訊息的出處：`__init__` 自己在 :1642 讀了 `self.batch_size`）。
+  - `models/gemma2/modeling_gemma2.py`：`Gemma2Attention.forward` :362–412（k、v 先過 RoPE :383–384，再 `past_key_value.update` :386–394）；`self.sliding_window` 只在偶數層設定 :345；forward 自建 HybridCache :711–719；`_update_causal_mask` 的 `target_length = past_key_values.get_max_cache_shape()` :812–813；mask 產生 :866–872；eager attention 加 mask :189–191。
+  - `generation/utils.py`：`_get_cache` :1589–1681（沿用的判斷 :1603–1616，沿用時 `reset()` :1680）。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -762,6 +802,8 @@
 - review_ch00_errors.txt：ch00 審稿補測（未登入、沒有 CUDA、`--help`、sae-lens 6.53.0、快取檔案大小）。
 - review_ch01.txt：`hw03_facts.py review_ch01` 的輸出（拿掉 do_sample、不給長度、chat_template 例外）。
 - review_ch01_cache.txt：`docs/tools/hw03_q1_cache.py` 的輸出（Q1 三條路 × cache 長度）。
+- facts_kvcache.txt：`hw03_facts.py kvcache` 的輸出（KV cache 補充章）。
+- facts_kvcache_overflow.txt：`docs/tools/hw03_cache_overflow.py` 的輸出。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
