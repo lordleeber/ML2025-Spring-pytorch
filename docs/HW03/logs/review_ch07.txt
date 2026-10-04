@@ -1,0 +1,32 @@
+load_model 3.7s
+
+==================== review_ch07 ====================
+layer 0 (sliding) after the last step, 22-slot cache: slot 20 all zero: True; slot j holds what the 23-slot cache has at j+1, for j in [0, 1, 2]...[17, 18, 19] (20 slots)
+    slot 21 equals 23-slot slot 21 (the new token): True; <bos> key (23-slot slot 0) found anywhere in 22-slot cache: False
+layer 10 (sliding) after the last step, 22-slot cache: slot 20 all zero: True; slot j holds what the 23-slot cache has at j+1, for j in [0, 1, 2]...[17, 18, 19] (20 slots)
+    slot 21 equals 23-slot slot 21 (the new token): False; <bos> key (23-slot slot 0) found anywhere in 22-slot cache: False
+layer 1 (global): slots 0-20 equal to the 23-slot cache: True
+layer 0 head 0 row 21: 22-slot argmax 19 (weight 0.7280); 23-slot argmax 20 (weight 0.4829); 22-slot weight on slot 20 (the empty one) 0.0592
+layer 10 head 7 row 21, weight on the empty slot 20: 0.0027
+ch07 R7 fix: 22 labels ['<bos>', 'Google', '▁', '\n\n'] ... ['▁products', '.']
+23-slot matrix shape (22, 23), hw3.py labels 22
+sns.heatmap with 23 columns and 22 labels: no error; x tick labels drawn 22, y 22
+[review_ch07 took 2.8s]
+
+==================== review_ch07: 超出範圍的 --layer-idx / --head-idx ====================
+$ .venv/bin/python HW03/hw3.py --q 6 --layer-idx 26
+  File "HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "HW03/hw3.py", line 346, in q6
+    last_layer_attention = attention_scores[layer_idx][0][head_idx].detach().float().cpu().numpy()
+                           ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+IndexError: tuple index out of range
+exit=1
+$ .venv/bin/python HW03/hw3.py --q 6 --head-idx 8
+  File "HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "HW03/hw3.py", line 346, in q6
+    last_layer_attention = attention_scores[layer_idx][0][head_idx].detach().float().cpu().numpy()
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+IndexError: index 8 is out of bounds for dimension 0 with size 8
+exit=1

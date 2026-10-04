@@ -905,6 +905,7 @@ footer.chap-footer {
 <dd>FACTS「Q6 實測」「模型」（hidden state 範數表）；logs/run_seed0.txt、logs/facts_q4_q7.txt。圖：img/q6_attention_L10_H7.png（hw3.py 輸出，標籤錯位）、img/exp_q6_attention_true_labels.png（同一矩陣、正確標籤）。手繪 SVG：每一步多一列的累積方式。</dd>
 <dt>讀 code 不盡信文件</dt>
 <dd><b>R7 heatmap 的列／欄標籤錯位一格</b>：矩陣的 22 列是 <code>&lt;bos&gt;</code>、<code>Google</code>、<code>▁</code> 加 19 個生成 token，標籤卻用 <code>tokenizer.tokenize(full_text)</code>：少了 <code>&lt;bos&gt;</code>、多了第 20 個生成 token。圖上標成「Google」的第 0 列，其實是 <code>&lt;bos&gt;</code> 注意自己。</dd>
+<dd><b>R11 Q6 heatmap 的最後一列是錯的</b>（寫第 7 章前的前置補測發現）：<code>max_cache_len</code> = 20 + 3 − 1 = 22，最後一步寫入位置 21 = 22 − 1，觸發 <code>HybridCache._sliding_update</code> 的捲動（<code>cache_utils.py:1677</code>），<code>&lt;bos&gt;</code> 被擠出 sliding 層的 cache；多配一格就全部吻合。生成的文字不受影響。</dd>
 <dt>待本機補量</dt>
 <dd>若要把對照組畫成圖，需要 hw3.py 的實際輸出圖；目前只有數字。<!-- TODO(本機實測): --q 6 --layer-idx 0 --head-idx 0 與 --layer-idx 25 --head-idx 0 的 heatmap 圖檔 --></dd>
 </dl>
@@ -996,7 +997,7 @@ footer.chap-footer {
 
 <h2 id="issues">4　「讀 code 不盡信文件」分配總表</h2>
 
-<p>R 是 FACTS 的「repo 問題清單」10 條（原版就有、本 repo 刻意保留的行為，每條都實測過），S 是「投影片與程式不一致」5 條。每一條都放在它<b>第一次出現</b>的那一章；後面的章需要時只回指。</p>
+<p>R 是 FACTS 的「repo 問題清單」11 條（原版就有、本 repo 刻意保留的行為，每條都實測過），S 是「投影片與程式不一致」5 條。每一條都放在它<b>第一次出現</b>的那一章；後面的章需要時只回指。</p>
 
 <div class="tablewrap"><table>
 <thead><tr><th>編號</th><th>問題</th><th>放在</th></tr></thead>
@@ -1011,6 +1012,7 @@ footer.chap-footer {
 <tr><td>R8</td><td>Q5 的 mean pooling 包含 padding</td><td><a href="#ch06">第 6 章</a></td></tr>
 <tr><td>R9</td><td><code>--num-samples 1</code> 會除以零</td><td><a href="#ch05">第 5 章</a></td></tr>
 <tr><td>R10</td><td><code>--seed</code> 只能讓同一條指令重現</td><td><a href="#ch05">第 5 章</a></td></tr>
+<tr><td>R11</td><td>Q6 的 HybridCache 剛好配 22 格，最後一步 sliding cache 往前捲、擠掉 <code>&lt;bos&gt;</code>，heatmap 最後一列是錯的（寫第 7 章前發現）</td><td><a href="#ch07">第 7 章</a></td></tr>
 <tr><td>S1</td><td>Q4 投影片的 prompt 寫 Professor Lee，程式是 Professor Hung-yi Lee</td><td><a href="#ch04">第 4 章</a></td></tr>
 <tr><td>S2</td><td>Q3 參考表（p.17）的兩個錯字</td><td><a href="#ch03">第 3 章</a></td></tr>
 <tr><td>S3</td><td>Q4 投影片要的六個 k、p 值，程式預設只跑 k=2、p=0.6 這一組</td><td><a href="#ch04">第 4 章</a></td></tr>
