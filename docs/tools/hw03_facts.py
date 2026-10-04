@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -979,6 +979,64 @@ def review_ch03_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch04 prep: what top-k / top-p keep on real distributions, and one sentence step by step
+def pre_ch04_facts(tokenizer, model):
+    from transformers.generation.logits_process import LogitsProcessorList, TopKLogitsWarper, TopPLogitsWarper
+
+    section("pre_ch04")
+    warpers = {"top_k=2": [TopKLogitsWarper(2)], "top_k=200": [TopKLogitsWarper(200)],
+               "top_p=0.6 (+ default top_k=50)": [TopKLogitsWarper(50), TopPLogitsWarper(0.6)],
+               "top_p=0.999 (+ default top_k=50)": [TopKLogitsWarper(50), TopPLogitsWarper(0.999)],
+               "top_p=0.999, top_k=0": [TopPLogitsWarper(0.999)], "top_k=1": [TopKLogitsWarper(1)],
+               "top_p=0 (+ default top_k=50)": [TopKLogitsWarper(50), TopPLogitsWarper(0.0)]}
+
+    def show(label, ids):
+        with torch.no_grad():
+            logits = model(ids).logits[:, -1, :].float()  # generate() also filters fp32 logits (utils.py:3267)
+        p = torch.softmax(logits, -1)
+        tp, ti = torch.topk(p, 10)
+        print(f"--- {label}: raw top-10 " + ", ".join(f"{tokenizer.decode([i])!r} {v:.4f}" for i, v in zip(ti[0].tolist(), tp[0].tolist())))
+        for name, ws in warpers.items():
+            sc = LogitsProcessorList(ws)(ids, logits.clone())
+            keep = torch.isfinite(sc[0])
+            q = torch.softmax(sc, -1)[0]
+            order = torch.argsort(q, descending=True)[: min(int(keep.sum()), 5)]
+            print(f"  {name:34s} keeps {int(keep.sum()):3d} tokens, raw mass {p[0, keep].sum():.4f}; renormalized: "
+                  + ", ".join(f"{tokenizer.decode([i])!r} {q[i]:.4f}" for i in order.tolist()))
+
+    hist = [{"role": "user", "content": hw3.Q2_TURNS[0]}]
+    q2p = tokenizer.apply_chat_template(hist, tokenize=False, add_generation_prompt=True)
+    show("Q2 round 1 (as hw3.py, double <bos>)", tokenizer(q2p, return_tensors="pt").input_ids.to(DEVICE))
+    prompt = "Generate a paraphrase of the sentence 'Professor Hung-yi Lee is one of the best teachers in the domain of machine learning'. Just response with one sentence."
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    show("Q4 prompt, first new token", input_ids.input_ids.to(DEVICE))
+
+    params = {"do_sample": True, "max_length": 30 + len(input_ids.input_ids[0]), "pad_token_id": tokenizer.pad_token_id,
+              "eos_token_id": tokenizer.eos_token_id, "bos_token_id": tokenizer.bos_token_id,
+              "attention_mask": input_ids.attention_mask.to(DEVICE), "use_cache": True,
+              "return_dict_in_generate": True, "output_scores": True, "output_logits": True}
+
+    def steps(label, o):
+        new = o.sequences[0, len(input_ids.input_ids[0]):]
+        print(f"--- {label}: {len(new)} new tokens; decoded {tokenizer.decode(new, skip_special_tokens=True)!r}")
+        for i, (t, lg, sc) in enumerate(zip(new.tolist(), o.logits, o.scores)):
+            p = torch.softmax(lg[0].float(), -1)
+            q = torch.softmax(sc[0], -1)
+            top = int(p.argmax())
+            print(f"  step {i:2d}: picked {tokenizer.convert_ids_to_tokens(t)!r:16} raw p {p[t]:.4f} renorm {q[t]:.4f} | kept {int(torch.isfinite(sc[0]).sum()):2d} | raw top-1 {tokenizer.convert_ids_to_tokens(top)!r} {p[top]:.4f}")
+
+    # reproduce hw3.py --q 4 --seed 0: 20 top-k samples, then top-p on the same random stream
+    model._cache = None
+    torch.manual_seed(0)
+    outs = [model.generate(input_ids=input_ids.input_ids.to(DEVICE), top_k=2, **params) for _ in range(20)]
+    steps("top_k=2, sentence 0 (seed 0)", outs[0])
+    steps("top_p=0.6, sentence 0 (after the 20 top-k samples)", model.generate(input_ids=input_ids.input_ids.to(DEVICE), top_p=0.6, **params))
+    last = [tokenizer.convert_ids_to_tokens(int(o.sequences[0, -1])) for o in outs]
+    lens = [o.sequences.shape[1] - len(input_ids.input_ids[0]) for o in outs]
+    print(f"top_k=2 20 sentences: new-token counts {lens}; last token {last}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -995,7 +1053,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

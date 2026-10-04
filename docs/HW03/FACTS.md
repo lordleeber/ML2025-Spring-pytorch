@@ -849,6 +849,26 @@
 - **embedding cosine**（`model.get_input_embeddings()`，fp32 計算）：you／▁you 0.6692、Machine／▁Machine 0.9081、machine／▁machine 0.8716、Machine／machine 0.8679、Orange／▁Orange 0.9197、you／▁Machine −0.0186；隨機 10000 對 id（seed 0）平均 0.1640、標準差 0.0936、99% 分位 0.4201。
 - **Gemma 技術報告（arXiv:2403.08295）原文**：「We use a subset of the SentencePiece tokenizer (Kudo and Richardson, 2018) of Gemini for compatibility. It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens, following the techniques used for both (Chowdhery et al., 2022) and (Gemini Team, 2023). The vocabulary size is 256k tokens.」（arxiv.org/html/2403.08295 擷取）
 
+## ch04 前置補測（本機，2026-10-04；`hw03_facts.py pre_ch04`，logs/facts_pre_ch04.txt）
+
+- **transformers 4.47 原始碼位置**（`.venv/lib/python3.*/site-packages/transformers/generation/`）：
+  - utils.py `_get_logits_processor` :869；取樣用的 warper 依序加入：Temperature :1058（只在 ≠ 1.0 時）、TopK :1061（只在 top_k 不是 None／0 時）、TopP :1065（只在 top_p < 1.0 時）；`min_tokens_to_keep` 在非 beam search 時是 1（:1053）。
+  - utils.py `_sample` :3159：logits 先轉 fp32（:3267 `outputs.logits[:, -1, :].clone().float()`），經過 logits_processor，`do_sample` 時 softmax（:3295）後 `torch.multinomial` 抽 1 個（:3297），否則 argmax。
+  - logits_process.py：`TopPLogitsWarper` :417，升冪排序後移除累積機率 `<= 1 - top_p` 的 token（:474），最後 `min_tokens_to_keep` 個一定保留；`TopKLogitsWarper` :484，移除分數 `<` 第 k 名分數的 token（:532，同分的都留下）。
+- **過濾器作用在真實分布上**（logits 用 fp32；「留下」= 分數不是 −inf；「重新正規化」= 過濾後再 softmax）：
+  - **Q2 第 1 輪**（hw3.py 的 prompt，第 1 名 Indigo 0.3068）：
+    - top_k=2 留 2 個（原機率合計 0.5692）→ Indigo 0.5390、Green 0.4610。
+    - top_p=0.6（加上預設 top_k=50）留 3 個（0.7704）→ Indigo 0.3982、Green 0.3406、Red 0.2612。
+    - top_p=0.999 + top_k=50 留 32 個；top_p=0.999、top_k=0 留 38 個。top_k=1 與 top_p=0 都只留 Indigo。
+  - **Q4 prompt 的第一個新 token**：原始 top：`' '` 0.5430、`'\n\n'` 0.2410、`'  '` 0.1439、`' He'` 0.0219、`' Professor'` 0.0193。
+    - top_k=2 與 top_p=0.6 都留 2 個（0.7840）→ `' '` 0.6926、`'\n\n'` 0.3074。
+    - top_k=200 留 200 個（0.9981）。top_p=0.999 + top_k=50 留 39 個（0.9944）；top_p=0.999、top_k=0 留 **607** 個（0.9990），R2 的直接證據。
+    - 第一個 token 最可能是空白，R4（沒有 chat template）的來源。
+- **逐步重現 `hw3.py --q 4 --seed 0` 的第 0 句**（`torch.manual_seed(0)`、新 cache、先抽 20 句 top-k 再抽 top-p，與 hw3.py 同一個亂數流；兩句都和 logs/run_q4_seed0.txt 第 0 句逐字相同）：
+  - top_k=2：19 個新 token，`▁`、`\n\n`、He、▁is、▁highly、▁regarded、▁as、▁a、▁top、▁expert、▁in、▁machine、▁learning、▁education、`.`、`▁`、`\n`、`<end_of_turn>`、`<eos>`。每一步都留 2 個。抽到非第 1 名的步：step 2 抽 He（原 0.1442、重新正規化 0.1755；第 1 名 Professor 0.6770）、step 8 抽 ▁top（0.1338／0.1733；第 1 名 ▁leading 0.6384）、step 9 抽 ▁expert（0.3530／0.4766；第 1 名 `-` 0.3877）。
+  - top_p=0.6：20 個新 token，`Professor Lee is highly regarded as a leading expert in machine learning education.`。只有 step 0（`▁` 0.5430）、step 7（▁as 0.5146）、step 9（▁leading 0.5978）留 2 個，其餘 17 步只留 1 個（等於 greedy），三步都抽到第 1 名。
+  - **R3 的實況**：`<end_of_turn>`（107）之後沒有停，下一步模型以機率 1.0000 生成 `<eos>`（1）才停。top_k=2 的 20 句新 token 數：19, 27, 21, 28, 19, 20, 20, 19, 23, 21, 18, 27, 25, 28, 22, 17, 20, 30, 30, 23；19 句最後一個是 `<eos>`，第 17 句在第 30 個 token 剛好是 `<end_of_turn>`（碰到上限）。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -879,6 +899,7 @@
 - review_ch03_q3.txt：`hw3.py --q 3 --sentence ...` 四句的逐字輸出（中文、you and you、Google 加空白、數字）。
 - facts_pre_ch03.txt：`hw03_facts.py pre_ch03` 的輸出與 byte fallback 的補充。
 - review_ch03.txt：ch03 審稿補測（shell 引號、argparse 錯誤、`hw03_facts.py review_ch03` 的輸出）。
+- facts_pre_ch04.txt：`hw03_facts.py pre_ch04` 的輸出（過濾器作用在 Q2 第 1 輪與 Q4 第一步、逐步重現 Q4 第 0 句）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

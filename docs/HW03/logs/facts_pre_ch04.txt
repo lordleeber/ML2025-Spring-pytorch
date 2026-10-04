@@ -1,0 +1,64 @@
+load_model 2.6s
+
+==================== pre_ch04 ====================
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+--- Q2 round 1 (as hw3.py, double <bos>): raw top-10 'Indigo' 0.3068, 'Green' 0.2624, 'Red' 0.2012, 'Orange' 0.1320, 'Violet' 0.0409, 'Blue' 0.0226, 'orange' 0.0080, 'Purple' 0.0056, 'green' 0.0042, 'indigo' 0.0036
+  top_k=2                            keeps   2 tokens, raw mass 0.5692; renormalized: 'Indigo' 0.5390, 'Green' 0.4610
+  top_k=200                          keeps 200 tokens, raw mass 1.0000; renormalized: 'Indigo' 0.3068, 'Green' 0.2624, 'Red' 0.2012, 'Orange' 0.1320, 'Violet' 0.0409
+  top_p=0.6 (+ default top_k=50)     keeps   3 tokens, raw mass 0.7704; renormalized: 'Indigo' 0.3982, 'Green' 0.3406, 'Red' 0.2612
+  top_p=0.999 (+ default top_k=50)   keeps  32 tokens, raw mass 0.9986; renormalized: 'Indigo' 0.3072, 'Green' 0.2628, 'Red' 0.2015, 'Orange' 0.1321, 'Violet' 0.0409
+  top_p=0.999, top_k=0               keeps  38 tokens, raw mass 0.9990; renormalized: 'Indigo' 0.3071, 'Green' 0.2627, 'Red' 0.2014, 'Orange' 0.1321, 'Violet' 0.0409
+  top_k=1                            keeps   1 tokens, raw mass 0.3068; renormalized: 'Indigo' 1.0000
+  top_p=0 (+ default top_k=50)       keeps   1 tokens, raw mass 0.3068; renormalized: 'Indigo' 1.0000
+--- Q4 prompt, first new token: raw top-10 ' ' 0.5430, '\n\n' 0.2410, '  ' 0.1439, ' He' 0.0219, ' Professor' 0.0193, ' His' 0.0060, ' Lee' 0.0030, '   ' 0.0029, '\n' 0.0017, ' This' 0.0013
+  top_k=2                            keeps   2 tokens, raw mass 0.7840; renormalized: ' ' 0.6926, '\n\n' 0.3074
+  top_k=200                          keeps 200 tokens, raw mass 0.9981; renormalized: ' ' 0.5441, '\n\n' 0.2414, '  ' 0.1442, ' He' 0.0219, ' Professor' 0.0194
+  top_p=0.6 (+ default top_k=50)     keeps   2 tokens, raw mass 0.7840; renormalized: ' ' 0.6926, '\n\n' 0.3074
+  top_p=0.999 (+ default top_k=50)   keeps  39 tokens, raw mass 0.9944; renormalized: ' ' 0.5461, '\n\n' 0.2423, '  ' 0.1447, ' He' 0.0220, ' Professor' 0.0194
+  top_p=0.999, top_k=0               keeps 607 tokens, raw mass 0.9990; renormalized: ' ' 0.5436, '\n\n' 0.2412, '  ' 0.1440, ' He' 0.0219, ' Professor' 0.0193
+  top_k=1                            keeps   1 tokens, raw mass 0.5430; renormalized: ' ' 1.0000
+  top_p=0 (+ default top_k=50)       keeps   1 tokens, raw mass 0.5430; renormalized: ' ' 1.0000
+--- top_k=2, sentence 0 (seed 0): 19 new tokens; decoded ' \n\nHe is highly regarded as a top expert in machine learning education. \n'
+  step  0: picked '▁'              raw p 0.5430 renorm 0.6926 | kept  2 | raw top-1 '▁' 0.5430
+  step  1: picked '\n\n'           raw p 0.8960 renorm 0.9047 | kept  2 | raw top-1 '\n\n' 0.8960
+  step  2: picked 'He'             raw p 0.1442 renorm 0.1755 | kept  2 | raw top-1 'Professor' 0.6770
+  step  3: picked '▁is'            raw p 0.8971 renorm 0.9173 | kept  2 | raw top-1 '▁is' 0.8971
+  step  4: picked '▁highly'        raw p 0.6378 renorm 0.8129 | kept  2 | raw top-1 '▁highly' 0.6378
+  step  5: picked '▁regarded'      raw p 0.8236 renorm 0.8872 | kept  2 | raw top-1 '▁regarded' 0.8236
+  step  6: picked '▁as'            raw p 0.5444 renorm 0.6584 | kept  2 | raw top-1 '▁as' 0.5444
+  step  7: picked '▁a'             raw p 0.7180 renorm 0.7800 | kept  2 | raw top-1 '▁a' 0.7180
+  step  8: picked '▁top'           raw p 0.1338 renorm 0.1733 | kept  2 | raw top-1 '▁leading' 0.6384
+  step  9: picked '▁expert'        raw p 0.3530 renorm 0.4766 | kept  2 | raw top-1 '-' 0.3877
+  step 10: picked '▁in'            raw p 0.9329 renorm 0.9519 | kept  2 | raw top-1 '▁in' 0.9329
+  step 11: picked '▁machine'       raw p 0.7571 renorm 0.7663 | kept  2 | raw top-1 '▁machine' 0.7571
+  step 12: picked '▁learning'      raw p 0.9996 renorm 0.9999 | kept  2 | raw top-1 '▁learning' 0.9996
+  step 13: picked '▁education'     raw p 0.6734 renorm 0.8723 | kept  2 | raw top-1 '▁education' 0.6734
+  step 14: picked '.'              raw p 0.8034 renorm 0.8977 | kept  2 | raw top-1 '.' 0.8034
+  step 15: picked '▁'              raw p 0.8353 renorm 0.9086 | kept  2 | raw top-1 '▁' 0.8353
+  step 16: picked '\n'             raw p 0.9979 renorm 0.9989 | kept  2 | raw top-1 '\n' 0.9979
+  step 17: picked '<end_of_turn>'  raw p 0.9998 renorm 0.9999 | kept  2 | raw top-1 '<end_of_turn>' 0.9998
+  step 18: picked '<eos>'          raw p 1.0000 renorm 1.0000 | kept  2 | raw top-1 '<eos>' 1.0000
+--- top_p=0.6, sentence 0 (after the 20 top-k samples): 20 new tokens; decoded ' \n\nProfessor Lee is highly regarded as a leading expert in machine learning education. \n'
+  step  0: picked '▁'              raw p 0.5430 renorm 0.6926 | kept  2 | raw top-1 '▁' 0.5430
+  step  1: picked '\n\n'           raw p 0.8960 renorm 1.0000 | kept  1 | raw top-1 '\n\n' 0.8960
+  step  2: picked 'Professor'      raw p 0.6770 renorm 1.0000 | kept  1 | raw top-1 'Professor' 0.6770
+  step  3: picked '▁Lee'           raw p 0.8683 renorm 1.0000 | kept  1 | raw top-1 '▁Lee' 0.8683
+  step  4: picked '▁is'            raw p 0.8195 renorm 1.0000 | kept  1 | raw top-1 '▁is' 0.8195
+  step  5: picked '▁highly'        raw p 0.7058 renorm 1.0000 | kept  1 | raw top-1 '▁highly' 0.7058
+  step  6: picked '▁regarded'      raw p 0.8572 renorm 1.0000 | kept  1 | raw top-1 '▁regarded' 0.8572
+  step  7: picked '▁as'            raw p 0.5146 renorm 0.5851 | kept  2 | raw top-1 '▁as' 0.5146
+  step  8: picked '▁a'             raw p 0.6478 renorm 1.0000 | kept  1 | raw top-1 '▁a' 0.6478
+  step  9: picked '▁leading'       raw p 0.5978 renorm 0.8289 | kept  2 | raw top-1 '▁leading' 0.5978
+  step 10: picked '▁expert'        raw p 0.8170 renorm 1.0000 | kept  1 | raw top-1 '▁expert' 0.8170
+  step 11: picked '▁in'            raw p 0.9397 renorm 1.0000 | kept  1 | raw top-1 '▁in' 0.9397
+  step 12: picked '▁machine'       raw p 0.8417 renorm 1.0000 | kept  1 | raw top-1 '▁machine' 0.8417
+  step 13: picked '▁learning'      raw p 0.9998 renorm 1.0000 | kept  1 | raw top-1 '▁learning' 0.9998
+  step 14: picked '▁education'     raw p 0.6699 renorm 1.0000 | kept  1 | raw top-1 '▁education' 0.6699
+  step 15: picked '.'              raw p 0.9426 renorm 1.0000 | kept  1 | raw top-1 '.' 0.9426
+  step 16: picked '▁'              raw p 0.8739 renorm 1.0000 | kept  1 | raw top-1 '▁' 0.8739
+  step 17: picked '\n'             raw p 0.9972 renorm 1.0000 | kept  1 | raw top-1 '\n' 0.9972
+  step 18: picked '<end_of_turn>'  raw p 0.9998 renorm 1.0000 | kept  1 | raw top-1 '<end_of_turn>' 0.9998
+  step 19: picked '<eos>'          raw p 1.0000 renorm 1.0000 | kept  1 | raw top-1 '<eos>' 1.0000
+top_k=2 20 sentences: new-token counts [19, 27, 21, 28, 19, 20, 20, 19, 23, 21, 18, 27, 25, 28, 22, 17, 20, 30, 30, 23]; last token ['<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<eos>', '<end_of_turn>', '<eos>', '<eos>']
+[pre_ch04 took 14.5s]
