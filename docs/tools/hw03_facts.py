@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1131,6 +1131,66 @@ def review_ch04_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch06 prep: left padding vs single sentences, pad positions, word-position vectors, t-SNE settings
+def pre_ch06_facts(tokenizer, model):
+    import sklearn
+    from sklearn.manifold import TSNE
+
+    section("pre_ch06")
+    sentences = ["I ate a fresh apple.", "Apple released the new iPhone.", "I peeled an orange and ate it.",
+                 "The Orange network has great coverage.", "Microsoft announced a new update.", "Banana is my favorite fruit."]
+    labels = ["Apple(f)", "Apple(c)", "Orange(f)", "Orange(t)", "MS(c)", "Banana(f)"]
+    inputs = tokenizer(sentences, return_tensors="pt", padding=True, truncation=True).to(DEVICE)
+    with torch.no_grad():
+        out = model(**inputs, output_hidden_states=True)
+    H = out.hidden_states[-1].float()
+    mask = inputs.attention_mask.bool()
+    print("attention_mask rows:", inputs.attention_mask.tolist())
+    cos = torch.nn.functional.cosine_similarity
+    for i, s in enumerate(sentences):
+        single = tokenizer(s, return_tensors="pt").to(DEVICE)
+        with torch.no_grad():
+            h1 = model(**single, output_hidden_states=True).hidden_states[-1][0].float()
+        hb = H[i][mask[i]]
+        d = (hb - h1).abs().max().item()
+        print(f"{labels[i]:10s} pads {int((~mask[i]).sum())}: batch vs alone, real-token hidden max|diff| {d:.4f}, "
+              f"min per-token cosine {cos(hb, h1, dim=-1).min():.6f}; mean-pooled (pad incl.) vs alone cosine {cos(H[i].mean(0), h1.mean(0), dim=0):.6f}")
+    pads = H[~mask]
+    print(f"pad hidden states: {pads.shape[0]} vectors, norms {[round(x, 2) for x in pads.norm(dim=-1).tolist()]}, "
+          f"max|diff| between any pad vector and the first {(pads - pads[0]).abs().max():.4f}")
+    with torch.no_grad():
+        e = model.get_input_embeddings()(torch.tensor([[tokenizer.pad_token_id]], device=DEVICE)).float()[0, 0]
+    print(f"pad embedding row norm (x sqrt(2304) scaling not applied) {e.norm():.4f}")
+
+    # last-layer vector at the key word's own position
+    words = ["▁apple", "Apple", "▁orange", "▁Orange", "Microsoft", "Banana"]
+    vecs = []
+    for i, w in enumerate(words):
+        toks = tokenizer.convert_ids_to_tokens(inputs.input_ids[i])
+        j = toks.index(w)
+        vecs.append(H[i, j])
+        print(f"{labels[i]:10s} key token {w!r} at position {j}")
+    V = torch.stack(vecs)
+    M = cos(V[:, None], V[None], dim=-1)
+    print("cosine of key-word vectors (rows/cols " + ", ".join(labels) + "):")
+    for i in range(6):
+        print("  " + " ".join(f"{M[i, j]:.3f}" for j in range(6)))
+
+    print(f"sklearn {sklearn.__version__}")
+    emb = H.mean(dim=1).cpu().numpy()
+    t = TSNE(n_components=2, perplexity=2, random_state=42)
+    t.fit_transform(emb)
+    print(f"TSNE(perplexity=2, random_state=42): init={t.init!r} learning_rate={t.learning_rate!r} -> {t.learning_rate_:.3f}, "
+          f"max_iter={getattr(t, 'max_iter', None)}, n_iter_={t.n_iter_}, kl_divergence_={t.kl_divergence_:.4f}, metric={t.metric!r}")
+    for perp in [5, 6, 10]:
+        try:
+            TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(emb)
+            print(f"perplexity={perp}: ok")
+        except Exception as ex:
+            print(f"perplexity={perp}: {type(ex).__name__}: {ex}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1147,7 +1207,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

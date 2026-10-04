@@ -422,7 +422,7 @@
   - 實際 token 數：7、7、9、8、7、7。
   - 例：`['<pad>', '<pad>', '<bos>', 'I', '▁ate', '▁a', '▁fresh', '▁apple', '.']`。
 - **hidden_states**：`hidden_states[-1]` 是 (6, 9, 2304) fp16，經過最後 norm（見問題 5）。
-  - 第 0 句各位置的範數：pad 108.9、108.9；`<bos>` 98.7；其餘 106.6–150.4。
+  - 第 0 句各位置的範數：pad 108.9、108.9；`<bos>` 98.7；其餘 106.6–150.4。（pad 的範數每句不同，見「ch06 前置補測」。）
 - **餘弦相似度**（hw3.py 的作法，mean 包含 pad）：
 
   | | Apple(f) | Apple(c) | Orange(f) | Orange(t) | MS(c) | Banana(f) |
@@ -942,6 +942,21 @@
 - **6.22e-155 的拆解**：那一對的 p1..p4 = 4/12、1/11、0/10、0/9，BP = 1（hyp 12 個詞、ref 8 個）。method0 把兩個 0 換成 sys.float_info.min（2.2250738585072014e-308），exp(Σ 0.25·log p_i) = 6.223629500679345e-155，與 sentence_bleu 相同。完全沒有 1-gram 重疊時（例如 `a b c` 對 `x y z`）才真的回傳 0。
 - **`--q 4 1 --seed 0`**：Q4 先跑，self-BLEU 0.2029／0.5542，Q4 的 40 句與 logs/run_q4_seed0.txt 逐字相同。
 
+## ch06 前置補測（本機，2026-10-04；`hw03_facts.py pre_ch06`，logs/facts_pre_ch06.txt）
+
+- **attention_mask**（左邊補 pad）：`[0,0,1,…]`、`[0,0,1,…]`、全 1、`[0,1,…]`、`[0,0,1,…]`、`[0,0,1,…]`。
+- **batch 與單句的比較**（每句另外單獨 forward，不補 pad）：
+  - 真實 token 的最後一層 hidden state 幾乎相同：每個 token 的 cosine 都 ≥ 0.999998，max|diff| 0.0625–0.125（fp16 誤差）。
+  - transformers 4.47 Gemma2 的 `position_ids` 預設取 `cache_position`（modeling_gemma2.py:727–728），不看 attention_mask，所以補了 pad 的句子位置整體往後移 1–2 格。實測結果幾乎不變，推論是 RoPE 只取決於相對距離。
+  - 真正改變句子向量的是 mean pooling 把 pad 平均進去。hw3.py 的句子向量（含 pad 的平均）和單句平均的 cosine：Apple(f) 0.977、Apple(c) 0.972、Orange(f) 1.000（沒有 pad）、Orange(t) 0.994、MS 0.963、Banana 0.976。
+- **pad 位置的 hidden state 每句不同**：9 個 pad 向量的範數是 108.94、108.94（第 0 句）、115.31、115.31（第 1 句）、104.16（第 3 句）、120.86、120.86（第 4 句）、114.82、114.82（第 5 句）。同一句的兩個 pad 相同，不同句不同（最大差 19.97）。
+  - 原因（eager attention 實測）：pad 那一列的每一個 key 都被 mask，softmax 變成平均分配。第 0 句第 0 層、第 25 層 head 0 的 pad 位置，對 9 個位置的權重都是 0.1111，包括它「後面」的真實 token，所以 pad 向量帶有整句的內容。對照：`<bos>`（位置 2）只看自己，權重 1.0。
+- **只取關鍵字那個 token 的向量**（最後一層，在 batch 裡的位置：▁apple 7、Apple 3、▁orange 4、▁Orange 3、Microsoft 3、Banana 3）的 cosine：
+  - Apple(f)–Apple(c) **0.528**（整句平均是 0.757）；Apple(c)–MS **0.897**；Apple(f)–Orange(f) 0.831；Orange(t)–MS 0.606；Orange(f)–Orange(t) 0.497；Apple(c)–Banana 0.834；Banana–MS 0.791。
+  - 注意：第 0 句是小寫 `▁apple`、第 1 句是 `Apple`，兩個本來就是不同的 token（第 3 章）。
+- **sklearn 1.9.1 TSNE**（hw3.py 的設定 `perplexity=2, random_state=42`）：預設 `init='pca'`、`learning_rate='auto'`（實際 50.0）、`max_iter=1000`（`n_iter_` 999）、`metric='euclidean'`；`kl_divergence_` 0.0067。perplexity=5 可以跑；6 與 10 會丟出 `ValueError: perplexity (6) must be less than n_samples (6)`。
+- **hw3.py Q5 的警告**：`Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.`（logs/run_seed0.txt 第 218 行），來自 :269 的 `truncation=True` 沒給 `max_length`，沒有作用。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -977,6 +992,7 @@
 - facts_pre_ch05_selfbleu.txt：`docs/tools/hw03_selfbleu.py` 的輸出（從 log 重算 self-BLEU、句對統計、BLEU 拆解）。
 - review_ch05_noseed.txt：不給 `--seed` 連跑兩次 `hw3.py --q 4` 的前 3 句與分數。
 - review_ch05.txt：ch05 審稿補測（`--q 4 1 --seed 0`、6.22e-155 的拆解）。
+- facts_pre_ch06.txt：`hw03_facts.py pre_ch06` 的輸出（batch vs 單句、pad 向量與 pad 的 attention、關鍵字位置的向量、TSNE 設定）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

@@ -1,0 +1,40 @@
+load_model 6.3s
+
+==================== pre_ch06 ====================
+Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+attention_mask rows: [[0, 0, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1]]
+Apple(f)   pads 2: batch vs alone, real-token hidden max|diff| 0.0938, min per-token cosine 0.999999; mean-pooled (pad incl.) vs alone cosine 0.977408
+Apple(c)   pads 2: batch vs alone, real-token hidden max|diff| 0.1250, min per-token cosine 0.999999; mean-pooled (pad incl.) vs alone cosine 0.971559
+Orange(f)  pads 0: batch vs alone, real-token hidden max|diff| 0.0625, min per-token cosine 0.999999; mean-pooled (pad incl.) vs alone cosine 1.000000
+Orange(t)  pads 1: batch vs alone, real-token hidden max|diff| 0.1250, min per-token cosine 0.999999; mean-pooled (pad incl.) vs alone cosine 0.994289
+MS(c)      pads 2: batch vs alone, real-token hidden max|diff| 0.0625, min per-token cosine 0.999999; mean-pooled (pad incl.) vs alone cosine 0.962863
+Banana(f)  pads 2: batch vs alone, real-token hidden max|diff| 0.0625, min per-token cosine 0.999998; mean-pooled (pad incl.) vs alone cosine 0.976365
+pad hidden states: 9 vectors, norms [108.94, 108.94, 115.31, 115.31, 104.16, 120.86, 120.86, 114.82, 114.82], max|diff| between any pad vector and the first 19.9688
+pad embedding row norm (x sqrt(2304) scaling not applied) 3.2426
+Apple(f)   key token '▁apple' at position 7
+Apple(c)   key token 'Apple' at position 3
+Orange(f)  key token '▁orange' at position 4
+Orange(t)  key token '▁Orange' at position 3
+MS(c)      key token 'Microsoft' at position 3
+Banana(f)  key token 'Banana' at position 3
+cosine of key-word vectors (rows/cols Apple(f), Apple(c), Orange(f), Orange(t), MS(c), Banana(f)):
+  1.000 0.528 0.831 0.347 0.451 0.585
+  0.528 1.000 0.558 0.655 0.897 0.834
+  0.831 0.558 1.000 0.497 0.547 0.644
+  0.347 0.655 0.497 1.000 0.606 0.599
+  0.451 0.897 0.547 0.606 1.000 0.791
+  0.585 0.834 0.644 0.599 0.791 1.000
+sklearn 1.9.1
+TSNE(perplexity=2, random_state=42): init='pca' learning_rate='auto' -> 50.000, max_iter=1000, n_iter_=999, kl_divergence_=0.0067, metric='euclidean'
+perplexity=5: ok
+perplexity=6: ValueError: perplexity (6) must be less than n_samples (6)
+perplexity=10: ValueError: perplexity (10) must be less than n_samples (6)
+[pre_ch06 took 161.5s]
+
+==================== pre_ch06: pad 位置的 attention（eager） ====================
+layer 0, sentence 0, head 0, query position 0 (pad): [0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111]
+layer 0, sentence 0, head 0, query position 2 (<bos>): [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+layer 25, sentence 0, head 0, query position 0 (pad): [0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111]
+layer 25, sentence 0, head 0, query position 2 (<bos>): [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
