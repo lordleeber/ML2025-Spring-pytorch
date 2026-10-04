@@ -1023,12 +1023,26 @@
 - **兩個模型同時以 fp16 放在 GPU**：memory_allocated 9.74 GiB。
 - **速度不可引用**：第一版工具量速度時 GPU 同時有其他程序（量測前 68% utilization），只得到 15–19 tokens/s，與補充章 KV cache 不一致；工具已拿掉速度量測。要談速度，引用補充章 KV cache 的數字。
 
-## 圖檔清單（docs/HW03/img/，14 張）
+## ch07 前置補測（本機，2026-10-04；`hw03_facts.py pre_ch07` → logs/facts_pre_ch07.txt；logs/run_q6_controls.txt）
+
+- **對照組的 hw3.py 實際輸出圖**（大綱待補）：`hw3.py --q 6 --layer-idx 0 --head-idx 0` 與 `--layer-idx 25 --head-idx 0`，生成文字與預設 L10 H7 相同，矩陣 (22, 22)。圖已放進 img/q6_attention_L0_H0.png、img/q6_attention_L25_H0.png（標籤同樣錯位一格，R7）。
+- **hw3.py 的 22 個刻度標籤**（`tokenizer.tokenize(full_text)`，repr）：`'Google', '▁', '\n\n', '**', 'Google', '**', '▁is', '▁a', '▁multinational', '▁technology', '▁company', '▁that', '▁specializes', '▁in', '▁internet', '-', 'related', '▁services', '▁and', '▁products', '.', '▁'`。第 2 個是 `'\n\n'`，圖上畫出來是空白。
+- **矩陣真正的 22 列**：`<bos>`、Google、▁、`\n\n`、**、Google、**、▁is … ▁products、`.`（`generate` 的前 19 個新 token；Q6 迴圈生成的 20 個 token 與 `model.generate` greedy 完全相同）。
+- **新發現（候選 R11）：Q6 heatmap 的最後一列（第 21 列）是錯的**。
+  - 現象：把同樣 22 個 token 一次 forward，和 hw3.py 逐步累積的矩陣比，第 0–20 列每一層最多差 0.004（fp16 誤差），**第 21 列在每一層都差很多**：sliding 層（偶數）0.53–0.94，global 層（奇數）0.07–0.34。L10 H7 的第 21 列：一次 forward 給 `<bos>` 0.4929，hw3.py 只有 0.0594，argmax 也不同。
+  - 原因（transformers 4.47.0 `cache_utils.py` `HybridCache._sliding_update` :1664–1690）：:1677 `to_shift = cache_position >= max_cache_len - 1`，到了最後一格就把 sliding cache 整個往前捲一格（:1678–1680），最舊的那格（`<bos>`）被擠掉。Q6 配 `max_cache_len = 20 + 3 − 1 = 22`（hw3.py:320），最後一步寫入位置 21 = 22 − 1，剛好觸發。sliding layer 的 cache 長度是 min(4096, 22) = 22。global 層也受影響：同一步裡前面的 sliding 層已經算出不同的 hidden state。
+  - 驗證：同一個迴圈改配 23 格，22 列全部吻合（每層最多差 0.004）。照抄 hw3.py 迴圈的版本與 hw3.q6 畫的矩陣逐元素相同（logs/facts_pre_ch07.txt）。
+  - 不受影響的：生成的 20 個 token（與 `generate` 相同；`generate` 配 prompt + max_new_tokens = 23 格，不會觸發）。Q1 的 cache 544 = 32 + 512，最後一次 forward 寫在位置 542，也不觸發。
+  - 原版 Colab 第 28 格寫法相同（`total_tokens = generation_tokens + next_token_id.size(1) - 1`、`HybridCache(..., max_cache_len=total_tokens, ...)`），所以原版也有。
+  - 影響到既有的數字：FACTS「Q6 實測」L10 H7「第 1 列以後平均 0.373」與「每列最大值所在的欄」最後一個（6）都包含第 21 列；排除第 21 列或改用一次 forward 的值時要重算（一次 forward 的第 1–21 列 `<bos>` 平均 0.3941）。img/exp_q6_attention_true_labels.png 用的是同一個矩陣，最後一列同樣是錯的。
+
+## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
   - 來源指令：`.venv/bin/python HW03/hw3.py --seed 0`，2026-10-04，從 `HW03/outputs/` 複製。
   - 檔案：q2_round1_top_tokens.png、q2_round2_top_tokens.png、q2_round3_top_tokens.png、q5_tsne.png、q6_attention_L10_H7.png、q7_max_activation_a.png、q7_max_activation_b.png、q7_token_activations_L24.png、q7_layer_activations_tok1.png。
 - **hw3.py 換參數的輸出**（`--q 7 --sae-layer-idx 21 --token-idx 1 2 3`）：var_q7_token_activations_L21.png、var_q7_layer_activations_tok2.png、var_q7_layer_activations_tok3.png。
+- **hw3.py 換參數的輸出**（`--q 6 --layer-idx 0 --head-idx 0`、`--layer-idx 25 --head-idx 0`，logs/run_q6_controls.txt）：q6_attention_L0_H0.png、q6_attention_L25_H0.png（ch07 的對照組；最後一列同樣受 R11 候選影響）。
 - **facts 腳本的實驗圖**（不是 hw3.py 的輸出，教材要標明是「修正後的對照」）：exp_q5_tsne_masked.png、exp_q6_attention_true_labels.png。
 - **Q1、Q3、Q4 沒有圖**：純文字輸出。
 
@@ -1060,6 +1074,8 @@
 - review_ch05.txt：ch05 審稿補測（`--q 4 1 --seed 0`、6.22e-155 的拆解）。
 - facts_pre_ch06.txt：`hw03_facts.py pre_ch06` 的輸出（batch vs 單句、pad 向量與 pad 的 attention、關鍵字位置的向量、TSNE 設定）。
 - review_ch06.txt：ch06 審稿補測（hw3.py 與事實腳本的句子向量與 t-SNE 座標、6.6 的 masked mean 照字面跑）。
+- run_q6_controls.txt：`hw3.py --q 6 --layer-idx 0 --head-idx 0` 與 `--layer-idx 25 --head-idx 0` 的輸出。
+- facts_pre_ch07.txt：`hw03_facts.py pre_ch07` 的輸出（hw3.q6 的矩陣與標籤、與一次 forward 逐層逐列比較、多配一格的對照）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。

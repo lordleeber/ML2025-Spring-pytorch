@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1191,6 +1191,73 @@ def pre_ch06_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch07 prep: hw3.q6's own matrix vs one full forward, vs generate(); the tick labels it draws
+def pre_ch07_facts(tokenizer, model):
+    import argparse
+
+    section("pre_ch07")
+    got = {}
+    orig = hw3.plot_attention
+    hw3.plot_attention = lambda m, toks, title, fn: got.update(m=m, toks=toks, fn=fn)
+    try:
+        model._cache = None
+        hw3.q6(tokenizer, model, argparse.Namespace(layer_idx=10, head_idx=7))
+    finally:
+        hw3.plot_attention = orig
+    A, labels = got["m"], got["toks"]
+    print(f"matrix from hw3.q6: shape {A.shape}; {len(labels)} tick labels (repr): {labels}")
+    blank = [i for i, t in enumerate(labels) if not t.strip() or t in ("\n", "\n\n")]
+    print(f"labels that are only whitespace/newlines (drawn blank or as a bare line): positions {blank} -> {[labels[i] for i in blank]}")
+
+    ids = tokenizer("Google ", return_tensors="pt").input_ids.to(DEVICE)
+    model._cache = None
+    gen = model.generate(ids, attention_mask=torch.ones_like(ids), max_new_tokens=20, do_sample=False, pad_token_id=tokenizer.pad_token_id)
+    new = gen[0, ids.shape[1]:].tolist()
+    print(f"generate() greedy 20 tokens: {new}")
+    seq = gen[:, :ids.shape[1] + 19]  # the 22 tokens that the q6 loop actually fed to the model
+    print(f"rows of the q6 matrix = these 22 tokens: {tokenizer.convert_ids_to_tokens(seq[0].tolist())}")
+    with torch.no_grad():
+        out = model(seq, output_attentions=True)
+    F = out.attentions[10][0, 7].float().cpu().numpy()
+    print(f"one full forward over the same 22 tokens, layer 10 head 7: shape {F.shape}; max |q6 loop - full forward| {np.abs(A - F).max():.5f}; "
+          f"row argmax identical: {bool((A.argmax(1) == F.argmax(1)).all())}")
+    print(f"column 0 (<bos>) mean over rows 1..21: loop {A[1:, 0].mean():.4f}, full forward {F[1:, 0].mean():.4f}")
+
+    # replica of hw3.py:313-358 that keeps every layer's attention (same calls, same cache size)
+    from transformers import HybridCache
+
+    def loop(extra_slots=0):
+        inp = tokenizer("Google ", return_tensors="pt")
+        nxt, am = inp.input_ids.to(DEVICE), inp.attention_mask.to(DEVICE)
+        cp = torch.arange(am.shape[1], device=DEVICE)
+        cache = HybridCache(config=model.config, max_batch_size=1, max_cache_len=20 + nxt.size(1) - 1 + extra_slots, device=DEVICE, dtype=hw3.DTYPE)
+        rows, toks = [], []
+        for _ in range(20):
+            with torch.no_grad():
+                o = model(nxt, attention_mask=am, cache_position=cp, use_cache=True, past_key_values=cache, output_attentions=True)
+            rows.append(torch.stack([a[0].float() for a in o.attentions]))  # (26, 8, q, cache_len)
+            nxt = o.logits[:, -1, :].argmax(dim=-1)
+            toks.append(nxt.item())
+            am = torch.cat([am, torch.ones(1, 1, device=DEVICE)], dim=-1)
+            nxt = nxt.unsqueeze(0)
+            cache = o.past_key_values
+            cp = cp[-1:] + 1
+        return torch.cat(rows, dim=2).cpu().numpy(), toks
+
+    R, toks = loop()
+    print(f"replica: tokens identical to generate(): {toks == new}; layer 10 head 7 identical to hw3.q6's matrix: {np.array_equal(R[10, 7], A)}")
+    Fall = torch.stack([a[0].float() for a in out.attentions]).cpu().numpy()  # (26, 8, 22, 22)
+    for name, X in [("q6 cache (22 slots, as hw3.py)", R), ("one extra slot (23)", loop(1)[0][..., :22])]:
+        d = np.abs(X - Fall).max(axis=(1, 3))  # (26 layers, 22 rows)
+        bad_rows = sorted({int(r) for l in range(26) for r in np.where(d[l] > 0.01)[0]})
+        print(f"--- {name}: rows with max|diff| > 0.01 in any layer: {bad_rows}")
+        print("    max|diff| per layer, rows 0-20 / row 21: " + ", ".join(f"L{l}:{d[l, :21].max():.3f}/{d[l, 21]:.3f}" for l in range(26)))
+    r21 = R[10, 7, 21]
+    print(f"q6 row 21, layer 10 head 7: {np.round(r21, 4).tolist()}")
+    print(f"full forward row 21, layer 10 head 7: {np.round(Fall[10, 7, 21], 4).tolist()}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1207,7 +1274,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

@@ -1,0 +1,21 @@
+load_model 2.5s
+
+==================== pre_ch07 ====================
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+Generated text: 'Google \n\n**Google** is a multinational technology company that specializes in internet-related services and products. '
+Attention matrix shape: (22, 22)
+matrix from hw3.q6: shape (22, 22); 22 tick labels (repr): ['Google', '▁', '\n\n', '**', 'Google', '**', '▁is', '▁a', '▁multinational', '▁technology', '▁company', '▁that', '▁specializes', '▁in', '▁internet', '-', 'related', '▁services', '▁and', '▁products', '.', '▁']
+labels that are only whitespace/newlines (drawn blank or as a bare line): positions [2] -> ['\n\n']
+generate() greedy 20 tokens: [109, 688, 12583, 688, 603, 476, 97824, 6178, 3277, 674, 82044, 575, 9574, 235290, 10451, 3545, 578, 3773, 235265, 235248]
+rows of the q6 matrix = these 22 tokens: ['<bos>', 'Google', '▁', '\n\n', '**', 'Google', '**', '▁is', '▁a', '▁multinational', '▁technology', '▁company', '▁that', '▁specializes', '▁in', '▁internet', '-', 'related', '▁services', '▁and', '▁products', '.']
+one full forward over the same 22 tokens, layer 10 head 7: shape (22, 22); max |q6 loop - full forward| 0.43353; row argmax identical: False
+column 0 (<bos>) mean over rows 1..21: loop 0.3733, full forward 0.3941
+replica: tokens identical to generate(): True; layer 10 head 7 identical to hw3.q6's matrix: True
+--- q6 cache (22 slots, as hw3.py): rows with max|diff| > 0.01 in any layer: [21]
+    max|diff| per layer, rows 0-20 / row 21: L0:0.002/0.760, L1:0.001/0.223, L2:0.001/0.766, L3:0.002/0.129, L4:0.001/0.744, L5:0.002/0.216, L6:0.002/0.937, L7:0.002/0.113, L8:0.002/0.734, L9:0.002/0.273, L10:0.003/0.725, L11:0.003/0.201, L12:0.003/0.533, L13:0.002/0.110, L14:0.004/0.560, L15:0.002/0.101, L16:0.003/0.729, L17:0.003/0.074, L18:0.003/0.856, L19:0.002/0.149, L20:0.002/0.773, L21:0.002/0.309, L22:0.001/0.904, L23:0.003/0.341, L24:0.001/0.707, L25:0.001/0.251
+--- one extra slot (23): rows with max|diff| > 0.01 in any layer: []
+    max|diff| per layer, rows 0-20 / row 21: L0:0.002/0.000, L1:0.001/0.000, L2:0.001/0.000, L3:0.002/0.001, L4:0.001/0.001, L5:0.003/0.001, L6:0.002/0.001, L7:0.002/0.001, L8:0.002/0.001, L9:0.002/0.000, L10:0.002/0.002, L11:0.003/0.000, L12:0.003/0.002, L13:0.002/0.002, L14:0.004/0.002, L15:0.002/0.002, L16:0.003/0.001, L17:0.002/0.002, L18:0.003/0.002, L19:0.002/0.000, L20:0.002/0.001, L21:0.002/0.001, L22:0.002/0.000, L23:0.002/0.001, L24:0.002/0.001, L25:0.002/0.001
+q6 row 21, layer 10 head 7: [0.05939999967813492, 0.002099999925121665, 0.0820000022649765, 0.042399998754262924, 0.022700000554323196, 0.2619999945163727, 0.3109999895095825, 0.011699999682605267, 0.019899999722838402, 0.003100000089034438, 0.05460000038146973, 0.04919999837875366, 0.053199999034404755, 0.002400000113993883, 0.00019999999494757503, 0.0, 0.001500000013038516, 0.0003000000142492354, 0.0010000000474974513, 0.0003000000142492354, 0.0027000000700354576, 0.018300000578165054]
+full forward row 21, layer 10 head 7: [0.492900013923645, 0.02879999950528145, 0.0010000000474974513, 0.04390000179409981, 0.023499999195337296, 0.010700000450015068, 0.12030000239610672, 0.16060000658035278, 0.006800000090152025, 0.009600000455975533, 0.0012000000569969416, 0.02630000002682209, 0.030799999833106995, 0.03150000050663948, 0.0020000000949949026, 9.999999747378752e-05, 0.0, 0.000699999975040555, 0.00019999999494757503, 0.000699999975040555, 0.00019999999494757503, 0.00800000037997961]
+[pre_ch07 took 4.6s]

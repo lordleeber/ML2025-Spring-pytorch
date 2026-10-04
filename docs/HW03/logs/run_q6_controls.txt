@@ -1,0 +1,16 @@
+$ .venv/bin/python HW03/hw3.py --q 6 --layer-idx 0 --head-idx 0
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+
+############################## Q6 ##############################
+Generated text: 'Google \n\n**Google** is a multinational technology company that specializes in internet-related services and products. '
+Attention matrix shape: (22, 22)
+[saved] HW03/outputs/q6_attention_L0_H0.png
+
+$ .venv/bin/python HW03/hw3.py --q 6 --layer-idx 25 --head-idx 0
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+
+############################## Q6 ##############################
+Generated text: 'Google \n\n**Google** is a multinational technology company that specializes in internet-related services and products. '
+Attention matrix shape: (22, 22)
+[saved] HW03/outputs/q6_attention_L25_H0.png
+
