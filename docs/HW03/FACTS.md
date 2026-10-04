@@ -438,7 +438,7 @@
   - 同時排除 pad 和 `<bos>`：0.926、0.915、0.871、0.732。
   - **同一個字 Apple 的兩個意思，相似度（0.757）低於 Apple(c) 和 Microsoft（0.924）**：句子表示反映的是語境，不是字面。
 - **t-SNE**（`perplexity=2, random_state=42`；6 個點，perplexity 必須小於樣本數）：
-  - hw3 版本座標：Apple(f) (−150.2, −112.6)、Apple(c) (50.1, 97.7)、Orange(f) (−154.1, −148.4)、Orange(t) (10.7, 38.3)、MS (43.0, 64.4)、Banana (−121.0, −87.4)。
+  - 事實腳本版本座標（**不是 hw3.py 的**：事實腳本先轉 fp32 再平均，見「ch06 審稿補測」）：Apple(f) (−150.2, −112.6)、Apple(c) (50.1, 97.7)、Orange(f) (−154.1, −148.4)、Orange(t) (10.7, 38.3)、MS (43.0, 64.4)、Banana (−121.0, −87.4)。
   - 水果 3 個在左下，公司或電信 3 個在右上。
   - random_state 0、1、42、123 的最近鄰關係都一樣：Apple(f)↔Orange(f)、Apple(c)↔MS、Orange(t)→MS、Banana→Apple(f)。
   - t-SNE 座標的絕對值與軸向沒有意義，換 random_state 或排除 pad，座標就整個變了（masked 版的座標在 log），但分群關係不變。
@@ -957,6 +957,22 @@
 - **sklearn 1.9.1 TSNE**（hw3.py 的設定 `perplexity=2, random_state=42`）：預設 `init='pca'`、`learning_rate='auto'`（實際 50.0）、`max_iter=1000`（`n_iter_` 999）、`metric='euclidean'`；`kl_divergence_` 0.0067。perplexity=5 可以跑；6 與 10 會丟出 `ValueError: perplexity (6) must be less than n_samples (6)`。
 - **hw3.py Q5 的警告**：`Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.`（logs/run_seed0.txt 第 218 行），來自 :269 的 `truncation=True` 沒給 `max_length`，沒有作用。
 
+## ch06 寫作時查證的事項（雲端，2026-10-04）
+
+- **hw3.py 圖與事實腳本座標對不上**：FACTS「Q5 實測」記的 hw3 版 t-SNE 座標（Apple(f) (−150.2, −112.6) 等）來自事實腳本，和 img/q5_tsne.png（hw3.py --seed 0 的實際輸出）的座標範圍（從圖讀：x 約 −45 到 40、y 約 −55 到 26）不同；分群與最近鄰一致。exp_q5_tsne_masked.png 與 log 的 masked 座標一致。ch06 推論差異來自句子向量的數值細節（平均與轉 fp32 的順序），留了 TODO。 → 本機審稿已查明（fp16 平均 vs fp32 平均），見「ch06 審稿補測」。
+- **投影片 p.20（Q5，1 分）**：「Plotting the t-SNE 2-D Embeddings」，右邊示意圖寫「意思相近的 Token 會有接近的 Embedding」。三小題：(1) t-SNE 正確敘述選 2（0.4）、(2) 實驗的正確敘述（0.3）、(3) 實驗的錯誤敘述（0.3）。選項不在投影片裡。
+- **原版 Colab**：第 25 格是「## Q5: t-SNE」標題，第 26 格是整個 Q5（多 `model.to(device)` 與 import，`.cpu().numpy()` 沒有 `.float()`，`plt.show()`）；標題同樣是 "t-SNE Visualization of Word Embeddings"。
+- **從 log 讀出的（本書計算）**：三個版本（含 pad、排除 pad、再排除 `<bos>`）的 6 × 6 cosine 表，每句最近鄰都相同，且和四個 random_state 的 t-SNE 最近鄰相同。含 pad → 排除 pad：Apple(f)–Orange(f) +0.022（上升最多）、Apple(f)–Apple(c) −0.029（下降最多）。masked t-SNE 座標：Apple(f) 到 Orange(f) 約 11.7、到 Banana 約 15.7。
+- **ch06 標為推論的**：RoPE 只看相對距離所以平移不影響；pad 列全被遮時權重均分的數值原因（fp16 在 −65504 附近間距 32，蓋掉 ±50 的分數差）；同一句兩個 pad 相同的原因；`n_iter_` 999 是從 0 數的 1000 次；kl_divergence 0.0067 小並不意外。
+- **ch06 第一次交代的名詞**：mean pooling、sentence embedding（句子向量）、cosine 相似度、最近鄰、t-SNE（鄰居機率、perplexity、t 分佈）、PCA、`fit_transform`、KL divergence、`position_ids`／`cache_position`。
+
+## ch06 審稿補測（本機，2026-10-04；logs/review_ch06.txt）
+
+- **hw3.py 圖與事實腳本座標對不上的原因**：hw3.py:275 `hidden_states.mean(dim=1).float()`（在 fp16 裡平均），事實腳本 q5 段 `h.float().mean(1)`（先轉 fp32）。兩種句子向量最多差 0.01562（相對最大值 3.45e-4），餘弦矩陣最多差 0.00006。
+  - 同樣 `TSNE(perplexity=2, random_state=42)`：hw3.py 版座標 Apple(f) (−31.6, −54.9)、Apple(c) (39.0, 25.8)、Orange(f) (−44.7, −54.9)、Orange(t) (25.0, 4.0)、MS (36.6, 13.6)、Banana (−21.4, −45.4)，x −44.7..39.0、y −54.9..25.8，與 img/q5_tsne.png 相符（hw3.py 輸出的 png 與 img/ 那張 md5 相同）。事實腳本版 x −154.1..50.1、y −148.4..97.7。
+  - 兩者的最近鄰完全相同；同一個輸入連跑兩次座標逐位相同（t-SNE 在固定 random_state 下是確定的）。
+- **ch06 6.6 的 masked mean 兩行**（fp16 裡 `(hidden_states * mask).sum(dim=1) / mask.sum(dim=1)`）照字面跑：沒有溢位（|hidden| 最大 80.4、加總最大 407.0），與 fp32 版最多差 0.02232；cosine Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728；t-SNE 最近鄰與 hw3.py 相同。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -993,6 +1009,7 @@
 - review_ch05_noseed.txt：不給 `--seed` 連跑兩次 `hw3.py --q 4` 的前 3 句與分數。
 - review_ch05.txt：ch05 審稿補測（`--q 4 1 --seed 0`、6.22e-155 的拆解）。
 - facts_pre_ch06.txt：`hw03_facts.py pre_ch06` 的輸出（batch vs 單句、pad 向量與 pad 的 attention、關鍵字位置的向量、TSNE 設定）。
+- review_ch06.txt：ch06 審稿補測（hw3.py 與事實腳本的句子向量與 t-SNE 座標、6.6 的 masked mean 照字面跑）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
