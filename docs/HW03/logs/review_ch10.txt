@@ -1,0 +1,48 @@
+==================== review_ch10: 照 ch10 題庫的示意改 hw3.py 的暫存複本（repo 的 hw3.py 沒動）====================
+--- q1A: diff vs HW03/hw3.py
+77c77
+<     input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)
+---
+>     input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=not prompt.startswith(tokenizer.bos_token)).input_ids.to(DEVICE)
+79a80
+>     model._cache = None
+$ .venv/bin/python <暫存目錄>/hw3_q1A.py --q 1
+========== Coherence Score (with template) : 6.3992  ==========
+========== Coherence Score (without template) : 4.2210  ==========
+
+--- q1B: diff vs HW03/hw3.py
+77c77
+<     input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)
+---
+>     input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=not prompt.startswith(tokenizer.bos_token)).input_ids.to(DEVICE)
+$ .venv/bin/python <暫存目錄>/hw3_q1B.py --q 1
+========== Coherence Score (with template) : 6.3992  ==========
+========== Coherence Score (without template) : 4.2210  ==========
+
+--- q2: diff vs HW03/hw3.py
+139c139
+<         inputs = tokenizer(chat_template_format_prompt, return_tensors="pt").to(DEVICE)
+---
+>         inputs = tokenizer(chat_template_format_prompt, return_tensors="pt", add_special_tokens=False).to(DEVICE)
+161a162
+>         model._cache = None
+$ .venv/bin/python <暫存目錄>/hw3_q2.py --q 2
+Chatbot: Red 
+Chatbot: Orange 
+Chatbot: Yellow 
+
+--- q5: diff vs HW03/hw3.py
+275c275,277
+<     sentence_embeddings = hidden_states.mean(dim=1).float().cpu().numpy()
+---
+>     mask = inputs.attention_mask.unsqueeze(-1).to(hidden_states.dtype)   # (6, 9, 1)
+>     sentence_embeddings = ((hidden_states * mask).sum(dim=1) / mask.sum(dim=1)).float().cpu().numpy()
+>     from sklearn.metrics.pairwise import cosine_similarity; print(cosine_similarity(sentence_embeddings).round(3))
+$ .venv/bin/python <暫存目錄>/hw3_q5.py --q 5
+[[1.    0.728 0.924 0.797 0.746 0.879]
+ [0.728 1.    0.705 0.843 0.915 0.743]
+ [0.924 0.705 1.    0.792 0.728 0.872]
+ [0.797 0.843 0.792 1.    0.869 0.826]
+ [0.746 0.915 0.728 0.869 1.    0.767]
+ [0.879 0.743 0.872 0.826 0.767 1.   ]]
+

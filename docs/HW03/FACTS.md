@@ -1127,6 +1127,25 @@
 - HW03/outputs/ 重新產生的 9 張圖與 docs/HW03/img/ 的對應檔 md5 全部相同。
 - 給第 10 章：全書引用的 hw3.py 輸出，在同一台機器、同一套版本、同一條指令下可以逐字重現；換 GPU 或版本的情況本機沒有測（推論可能不同，見第 1、5 章）。
 
+## ch10 寫作時查證的事項（雲端，2026-10-04）
+
+- **ch10 沒有引用新的原始碼行號**；提到的 :77、:80、:139、:162、:208、:215、:231、:275、:320、:365、:393、:397、:400 都是前面各章逐字引用過的行（雲端以 grep 核對 HW03/hw3.py）。
+- **Q1 單 `<bos>` 的改法**：hw3.py:77 是 Q1 兩條路共用的 `tokenizer(prompt, ...)`；純文字那條本身沒有 `<bos>`，若兩條一起加 `add_special_tokens=False` 會變成沒有 `<bos>`。ch10 進階 1 給的示意是 `add_special_tokens=not prompt.startswith(tokenizer.bos_token)`，沒有照字面跑過（留了 TODO）；參考數字用「ch01 審稿補測」cache 表的「自己配置」欄（6.0734、6.3992、4.2210）。
+- **Q2 單 `<bos>` 的改法**：:139 加 `add_special_tokens=False`、:162 前 `model._cache = None`；參考數字是事實腳本的「ch02 審稿補測」（Red、Orange、Yellow），改 hw3.py 本身沒有跑過（留了 TODO）。
+- **哪些修法照字面跑過**（ch10 10.2 節的分類）：R5、R6 改 hw3.py 的複本照字面跑過（ch08 審稿）；R7、R8 的兩行在事實腳本裡照字面跑過（ch07、ch06 審稿），沒有跑改過的 hw3.py；R1（Q1、Q2）、R2（`top_k=0`，ch04 審稿用 hw3.py 的順序）、R3（eos `[1, 107]`）、R11 是事實腳本的等價實驗。進階 4「重畫後 y 軸第一個是 `<bos>`」是推論（只印過標籤清單）。
+- **計算值**：Q1 單 vs 雙 `<bos>` 的差：沿用 cache 6.1188 − 6.0734 ≈ 0.05、自己配置 6.3992 − 6.0734 ≈ 0.33。
+- **全景圖（圖 10.1）的對應**：Q6 的 `attentions[layer_idx]` 用的是 block 編號本身（attentions 沒有 embedding 那一格），hidden_states 才有「索引 = block + 1」的位移。
+- **ch10 第一次交代的名詞**：探針（probe，本書指「每一題觀察的位置」）、三級題庫（入門／進階／挑戰）。
+
+## ch10 審稿補測（本機，2026-10-04；logs/review_ch10.txt）
+
+照 ch10 題庫的示意改 hw3.py 的暫存複本（repo 的 hw3.py 沒動）：
+- **進階 1，Q1 單 `<bos>`**（:77 改成 `add_special_tokens=not prompt.startswith(tokenizer.bos_token)`）：
+  - 加上 :80 前的 `model._cache = None`：有 template 6.3992、沒有 template 4.2210。
+  - 不加：同樣是 6.3992、4.2210。沒有 template 那條路沿用有 template 配的 543 格時，分數與自己配 535 格相同（「ch01 審稿補測」表裡缺的那一格）。
+- **進階 2，Q2 單 `<bos>`**（:139 加 `add_special_tokens=False`，:162 前加 `model._cache = None`）：三輪 `Chatbot:` 依序 Red、Orange、Yellow。
+- **進階 3，Q5 排除 pad**（:275 換成 masked mean，並印 `cosine_similarity`）：Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728，與「ch06 審稿補測」相同。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1174,6 +1193,7 @@
 - run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
 - run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
 - rerun_seed0_check.txt：寫第 10 章前重跑 `hw3.py --seed 0` 與 run_seed0.txt 的比對結果（只差進度列；9 張圖 md5 相同）。
+- review_ch10.txt：ch10 審稿補測（題庫進階 1、2、3 照字面改 hw3.py 複本跑的結果）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
