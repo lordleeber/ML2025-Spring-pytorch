@@ -1146,6 +1146,14 @@
 - **進階 2，Q2 單 `<bos>`**（:139 加 `add_special_tokens=False`，:162 前加 `model._cache = None`）：三輪 `Chatbot:` 依序 Red、Orange、Yellow。
 - **進階 3，Q5 排除 pad**（:275 換成 masked mean，並印 `cosine_similarity`）：Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728，與「ch06 審稿補測」相同。
 
+## 附錄寫作時查證的事項（本機，2026-10-04；logs/sources_appendix.txt）
+
+- **paper reading 的三篇**：投影片 p.2 與 p.29 的超連結（讀 PDF 的 /URI 註記）指向 arXiv 1706.03762、2410.05258、2408.03314。arXiv API 的標題與第一作者：*Attention Is All You Need*（Vaswani，2017-06-12）、*Differential Transformer*（Ye，2024-10-07）、*Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters*（Snell，2024-08-06）。投影片 p.29 的寫法：「Attention is all you need」「DIFFERENTIAL TRANSFORMER」「Scaling LLM Test-Time」；p.2 寫「Diﬀerential Transformers」。
+- **題數**：投影片 p.29 寫「Answer Problem 8-9」，p.4 寫「read 3 papers and answer 8 problems」，p.32 寫「each question is worth 0.25 points」。8 × 0.25 = 2 分，對應學期成績 2%；附錄推論 Problem 8–9 兩大題底下合計 8 個小題。
+- **其他引用的 arXiv**：2309.17453（Xiao，2023-09-29）、2408.05147（Lieberum，2024-08-09）、2408.00118（Gemma Team，2024-07-31 首次提交；Gemma 補充章引用的是 v3）。
+- **附錄的內容全部取自前面各章與 FACTS**，沒有新的實測；冷讀 2 支（連續性 6 項、身分 26 項）回核後已處理，主要是補了七題一覽（A.2.0）、載入設定（A.2.3）、量測環境與 45.7 s 的組成、R／S 代號、工具的跑法與預期輸出。
+- **check_book.py 的章節順序**是依 index.html 裡連結出現的順序推的：index 第 1 節若連到 appendix.html，附錄會被排到第一個。所以第 1 節那句只寫「附錄的延伸閱讀（A.3 節）」，不放連結。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1194,6 +1202,7 @@
 - run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
 - rerun_seed0_check.txt：寫第 10 章前重跑 `hw3.py --seed 0` 與 run_seed0.txt 的比對結果（只差進度列；9 張圖 md5 相同）。
 - review_ch10.txt：ch10 審稿補測（題庫進階 1、2、3 照字面改 hw3.py 複本跑的結果）。
+- sources_appendix.txt：附錄延伸閱讀的出處（投影片超連結、arXiv API 的標題與作者）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
