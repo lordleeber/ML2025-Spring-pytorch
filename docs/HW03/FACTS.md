@@ -678,6 +678,17 @@
 - `Gemma2ForCausalLM`：`_tied_weights_keys = ["lm_head.weight"]`（:887）；final soft-cap 30 在 :993–996。
 - **原版 Colab 的格子編號**：ch00 與 index.html 一律「把 markdown 格也算進去、從 1 起算」：第 3 格 `!nvidia-smi`、第 5 格 `!pip install transformers==4.47.0`、第 7 格 `login("your_hf_token")`、第 10 格載入模型。上面「環境」一節寫的「Colab 第 4 格」是 0 起算的編號，指的是同一格（第 5 格）。
 
+## ch01 寫作時查證的事項（雲端，2026-10-04）
+
+- **投影片 p.12–13（Q1，1 分）**：三小題：(1) 兩個 coherence 分數（0.2 + 0.2，填空，「Error with 0.5 is accepted」）；(2) 哪個比較高（0.3，選擇）；(3) 從敘述裡選恰好 2 個正確的（0.3，選擇，選項不在投影片裡）。p.13 寫評分器的目的是「Calculate the coherence score between the question (prompt) and the model response」。
+- **原版 Colab 的 Q1 格子**（markdown 格也算、從 1 起算）：第 13 格載入評分模型與 `calculate_coherence`（全域變數當預設參數）；第 15 格 `generate_text_from_prompt`（TODO，函式沒有 `max_new_tokens` 參數，註解要求 `do_sample=False`）；第 16 格有 template；第 17 格沒有 template。
+- **TODO 註解寫「Q1.1 ~ 1.4」**（Colab 第 15 格、hw3.py:79），投影片只有三小題。
+- **事實腳本 q1 段的計數方式**（docs/tools/hw03_facts.py:152–167）：「words」是 `len(resp.split())`（條列的 `*` 也算一段）；「scorer tokens」是 `len(st(q, resp, truncation=True).input_ids)`，含評分器自己的特殊 token。
+- **Q1 留下的 cache 544 是第一次 generate 配置的**：第二次（沒有 template）只需 23 + 512 = 535 格，沿用既有的 544 格 cache（機制見「ch05 R10 的原因」）。
+- **generation_config**（logs/facts_env_model_tok.txt 第 47 行，model 段）沒有 `do_sample`、`max_length`，所以不寫時用 `GenerationConfig` 類別預設值（do_sample=False）。「原版 TODO 不給 max_new_tokens 會怎樣」沒有量，ch01 標了 TODO。
+- **ch01 第一次交代的名詞**：greedy、Jinja、`add_generation_prompt`、`generation_config`、cross-encoder／bi-encoder、BERT 類（encoder-only）、MS MARCO、MiniLM／蒸餾、logit vs 機率（sigmoid 計算值 6.0734 → 0.9977、5.0104 → 0.9934）。
+- **ch00 沒有特殊 token 表**：`<start_of_turn>`=106 等 id 是在 ch01 1.1.1 第一次列出的。
+
 ## ch00 審稿補測（本機，2026-10-04；logs/review_ch00_errors.txt）
 
 - **雲端從 GitHub v4.47.0 讀的 modeling_gemma2.py 行號**：本機 .venv 的檔案（1282 行）逐行核對，全部正確。
