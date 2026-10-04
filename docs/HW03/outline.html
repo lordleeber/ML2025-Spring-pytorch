@@ -589,7 +589,7 @@ footer.chap-footer {
 </style>
 </head>
 <body>
-<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">第 0 章 →</a></nav>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00a.html">補充章 Gemma →</a></nav>
 <header class="chap-header">
   <p class="book-title">ML2025 Spring HW03 教材</p>
   <h1>全書大綱</h1>
@@ -674,6 +674,21 @@ footer.chap-footer {
 </figure>
 
 <h2 id="chapters">3　各章大綱</h2>
+
+<!-- ======================= ch00a ======================= -->
+<div class="chap" id="ch00a">
+<h3>補充章　認識 Gemma-2-2b-it：這份作業拆的是什麼模型</h3>
+<dl>
+<dt>為什麼加這一章</dt>
+<dd>寫到第 6 章之後，應使用者要求加的。目錄頁與第 0 章都直接從載入模型開始，沒有交代模型的來歷：家族與發表時間、名字的意思、蒸餾與 post-training、技術報告的架構描述、pt 與 it 的差別、Gemma Scope。已寫成 <a href="ch00a.html">ch00a.html</a>，放在第 0 章之前。</dd>
+<dt>對應原始碼</dt>
+<dd>hw3.py:34–37（<code>MODEL_ID</code>、<code>DTYPE</code>）、:373–380（<code>load_sae</code>，pt 版的 Gemma Scope）。</dd>
+<dt>實測素材</dt>
+<dd>FACTS「Gemma 補充章（ch00a）的來源與實測」；logs/sources_gemma.txt（技術報告、模型卡、Gemma Scope、Google 部落格的原文摘錄）、logs/facts_gemma.txt（<code>docs/tools/hw03_gemma.py</code>：checkpoint、config、pt vs it 的權重與行為）。</dd>
+<dt>對後面章節的影響</dt>
+<dd>第 8、9 章講 Gemma Scope 時回指 G.8 節（SAE 在 pt 上訓練）；第 4 章 R3 的「<code>&lt;end_of_turn&gt;</code> 之後接 <code>&lt;eos&gt;</code>」在 G.4.2 節有技術報告的出處。</dd>
+</dl>
+</div>
 
 <!-- ======================= ch00 ======================= -->
 <div class="chap" id="ch00">
@@ -1037,7 +1052,7 @@ footer.chap-footer {
 </ul>
 
 </main>
-<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">第 0 章 →</a></nav>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00a.html">補充章 Gemma →</a></nav>
 <footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
 <script id="inline-js">
 /* repo → HTML 教材 — 頁面強化腳本
