@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07 review_ch07]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07 review_ch07 pre_ch08]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1323,6 +1323,51 @@ def review_ch07_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch08 prep: JumpReLU by hand, the shared <bos>, what feature 10004 writes back
+def pre_ch08_facts(tokenizer, model):
+    section("pre_ch08")
+    sae = _sae()
+    c = sae.cfg
+    print(f"cfg: architecture {c.architecture}, apply_b_dec_to_input {c.apply_b_dec_to_input}, normalize_activations {c.normalize_activations!r}, "
+          f"activation_fn {getattr(c, 'activation_fn_str', None)!r}, hook_layer {c.hook_layer}, dtype {sae.W_enc.dtype}")
+    f = 10004
+    print(f"feature {f}: threshold {sae.threshold[f].item():.4f}, b_enc {sae.b_enc[f].item():.4f}, |W_enc[:, f]| {sae.W_enc[:, f].norm():.4f}, |W_dec[f]| {sae.W_dec[f].norm():.4f}")
+
+    prompt = Q7_PROMPTS["c"]
+    ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)
+    toks = tokenizer.convert_ids_to_tokens(ids[0].tolist())
+    with torch.no_grad():
+        hs = model(ids, output_hidden_states=True).hidden_states
+        for idx in (20, 21):
+            x = hs[idx][0].to(sae.dtype)
+            pre = (x - sae.b_dec * c.apply_b_dec_to_input) @ sae.W_enc[:, f] + sae.b_enc[f]
+            by_hand = torch.relu(pre) * (pre > sae.threshold[f])
+            enc = sae.encode(hs[idx])[0, :, f]
+            print(f"--- hidden_states[{idx}], prompt c: by hand == sae.encode: {torch.allclose(by_hand, enc, atol=1e-3)}")
+            for t, p_, e in zip(toks, pre.tolist(), enc.tolist()):
+                tag = "kept" if e > 0 else ("pre>0 but below threshold" if p_ > 0 else "pre<=0")
+                print(f"    {t!r:>14} pre {p_:8.3f} -> {e:8.4f}  ({tag})")
+            allpre = (x - sae.b_dec * c.apply_b_dec_to_input) @ sae.W_enc + sae.b_enc
+            relu_nz = (allpre > 0).sum(-1).float()
+            jump_nz = ((allpre > sae.threshold) & (allpre > 0)).sum(-1).float()
+            print(f"    all 16384 features, excluding <bos>: mean count with pre > 0 (plain ReLU would keep) {relu_nz[1:].mean():.1f}; "
+                  f"kept by JumpReLU (L0) {jump_nz[1:].mean():.1f}")
+
+        outs = {}
+        for k in ("a", "b"):
+            i2 = tokenizer.encode(Q7_PROMPTS[k], return_tensors="pt").to(DEVICE)
+            outs[k] = (i2, model(i2, output_hidden_states=True).hidden_states[20][0])
+        da = (outs["a"][1][0] - outs["b"][1][0]).abs().max().item()
+        print(f"prompt a and b: {outs['a'][0].shape[1]} and {outs['b'][0].shape[1]} tokens; hidden_states[20] at position 0 (<bos>) max|a - b| = {da}")
+        print(f"feature {f} at <bos>: a {sae.encode(outs['a'][1])[0, f].item():.4f}, b {sae.encode(outs['b'][1])[0, f].item():.4f}")
+
+        W_U = model.get_input_embeddings().weight.float()  # tied with lm_head
+        logit = W_U @ sae.W_dec[f].float()
+        tv, ti = torch.topk(logit, 12)
+        print("W_dec[10004] projected on the (tied) unembedding, top-12: " + ", ".join(f"{tokenizer.convert_ids_to_tokens(i)!r} {v:.3f}" for i, v in zip(ti.tolist(), tv.tolist())))
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1339,7 +1384,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts, "review_ch07": review_ch07_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts, "review_ch07": review_ch07_facts, "pre_ch08": pre_ch08_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

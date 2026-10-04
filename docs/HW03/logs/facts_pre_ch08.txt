@@ -1,0 +1,39 @@
+load_model 3.2s
+
+==================== pre_ch08 ====================
+cfg: architecture jumprelu, apply_b_dec_to_input False, normalize_activations None, activation_fn 'relu', hook_layer 20, dtype torch.float32
+feature 10004: threshold 7.1234, b_enc -2.2931, |W_enc[:, f]| 1.0315, |W_dec[f]| 1.0000
+--- hidden_states[20], prompt c: by hand == sae.encode: True
+           '<bos>' pre   31.742 ->  31.7425  (kept)
+            'Time' pre    2.637 ->   0.0000  (pre>0 but below threshold)
+         '▁travel' pre   58.063 ->  58.0631  (kept)
+           '▁will' pre   11.329 ->  11.3290  (kept)
+         '▁become' pre    9.600 ->   9.5996  (kept)
+              '▁a' pre   13.457 ->  13.4574  (kept)
+        '▁reality' pre   -0.681 ->   0.0000  (pre<=0)
+             '▁as' pre    3.201 ->   0.0000  (pre>0 but below threshold)
+     '▁technology' pre   -4.915 ->   0.0000  (pre<=0)
+      '▁continues' pre  -10.540 ->   0.0000  (pre<=0)
+             '▁to' pre    0.051 ->   0.0000  (pre>0 but below threshold)
+        '▁advance' pre   -6.890 ->   0.0000  (pre<=0)
+               '.' pre   11.205 ->  11.2049  (kept)
+    all 16384 features, excluding <bos>: mean count with pre > 0 (plain ReLU would keep) 354.6; kept by JumpReLU (L0) 60.9
+--- hidden_states[21], prompt c: by hand == sae.encode: True
+           '<bos>' pre   30.952 ->  30.9524  (kept)
+            'Time' pre    5.056 ->   0.0000  (pre>0 but below threshold)
+         '▁travel' pre   71.229 ->  71.2294  (kept)
+           '▁will' pre   13.525 ->  13.5252  (kept)
+         '▁become' pre    9.619 ->   9.6190  (kept)
+              '▁a' pre   17.889 ->  17.8892  (kept)
+        '▁reality' pre    5.217 ->   0.0000  (pre>0 but below threshold)
+             '▁as' pre   10.525 ->  10.5246  (kept)
+     '▁technology' pre   -7.287 ->   0.0000  (pre<=0)
+      '▁continues' pre  -10.851 ->   0.0000  (pre<=0)
+             '▁to' pre   -3.170 ->   0.0000  (pre<=0)
+        '▁advance' pre   -1.741 ->   0.0000  (pre<=0)
+               '.' pre   29.179 ->  29.1788  (kept)
+    all 16384 features, excluding <bos>: mean count with pre > 0 (plain ReLU would keep) 603.5; kept by JumpReLU (L0) 88.2
+prompt a and b: 22 and 22 tokens; hidden_states[20] at position 0 (<bos>) max|a - b| = 0.0
+feature 10004 at <bos>: a 31.7407, b 31.7407
+W_dec[10004] projected on the (tied) unembedding, top-12: '▁dimension' 0.315, '▁dimensional' 0.299, '▁dimensions' 0.278, '▁Dimension' 0.271, '▁portal' 0.269, 'dimension' 0.268, 'dimensional' 0.265, '▁multiverse' 0.264, '▁space' 0.264, '▁tele' 0.262, '▁Dimensional' 0.256, '▁Dimensions' 0.255
+[pre_ch08 took 5.1s]

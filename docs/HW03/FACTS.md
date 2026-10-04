@@ -1061,6 +1061,18 @@
 - **(22, 23) 矩陣配 22 個標籤**呼叫 `sns.heatmap`：不報錯，x、y 各畫 22 個刻度（最右一欄沒有標籤）。
 - **超出範圍的旗標**：`--layer-idx 26` → hw3.py:346 `IndexError: tuple index out of range`；`--head-idx 8` → `IndexError: index 8 is out of bounds for dimension 0 with size 8`；結束碼都是 1。
 
+## ch08 前置補測（本機，2026-10-04；`hw03_facts.py pre_ch08` → logs/facts_pre_ch08.txt）
+
+- **sae-lens 5.11.0 原始碼**（`.venv/lib/python3.12/site-packages/sae_lens/sae.py`）：`encode_jumprelu` :417–430（`hidden_pre = sae_in @ W_enc + b_enc`；輸出 `relu(hidden_pre) * (hidden_pre > threshold)`）；`process_sae_in` :444–451（轉成 SAE 的 dtype，最後 `sae_in - b_dec * apply_b_dec_to_input`）；`decode` :453–（`feature_acts @ W_dec + b_dec`）。architecture 為 jumprelu 時 `self.encode = self.encode_jumprelu`（:172–174）。
+- **這個 SAE 的設定**：apply_b_dec_to_input False（輸入不先減 b_dec）、normalize_activations None、activation_fn relu、hook_layer 20、float32。
+- **feature 10004 的參數**：threshold 7.1234、b_enc −2.2931、‖W_enc[:, 10004]‖ 1.0315、‖W_dec[10004]‖ 1.0000。
+- **手算 = sae.encode**（prompt c "Time travel will become a reality as technology continues to advance."）：
+  - hidden_states[20]（hw3.py 的位置）的預激活與輸出：`<bos>` 31.742→31.7425、Time 2.637→0（>0 但低於門檻）、▁travel 58.063→58.0631、▁will 11.329、▁become 9.600、▁a 13.457、▁reality −0.681→0、▁as 3.201→0（低於門檻）、▁technology −4.915、▁continues −10.540、▁to 0.051→0（低於門檻）、▁advance −6.890、`.` 11.205。
+  - hidden_states[21]（SAE 的位置）：`<bos>` 30.952、Time 5.056→0（低於門檻）、▁travel 71.229、▁will 13.525、▁become 9.619、▁a 17.889、▁reality 5.217→0（低於門檻）、▁as 10.525、▁technology −7.287、▁continues −10.851、▁to −3.170、▁advance −1.741、`.` 29.179。
+  - 16384 個 feature 裡，每個 token（不含 `<bos>`）預激活 > 0 的平均有 354.6 個（[20]）／603.5 個（[21]），JumpReLU 留下的只有 60.9／88.2 個（L0）。「一般 ReLU 會留下的」與「JumpReLU 留下的」差 5–7 倍。
+- **R6 的 `<bos>`**：prompt a 與 b 都是 22 個 token，hidden_states[20] 第 0 個位置（`<bos>`）逐元素完全相同（max|a − b| = 0.0），所以 feature 10004 在兩句的 `<bos>` 都是 31.7407。第一個位置在 causal attention 下只看得到自己，和後面接什麼句子無關。prompt c（13 個 token）的 `<bos>` 是 31.7425，差 0.002，是序列長度不同造成的 fp16 運算差異（補充章 K.8.1 同一類現象）。
+- **W_dec[10004] 投影到詞表**（用 it 模型的 embedding，tied，所以等於 lm_head；沒有經過最後的 norm 與 soft-cap）top-12：▁dimension 0.315、▁dimensional 0.299、▁dimensions 0.278、▁Dimension 0.271、▁portal 0.269、dimension 0.268、dimensional 0.265、▁multiverse 0.264、▁space 0.264、▁tele 0.262、▁Dimensional 0.256、▁Dimensions 0.255。和 Neuronpedia 的 positive logits（▁dimension 1.077、▁dimensional 0.983、▁space 0.921…）排序相近、數值尺度不同；Neuronpedia 怎麼算的（用哪個模型、是否經過 norm）本機沒有查證。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1102,6 +1114,7 @@
 - run_q6_controls.txt：`hw3.py --q 6 --layer-idx 0 --head-idx 0` 與 `--layer-idx 25 --head-idx 0` 的輸出。
 - facts_pre_ch07.txt：`hw03_facts.py pre_ch07` 的輸出（hw3.q6 的矩陣與標籤、與一次 forward 逐層逐列比較、多配一格的對照）。
 - review_ch07.txt：ch07 審稿補測（捲動後的 cache 內容、空格權重、R7 修法、(22, 23) 畫圖、超出範圍的旗標）。
+- facts_pre_ch08.txt：`hw03_facts.py pre_ch08` 的輸出（JumpReLU 手算、`<bos>` 在 a、b 相同、W_dec[10004] 投影到詞表）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
