@@ -1,0 +1,10 @@
+# 寫第 10 章前，用同一個環境重跑 .venv/bin/python HW03/hw3.py --seed 0，與 logs/run_seed0.txt 比對
+# 比對前兩邊都去掉：tqdm 進度列、Loading checkpoint 進度列、nltk 與 HybridCache 的警告、Asking to truncate 警告、空行、本機絕對路徑
+# 結果：原 log 201 行、重跑 203 行；diff 只有重跑多出的 2 行 tqdm 進度列（top-k、top-p），其餘逐行相同
+# 重跑 real 0m44.253s（原 log 45.7 s）
+# HW03/outputs/ 重新產生的 9 張圖與 docs/HW03/img/ 的 md5 全部相同：q2_round1–3_top_tokens、q5_tsne、q6_attention_L10_H7、q7_max_activation_a/b、q7_token_activations_L24、q7_layer_activations_tok1
+
+$ diff <(normalized run_seed0.txt) <(normalized rerun)
+118a119,120
+> top-k:   0%|          | 0/20 [00:00<?, ?it/s]top-k:   5%|▌         | 1/20 [00:00<00:09,  2.11it/s]top-k:  10%|█
+> top-p:   0%|          | 0/20 [00:00<?, ?it/s]top-p:   5%|▌         | 1/20 [00:00<00:09,  1.92it/s]top-p:  10%|█

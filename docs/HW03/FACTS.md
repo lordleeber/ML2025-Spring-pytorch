@@ -1121,6 +1121,12 @@
 
 - `hw3.py --q 7 --token-idx 0`：`Token 0 = '<bos>', activations per layer:` L0–L8 0.00、L9 9.56、L10 12.09、L11 15.35、L12 18.18、L13 22.22、L14 25.07、L15 26.21、L16 31.54、L17 32.02、L18 33.55、L19 33.08、L20 31.74、L21 30.95、L22 29.68、L23 28.24、L24 22.60、L25 15.31、L26 0.00；結束碼 0，存成 HW03/outputs/q7_layer_activations_tok0.png。與「Q7 實測」的 `<bos>` 一列一致。
 
+## 第 10 章前的全書重現檢查（本機，2026-10-04；logs/rerun_seed0_check.txt）
+
+- 寫完第 9 章後，用同一個環境重跑 `.venv/bin/python HW03/hw3.py --seed 0`，與最早的 logs/run_seed0.txt 比對（兩邊都去掉進度列、警告、空行與絕對路徑）：除了 2 行 tqdm 進度列，**七題的輸出逐行相同**（含 Q1 的回答與 coherence、Q2 的 top-10、Q4 的 40 句與 self-BLEU 0.2020／0.5542、Q5、Q6、Q7 的數字）。real 44.3 s（原 45.7 s）。
+- HW03/outputs/ 重新產生的 9 張圖與 docs/HW03/img/ 的對應檔 md5 全部相同。
+- 給第 10 章：全書引用的 hw3.py 輸出，在同一台機器、同一套版本、同一條指令下可以逐字重現；換 GPU 或版本的情況本機沒有測（推論可能不同，見第 1、5 章）。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1167,6 +1173,7 @@
 - facts_pre_ch09.txt：`hw03_facts.py pre_ch09` 的輸出（SAE 在每一個 hidden_states 索引上的 FVU、L0、feature 10004 最大值）。
 - run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
 - run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
+- rerun_seed0_check.txt：寫第 10 章前重跑 `hw3.py --seed 0` 與 run_seed0.txt 的比對結果（只差進度列；9 張圖 md5 相同）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
