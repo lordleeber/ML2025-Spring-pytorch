@@ -1,0 +1,258 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.82s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.25s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.49s/it]
+load_model 4.2s
+
+==================== perq ====================
+after load_model: allocated 4.87 GiB, reserved 5.06 GiB
+========== Prompt inputted to the model ==========
+ <bos><start_of_turn>user
+Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.<end_of_turn>
+<start_of_turn>model
+
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+========== Output ==========
+ Supervised and unsupervised learning are two fundamental types of machine learning. 
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them. 
+
+**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.
+
+**Key differences:**
+
+* **Labeling:** Supervised uses labeled data, unsupervised doesn't.
+* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.
+* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction. 
+
+
+Both types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data.
+========== Coherence Score (with template) : 6.0734  ==========
+
+========== Prompt inputted to the model ==========
+ Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.
+========== Output ==========
+ **Supervised Learning:**
+
+* **Labeled data:** Uses data with known outputs (labels) to train models.
+* **Goal:** Predict outputs for new, unseen data.
+* **Examples:** Image classification, spam detection, regression.
+
+**Unsupervised Learning:**
+
+* **Unlabeled data:** Uses data without known outputs to discover patterns.
+* **Goal:** Explore data, identify clusters, or reduce dimensionality.
+* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.
+
+In summary, supervised learning relies on labeled data to learn a mapping from input to output, while unsupervised learning uses unlabeled data to discover hidden structures and relationships.
+========== Coherence Score (without template) : 5.0104  ==========
+You: Name a color in a rainbow, please just answer in a word without any emoji.
+=== Prompt with chat template format inputted to the model on round 1 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+
+===============================================
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+Top-10 next tokens:
+          'Indigo'  0.3068
+           'Green'  0.2624
+             'Red'  0.2012
+          'Orange'  0.1320
+          'Violet'  0.0409
+            'Blue'  0.0226
+          'orange'  0.0080
+          'Purple'  0.0056
+           'green'  0.0042
+          'indigo'  0.0036
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q2_round1_top_tokens.png
+Chatbot: Indigo 
+
+
+You: That's great! Now, could you tell me another color that I can find in a rainbow?
+=== Prompt with chat template format inputted to the model on round 2 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+Indigo<end_of_turn>
+<start_of_turn>user
+That's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+          'Orange'  0.4887
+           'Green'  0.2168
+          'Violet'  0.1689
+             'Red'  0.0255
+          'Purple'  0.0175
+            'Blue'  0.0115
+          'Yellow'  0.0113
+          'orange'  0.0063
+            'Teal'  0.0059
+         ' Orange'  0.0056
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q2_round2_top_tokens.png
+Chatbot: Orange 
+
+
+You: Could you continue and name yet another color from the rainbow?
+=== Prompt with chat template format inputted to the model on round 3 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+Indigo<end_of_turn>
+<start_of_turn>user
+That's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>
+<start_of_turn>model
+Orange<end_of_turn>
+<start_of_turn>user
+Could you continue and name yet another color from the rainbow?<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+           'Green'  0.5125
+          'Yellow'  0.2659
+             'Red'  0.0978
+          'Violet'  0.0786
+          'Purple'  0.0212
+            'Blue'  0.0063
+            'Gold'  0.0044
+         'Scarlet'  0.0021
+             'Ver'  0.0012
+         'Magenta'  0.0008
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q2_round3_top_tokens.png
+Chatbot: Green 
+
+
+Token: I, token index: 235285
+Token: ▁love, token index: 2182
+Token: ▁taking, token index: 4998
+Token: ▁a, token index: 476
+Token: ▁Machine, token index: 13403
+Token: ▁Learning, token index: 14715
+Token: ▁course, token index: 3205
+Token: ▁by, token index: 731
+Token: ▁Professor, token index: 11325
+Token: ▁Hung, token index: 18809
+Token: -, token index: 235290
+Token: yi, token index: 12636
+Token: ▁Lee, token index: 9201
+Token: ,, token index: 235269
+Token: ▁What, token index: 2439
+Token: ▁about, token index: 1105
+Token: ▁you, token index: 692
+Token: ?, token index: 235336
+top-k:   0%|          | 0/20 [00:00<?, ?it/s]top-k:   5%|▌         | 1/20 [00:00<00:09,  2.10it/s]top-k:  10%|█         | 2/20 [00:01<00:10,  1.72it/s]top-k:  15%|█▌        | 3/20 [00:01<00:09,  1.82it/s]top-k:  20%|██        | 4/20 [00:02<00:09,  1.65it/s]top-k:  25%|██▌       | 5/20 [00:02<00:08,  1.80it/s]top-k:  30%|███       | 6/20 [00:03<00:07,  1.88it/s]top-k:  35%|███▌      | 7/20 [00:03<00:06,  1.92it/s]top-k:  40%|████      | 8/20 [00:04<00:06,  1.99it/s]top-k:  45%|████▌     | 9/20 [00:04<00:05,  1.91it/s]top-k:  50%|█████     | 10/20 [00:05<00:05,  1.92it/s]top-k:  55%|█████▌    | 11/20 [00:05<00:04,  2.02it/s]top-k:  60%|██████    | 12/20 [00:06<00:04,  1.83it/s]top-k:  65%|██████▌   | 13/20 [00:07<00:03,  1.77it/s]top-k:  70%|███████   | 14/20 [00:07<00:03,  1.68it/s]top-k:  75%|███████▌  | 15/20 [00:08<00:02,  1.70it/s]top-k:  80%|████████  | 16/20 [00:08<00:02,  1.86it/s]top-k:  85%|████████▌ | 17/20 [00:09<00:01,  1.91it/s]top-k:  90%|█████████ | 18/20 [00:09<00:01,  1.70it/s]top-k:  95%|█████████▌| 19/20 [00:10<00:00,  1.58it/s]top-k: 100%|██████████| 20/20 [00:11<00:00,  1.63it/s]top-k: 100%|██████████| 20/20 [00:11<00:00,  1.78it/s]
+top-p:   0%|          | 0/20 [00:00<?, ?it/s]top-p:   5%|▌         | 1/20 [00:00<00:09,  1.91it/s]top-p:  10%|█         | 2/20 [00:01<00:09,  1.98it/s]top-p:  15%|█▌        | 3/20 [00:01<00:08,  2.01it/s]top-p:  20%|██        | 4/20 [00:01<00:07,  2.02it/s]top-p:  25%|██▌       | 5/20 [00:02<00:08,  1.73it/s]top-p:  30%|███       | 6/20 [00:03<00:07,  1.82it/s]top-p:  35%|███▌      | 7/20 [00:03<00:06,  1.94it/s]top-p:  40%|████      | 8/20 [00:04<00:05,  2.03it/s]top-p:  45%|████▌     | 9/20 [00:04<00:05,  2.03it/s]top-p:  50%|█████     | 10/20 [00:05<00:05,  1.80it/s]top-p:  55%|█████▌    | 11/20 [00:05<00:04,  1.86it/s]top-p:  60%|██████    | 12/20 [00:07<00:05,  1.34it/s]top-p:  65%|██████▌   | 13/20 [00:08<00:06,  1.07it/s]top-p:  70%|███████   | 14/20 [00:08<00:04,  1.24it/s]top-p:  75%|███████▌  | 15/20 [00:09<00:03,  1.41it/s]top-p:  80%|████████  | 16/20 [00:10<00:02,  1.45it/s]top-p:  85%|████████▌ | 17/20 [00:10<00:02,  1.46it/s]top-p:  90%|█████████ | 18/20 [00:11<00:01,  1.61it/s]top-p:  95%|█████████▌| 19/20 [00:11<00:00,  1.59it/s]top-p: 100%|██████████| 20/20 [00:12<00:00,  1.57it/s]top-p: 100%|██████████| 20/20 [00:12<00:00,  1.60it/s]
+===== Top-K Sampling Output =====
+
+0. He is highly regarded as a top expert in machine learning education.
+1. Professor Lee is widely recognized as a leading expert in machine learning and is highly esteemed for his teaching skills.
+2. He is highly regarded as a leading expert in machine learning education and instruction.
+3. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in this field.
+4. Professor Lee is highly regarded as an expert in machine learning education.
+5. Professor Lee is widely recognized as a leading expert in machine learning education.
+6. Professor Lee is highly respected for his expertise in the field of machine learning.
+7. Professor Lee is highly regarded as a leading expert in machine learning education.
+8. Professor Lee is highly regarded for his expertise and teaching abilities in the field of machine learning.
+9. Professor Lee is highly regarded as an expert in machine learning and a skilled educator.
+10. He is highly regarded as a leading expert in machine learning education.
+11. Professor Lee is highly regarded for his expertise in machine learning and is considered a leading figure in the field.
+12. Professor Lee is widely recognized as an expert in machine learning, and his teaching abilities are exceptional.
+13. He is highly regarded as a leading expert in the field of machine learning, renowned for his exceptional teaching abilities.
+14. Professor Hung-yi Lee is highly regarded as a leading expert in machine learning education.
+15. He is highly respected for his expertise in machine learning education.
+16. Professor Lee's expertise in machine learning makes him a highly respected teacher.
+17. Professor Lee is widely recognized for his expertise in machine learning, and he is considered one of the leading educators in the field.
+18. Professor Lee is highly respected and recognized as an expert in the field of machine learning, making him one of the top educators.
+19. He is highly regarded for his expertise in machine learning and consistently delivers exceptional teaching experiences.
+
+===== Top-P Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded as a leading expert in machine learning education.
+3. Professor Lee is highly regarded as a leading expert in machine learning education.
+4. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in the field.
+5. Professor Lee is highly regarded as a leading expert in machine learning education.
+6. Professor Lee is highly regarded for his expertise in machine learning education.
+7. Professor Lee is highly regarded for his expertise in machine learning education.
+8. Professor Lee is highly regarded as a leading expert in machine learning education.
+9. Professor Lee is highly regarded for his expertise in machine learning and is considered one of the leading educators in the field.
+10. Professor Lee is highly regarded as a top expert in machine learning education.
+11. Professor Lee is highly regarded as a leading expert in machine learning education.
+12. Professor Lee is highly regarded as a leading expert in machine learning education.
+13. Professor Lee is highly regarded as a leading expert in machine learning education.
+14. Professor Lee is highly regarded as a leading expert in machine learning education.
+15. Professor Lee is highly regarded for his expertise in machine learning and is known for his exceptional teaching abilities.
+16. Professor Lee is highly regarded for his expertise in machine learning, making him a top teacher in the field.
+17. Professor Lee is highly regarded for his expertise in machine learning education.
+18. Professor Lee is highly regarded for his expertise in machine learning and is considered a top-tier educator.
+19. Professor Lee is highly regarded for his expertise in machine learning and is known for being an excellent teacher.
+
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 4-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 3-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning: 
+The hypothesis contains 0 counts of 2-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)
+self-BLEU Score for top_k (k=2): 0.2020
+self-BLEU Score for top_p (p=0.6): 0.5542
+Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q5_tsne.png
+Generated text: 'Google \n\n**Google** is a multinational technology company that specializes in internet-related services and products. '
+Attention matrix shape: (22, 22)
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q6_attention_L10_H7.png
+SAE(
+  (activation_fn): ReLU()
+  (hook_sae_input): HookPoint()
+  (hook_sae_acts_pre): HookPoint()
+  (hook_sae_acts_post): HookPoint()
+  (hook_sae_output): HookPoint()
+  (hook_sae_recons): HookPoint()
+  (hook_sae_error): HookPoint()
+) {'architecture': 'jumprelu', 'd_in': 2304, 'd_sae': 16384, 'dtype': 'float32', 'model_name': 'gemma-2-2b', 'hook_name': 'blocks.20.hook_resid_post', 'hook_layer': 20, 'hook_head_index': None, 'activation_fn_str': 'relu', 'finetuning_scaling_factor': False, 'sae_lens_training_version': None, 'prepend_bos': True, 'dataset_path': 'monology/pile-uncopyrighted', 'context_size': 1024, 'dataset_trust_remote_code': True, 'apply_b_dec_to_input': False, 'normalize_activations': None, 'device': 'cpu', 'neuronpedia_id': 'gemma-2-2b/20-gemmascope-res-16k'} None
+[Q7.1] Open in browser: https://neuronpedia.org/gemma-2-2b/20-gemmascope-res-16k/10004?embed=true&embedexplanation=true&embedplots=true&embedtest=true&height=300
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_max_activation_a.png
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 58.10378646850586
+max_activation for prompt_b: 31.740745544433594
+feature_acts shape: torch.Size([13, 16384])
+           '<bos>'  22.5960
+            'Time'  10.8022
+         '▁travel'  74.1713
+           '▁will'  24.2492
+         '▁become'  20.4319
+              '▁a'  19.4009
+        '▁reality'  13.2850
+             '▁as'  18.8962
+     '▁technology'  0.0000
+      '▁continues'  0.0000
+             '▁to'  0.0000
+        '▁advance'  7.2241
+               '.'  46.4142
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_token_activations_L24.png
+Token 1 = 'Time', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:0.00, L10:0.00, L11:8.58, L12:13.95, L13:15.92, L14:15.34, L15:12.07, L16:11.07, L17:8.72, L18:0.00, L19:0.00, L20:0.00, L21:0.00, L22:0.00, L23:0.00, L24:10.80, L25:10.19, L26:0.00
+[saved] /home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/HW03/outputs/q7_layer_activations_tok1.png
+
+--- per question (one process, model loaded once, --seed 0, default flags; Q1/Q7 time includes loading the scorer/SAE from cache)
+  Q1:   10.7 s, peak allocated 4.96 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q2:    0.8 s, peak allocated 5.08 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q3:    0.0 s, peak allocated 4.95 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q4:   23.8 s, peak allocated 4.97 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q5:    0.5 s, peak allocated 5.02 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q6:    0.7 s, peak allocated 4.96 GiB, allocated after 4.95 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  Q7:    2.5 s, peak allocated 5.26 GiB, allocated after 5.24 GiB, model._cache 0.054 GiB (max_cache_len 544)
+  total 39.0 s
+[perq took 39.0s]

@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -466,6 +466,177 @@ def q7_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# Review round 1 (outline TODOs): shapes, perq, q4steps, ptit, rescale26
+def shapes_facts(tokenizer, model):
+    section("shapes")
+    ids = tokenizer("Time travel will become a reality as technology continues to advance.", return_tensors="pt").input_ids.to(DEVICE)
+    print("input_ids", tuple(ids.shape), "(prompt c of Q7, with <bos>)")
+    seen = []
+
+    def hook(name):
+        def f(mod, inp, out):
+            o = out[0] if isinstance(out, tuple) else out
+            seen.append((name, tuple(inp[0].shape) if inp else None, tuple(o.shape), o.dtype))
+        return f
+
+    hs = []
+    for li in [0, 1]:
+        layer = model.model.layers[li]
+        mods = [("embed_tokens", model.model.embed_tokens)] if li == 0 else []
+        mods += [(f"layers[{li}].input_layernorm", layer.input_layernorm), (f"layers[{li}].self_attn.q_proj", layer.self_attn.q_proj),
+                 (f"layers[{li}].self_attn.k_proj", layer.self_attn.k_proj), (f"layers[{li}].self_attn.v_proj", layer.self_attn.v_proj),
+                 (f"layers[{li}].self_attn.o_proj", layer.self_attn.o_proj), (f"layers[{li}].self_attn", layer.self_attn),
+                 (f"layers[{li}].post_attention_layernorm", layer.post_attention_layernorm),
+                 (f"layers[{li}].pre_feedforward_layernorm", layer.pre_feedforward_layernorm),
+                 (f"layers[{li}].mlp.gate_proj", layer.mlp.gate_proj), (f"layers[{li}].mlp.up_proj", layer.mlp.up_proj),
+                 (f"layers[{li}].mlp.down_proj", layer.mlp.down_proj), (f"layers[{li}].post_feedforward_layernorm", layer.post_feedforward_layernorm),
+                 (f"layers[{li}]", layer)]
+        hs += [m.register_forward_hook(hook(n)) for n, m in mods]
+    hs.append(model.model.norm.register_forward_hook(hook("norm")))
+    hs.append(model.lm_head.register_forward_hook(hook("lm_head")))
+    with torch.no_grad():
+        out = model(ids, output_attentions=True, output_hidden_states=True)
+    for h in hs:
+        h.remove()
+    for name, i, o, dt in seen:
+        print(f"  {name:38s} in {i} -> out {o} {dt}")
+    print("attentions: len", len(out.attentions), "each", tuple(out.attentions[0].shape), out.attentions[0].dtype)
+    print("hidden_states: len", len(out.hidden_states), "each", tuple(out.hidden_states[0].shape))
+    print("logits", tuple(out.logits.shape), out.logits.dtype, f"max |logit| {out.logits.abs().max():.2f} (final soft-cap 30)")
+    print("past_key_values", type(out.past_key_values).__name__)
+    cfg = model.config
+    print(f"q_proj 2304->{cfg.num_attention_heads}x{cfg.head_dim}={cfg.num_attention_heads * cfg.head_dim}, "
+          f"k/v_proj 2304->{cfg.num_key_value_heads}x{cfg.head_dim}={cfg.num_key_value_heads * cfg.head_dim}, "
+          f"query_pre_attn_scalar {cfg.query_pre_attn_scalar}, sliding_window {cfg.sliding_window}")
+
+
+def perq_facts(tokenizer, model):
+    import argparse
+
+    section("perq")
+    args = argparse.Namespace(max_new_tokens=512, interactive=False, sentence="I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?",
+                              top_k=2, top_p=0.6, num_samples=20, layer_idx=10, head_idx=7, sae_layer_idx=24, token_idx=[1])
+    gib = 2**30
+    print(f"after load_model: allocated {torch.cuda.memory_allocated() / gib:.2f} GiB, reserved {torch.cuda.memory_reserved() / gib:.2f} GiB")
+    torch.manual_seed(0)
+    rows = []
+    for q, fn in hw3.QUESTIONS.items():
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        t0 = time.time()
+        fn(tokenizer, model, args)
+        torch.cuda.synchronize()
+        c = getattr(model, "_cache", None)  # generate() keeps its HybridCache on the model for reuse
+        cache = sum(t.numel() * t.element_size() for t in c.key_cache + c.value_cache) / gib if c is not None else 0.0
+        rows.append((q, time.time() - t0, torch.cuda.max_memory_allocated() / gib, torch.cuda.memory_allocated() / gib,
+                     cache, getattr(c, "max_cache_len", None)))
+    print("\n--- per question (one process, model loaded once, --seed 0, default flags; Q1/Q7 time includes loading the scorer/SAE from cache)")
+    for q, t, peak, after, cache, clen in rows:
+        print(f"  Q{q}: {t:6.1f} s, peak allocated {peak:.2f} GiB, allocated after {after:.2f} GiB, "
+              f"model._cache {cache:.3f} GiB (max_cache_len {clen})")
+    print(f"  total {sum(r[1] for r in rows):.1f} s")
+
+
+def q4steps_facts(tokenizer, model):
+    section("q4steps")
+    prompt = "Generate a paraphrase of the sentence 'Professor Hung-yi Lee is one of the best teachers in the domain of machine learning'. Just response with one sentence."
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    # identical to hw3.py:211-221 plus logits/scores output
+    generation_params = {
+        "do_sample": True,
+        "max_length": 30 + len(input_ids.input_ids[0]),
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+        "bos_token_id": tokenizer.bos_token_id,
+        "attention_mask": input_ids.attention_mask.to(DEVICE),
+        "use_cache": True,
+        "return_dict_in_generate": True,
+        "output_scores": True,
+        "output_logits": True,
+    }
+    for name, kw in [("top_k=2", dict(top_k=2)), ("top_p=0.6", dict(top_p=0.6)), ("top_p=0.999", dict(top_p=0.999)), ("top_k=200", dict(top_k=200))]:
+        torch.manual_seed(0)
+        top1, kept, steps, greedy_steps = [], [], 0, 0
+        for _ in range(20):
+            o = model.generate(input_ids=input_ids.input_ids.to(DEVICE), **kw, **generation_params)
+            for lg, sc in zip(o.logits, o.scores):
+                p = torch.softmax(lg[0].float(), -1)
+                top1.append(float(p.max()))
+                n = int(torch.isfinite(sc[0]).sum())
+                kept.append(n)
+                steps += 1
+                greedy_steps += n == 1
+        top1, kept = np.array(top1), np.array(kept)
+        print(f"{name}: {steps} sampling steps over 20 sentences; top-1 prob mean {top1.mean():.3f} median {np.median(top1):.3f}; "
+              f"steps with top-1 > 0.6: {(top1 > 0.6).sum()} ({(top1 > 0.6).mean():.1%}); "
+              f"steps where only 1 token survives filtering: {greedy_steps} ({greedy_steps / steps:.1%}); "
+              f"kept tokens per step mean {kept.mean():.2f} median {np.median(kept):.0f} max {kept.max()}")
+        print("   kept-token histogram:", {int(k): int(v) for k, v in zip(*np.unique(kept, return_counts=True))})
+
+
+def _sae():
+    from sae_lens import SAE
+
+    sae, _, _ = SAE.from_pretrained(release="gemma-scope-2b-pt-res-canonical", sae_id="layer_20/width_16k/canonical")
+    return sae.to(DEVICE)
+
+
+Q7_PROMPTS = {"a": "Time travel offers me the opportunity to correct past errors, but it comes with its own set of risks.",
+              "b": "I accept that my decisions shape my future, and though mistakes are inevitable, they define who I become.",
+              "c": "Time travel will become a reality as technology continues to advance."}
+
+
+def _sae_stats(sae, tokenizer, model, prompt, idx):
+    ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)
+    with torch.no_grad():
+        x = model(ids, output_hidden_states=True).hidden_states[idx].float()
+        fa = sae.encode(x)
+        rec = sae.decode(fa)
+    toks = tokenizer.convert_ids_to_tokens(ids[0].tolist())
+    v = fa[0, :, 10004].cpu().numpy()
+    fvu = float(((rec - x)[0, 1:] ** 2).sum() / ((x[0, 1:] - x[0, 1:].mean(0)) ** 2).sum())
+    l0 = float((fa[0, 1:] > 0).sum(-1).float().mean())
+    return toks, v, fvu, l0
+
+
+def ptit_facts(tokenizer, model):
+    from transformers import AutoModelForCausalLM
+
+    section("ptit")
+    sae = _sae()
+    t0 = time.time()
+    pt = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b", torch_dtype=hw3.DTYPE, device_map="cuda", attn_implementation="eager").eval()
+    print(f"loaded google/gemma-2-2b (pt) in {time.time() - t0:.1f}s")
+    for key, prompt in Q7_PROMPTS.items():
+        for idx in [20, 21, 24]:
+            for mname, m in [("it", model), ("pt", pt)]:
+                toks, v, fvu, l0 = _sae_stats(sae, tokenizer, m, prompt, idx)
+                print(f"prompt {key} hidden_states[{idx}] {mname}: FVU {fvu:.3f}, L0 {l0:.1f}; feature 10004 max {v.max():.4f} at {toks[int(v.argmax())]!r}, "
+                      f"max excl <bos> {v[1:].max():.4f}")
+                print("    " + ", ".join(f"{t}:{a:.2f}" for t, a in zip(toks, v)))
+    del pt
+    torch.cuda.empty_cache()
+
+
+def rescale26_facts(tokenizer, model):
+    section("rescale26")
+    sae = _sae()
+    ids = tokenizer(Q7_PROMPTS["c"], return_tensors="pt").input_ids.to(DEVICE)
+    with torch.no_grad():
+        hs = model(ids, output_hidden_states=True).hidden_states
+        h25, h26 = hs[25][0].float(), hs[26][0].float()
+        scaled = h26 * (h25.norm(dim=-1, keepdim=True) / h26.norm(dim=-1, keepdim=True))
+        rows = [("hidden_states[25]", h25), ("hidden_states[26] (as hw3.py)", h26), ("hidden_states[26] rescaled to [25]'s per-token norm", scaled)]
+        toks = tokenizer.convert_ids_to_tokens(ids[0].tolist())
+        for name, x in rows:
+            v = sae.encode(x)[:, 10004].cpu().numpy()
+            print(f"{name}: " + ", ".join(f"{t}:{a:.2f}" for t, a in zip(toks, v)))
+        print("per-token norm [25]:", [round(float(n)) for n in h25.norm(dim=-1)])
+        print("per-token norm [26]:", [round(float(n)) for n in h26.norm(dim=-1)])
+        print("cosine([25],[26]) per token:", [round(float(c), 3) for c in torch.nn.functional.cosine_similarity(h25, h26, dim=-1)])
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -480,7 +651,8 @@ def main():
         tokenizer, model = hw3.load_model()
         print(f"load_model {time.time() - t0:.1f}s")
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
-              "q5": q5_facts, "q6": q6_facts, "q7": q7_facts}
+              "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
+              "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

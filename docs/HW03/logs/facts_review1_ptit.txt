@@ -1,0 +1,46 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.15s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.75it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.51it/s]
+load_model 2.5s
+
+==================== ptit ====================
+Downloading shards:   0%|          | 0/3 [00:00<?, ?it/s]Downloading shards:  33%|███▎      | 1/3 [24:58<49:56, 1498.13s/it]Downloading shards:  67%|██████▋   | 2/3 [50:14<25:09, 1509.05s/it]Downloading shards: 100%|██████████| 3/3 [52:40<00:00, 886.55s/it] Downloading shards: 100%|██████████| 3/3 [52:40<00:00, 1053.54s/it]
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:02<00:04,  2.38s/it]Loading checkpoint shards:  67%|██████▋   | 2/3 [00:03<00:01,  1.91s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:04<00:00,  1.14s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:04<00:00,  1.40s/it]
+loaded google/gemma-2-2b (pt) in 3166.4s
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+prompt a hidden_states[20] it: FVU 0.463, L0 58.4; feature 10004 max 58.1038 at '▁travel', max excl <bos> 58.1038
+    <bos>:31.74, Time:0.00, ▁travel:58.10, ▁offers:0.00, ▁me:0.00, ▁the:7.47, ▁opportunity:0.00, ▁to:39.07, ▁correct:19.93, ▁past:8.24, ▁errors:0.00, ,:24.10, ▁but:12.41, ▁it:17.45, ▁comes:0.00, ▁with:15.28, ▁its:0.00, ▁own:11.78, ▁set:0.00, ▁of:22.55, ▁risks:9.45, .:35.94
+prompt a hidden_states[20] pt: FVU 0.488, L0 49.0; feature 10004 max 43.8501 at '▁travel', max excl <bos> 43.8501
+    <bos>:25.08, Time:15.87, ▁travel:43.85, ▁offers:7.78, ▁me:10.53, ▁the:11.75, ▁opportunity:8.09, ▁to:39.03, ▁correct:22.63, ▁past:11.04, ▁errors:0.00, ,:23.87, ▁but:19.51, ▁it:10.62, ▁comes:0.00, ▁with:10.72, ▁its:0.00, ▁own:10.53, ▁set:0.00, ▁of:14.49, ▁risks:9.59, .:40.94
+prompt a hidden_states[21] it: FVU 0.279, L0 89.0; feature 10004 max 71.2747 at '▁travel', max excl <bos> 71.2747
+    <bos>:30.95, Time:0.00, ▁travel:71.27, ▁offers:10.34, ▁me:7.16, ▁the:11.08, ▁opportunity:11.69, ▁to:35.91, ▁correct:18.29, ▁past:9.70, ▁errors:0.00, ,:23.91, ▁but:26.05, ▁it:22.12, ▁comes:0.00, ▁with:23.39, ▁its:7.46, ▁own:20.85, ▁set:0.00, ▁of:36.36, ▁risks:12.09, .:58.44
+prompt a hidden_states[21] pt: FVU 0.224, L0 75.6; feature 10004 max 60.0790 at '.', max excl <bos> 60.0790
+    <bos>:23.43, Time:18.75, ▁travel:51.86, ▁offers:10.96, ▁me:14.62, ▁the:14.19, ▁opportunity:14.29, ▁to:43.73, ▁correct:21.49, ▁past:11.67, ▁errors:0.00, ,:23.45, ▁but:26.54, ▁it:12.75, ▁comes:0.00, ▁with:15.48, ▁its:0.00, ▁own:17.37, ▁set:0.00, ▁of:23.27, ▁risks:13.53, .:60.08
+prompt a hidden_states[24] it: FVU 1.057, L0 462.2; feature 10004 max 74.2155 at '▁travel', max excl <bos> 74.2155
+    <bos>:22.60, Time:10.79, ▁travel:74.22, ▁offers:18.51, ▁me:17.58, ▁the:11.43, ▁opportunity:20.56, ▁to:41.53, ▁correct:27.35, ▁past:19.83, ▁errors:8.02, ,:31.41, ▁but:46.49, ▁it:34.97, ▁comes:14.09, ▁with:30.59, ▁its:0.00, ▁own:14.21, ▁set:0.00, ▁of:42.57, ▁risks:15.04, .:73.38
+prompt a hidden_states[24] pt: FVU 0.825, L0 360.2; feature 10004 max 76.2552 at '.', max excl <bos> 76.2552
+    <bos>:14.21, Time:16.84, ▁travel:52.40, ▁offers:15.55, ▁me:24.17, ▁the:11.99, ▁opportunity:17.66, ▁to:47.70, ▁correct:32.88, ▁past:21.81, ▁errors:10.58, ,:37.32, ▁but:43.65, ▁it:25.60, ▁comes:8.53, ▁with:18.33, ▁its:0.00, ▁own:10.94, ▁set:0.00, ▁of:25.17, ▁risks:16.61, .:76.26
+prompt b hidden_states[20] it: FVU 0.463, L0 63.5; feature 10004 max 31.7407 at '<bos>', max excl <bos> 0.0000
+    <bos>:31.74, I:0.00, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:0.00, ▁my:0.00, ▁future:0.00, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt b hidden_states[20] pt: FVU 0.498, L0 53.3; feature 10004 max 25.0760 at '<bos>', max excl <bos> 0.0000
+    <bos>:25.08, I:0.00, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:0.00, ▁my:0.00, ▁future:0.00, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt b hidden_states[21] it: FVU 0.296, L0 91.0; feature 10004 max 30.9503 at '<bos>', max excl <bos> 0.0000
+    <bos>:30.95, I:0.00, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:0.00, ▁my:0.00, ▁future:0.00, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt b hidden_states[21] pt: FVU 0.240, L0 77.6; feature 10004 max 23.4270 at '<bos>', max excl <bos> 0.0000
+    <bos>:23.43, I:0.00, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:0.00, ▁my:0.00, ▁future:0.00, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt b hidden_states[24] it: FVU 0.864, L0 380.1; feature 10004 max 22.5960 at '<bos>', max excl <bos> 11.3281
+    <bos>:22.60, I:8.87, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:11.27, ▁my:0.00, ▁future:11.33, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt b hidden_states[24] pt: FVU 0.691, L0 286.9; feature 10004 max 14.2055 at '<bos>', max excl <bos> 8.1354
+    <bos>:14.21, I:0.00, ▁accept:0.00, ▁that:0.00, ▁my:0.00, ▁decisions:0.00, ▁shape:0.00, ▁my:0.00, ▁future:8.14, ,:0.00, ▁and:0.00, ▁though:0.00, ▁mistakes:0.00, ▁are:0.00, ▁inevitable:0.00, ,:0.00, ▁they:0.00, ▁define:0.00, ▁who:0.00, ▁I:0.00, ▁become:0.00, .:0.00
+prompt c hidden_states[20] it: FVU 0.458, L0 60.9; feature 10004 max 58.0631 at '▁travel', max excl <bos> 58.0631
+    <bos>:31.74, Time:0.00, ▁travel:58.06, ▁will:11.33, ▁become:9.60, ▁a:13.46, ▁reality:0.00, ▁as:0.00, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:0.00, .:11.20
+prompt c hidden_states[20] pt: FVU 0.507, L0 48.4; feature 10004 max 43.8328 at '▁travel', max excl <bos> 43.8328
+    <bos>:25.07, Time:15.88, ▁travel:43.83, ▁will:9.13, ▁become:13.02, ▁a:13.13, ▁reality:0.00, ▁as:12.87, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:0.00, .:20.23
+prompt c hidden_states[21] it: FVU 0.290, L0 88.2; feature 10004 max 71.2294 at '▁travel', max excl <bos> 71.2294
+    <bos>:30.95, Time:0.00, ▁travel:71.23, ▁will:13.53, ▁become:9.62, ▁a:17.89, ▁reality:0.00, ▁as:10.52, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:0.00, .:29.18
+prompt c hidden_states[21] pt: FVU 0.238, L0 76.6; feature 10004 max 51.8214 at '▁travel', max excl <bos> 51.8214
+    <bos>:23.43, Time:18.77, ▁travel:51.82, ▁will:9.95, ▁become:14.22, ▁a:16.61, ▁reality:0.00, ▁as:28.43, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:0.00, .:35.32
+prompt c hidden_states[24] it: FVU 0.918, L0 417.4; feature 10004 max 74.1713 at '▁travel', max excl <bos> 74.1713
+    <bos>:22.60, Time:10.80, ▁travel:74.17, ▁will:24.25, ▁become:20.43, ▁a:19.40, ▁reality:13.28, ▁as:18.90, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:7.22, .:46.41
+prompt c hidden_states[24] pt: FVU 0.775, L0 333.0; feature 10004 max 53.3149 at '.', max excl <bos> 53.3149
+    <bos>:14.20, Time:16.88, ▁travel:52.37, ▁will:17.06, ▁become:18.69, ▁a:16.88, ▁reality:12.21, ▁as:38.52, ▁technology:0.00, ▁continues:0.00, ▁to:0.00, ▁advance:11.16, .:53.31
+[ptit took 3172.5s]

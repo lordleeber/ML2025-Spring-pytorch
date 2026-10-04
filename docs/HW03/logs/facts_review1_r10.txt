@@ -1,0 +1,13 @@
+# R10: which earlier question changes Q4 (separate processes, hw3.py --seed 0)
+--q 4 --seed 0: self-BLEU Score for top_k (k=2): 0.2029 self-BLEU Score for top_p (p=0.6): 0.5542 
+--q 3 4 --seed 0: self-BLEU Score for top_k (k=2): 0.2029 self-BLEU Score for top_p (p=0.6): 0.5542 
+--q 2 4 --seed 0: self-BLEU Score for top_k (k=2): 0.2029 self-BLEU Score for top_p (p=0.6): 0.5542 
+--q 1 4 --seed 0: self-BLEU Score for top_k (k=2): 0.2020 self-BLEU Score for top_p (p=0.6): 0.5542 
+
+# R10: in one process (docs/tools/hw03_r10_cache.py; RNG state check + model._cache reuse)
+q1 then q4, keep model._cache | RNG (cuda,cpu) state changed by q1: False (cuda False cpu False ) | cache len after q1 544
+    ['self-BLEU Score for top_k (k=2): 0.2020', 'self-BLEU Score for top_p (p=0.6): 0.5542'] | cache len used by q4 544
+q1 then q4, model._cache = None before q4 | RNG (cuda,cpu) state changed by q1: False (cuda False cpu False ) | cache len after q1 544
+    ['self-BLEU Score for top_k (k=2): 0.2029', 'self-BLEU Score for top_p (p=0.6): 0.5542'] | cache len used by q4 62
+no q1, fresh seed 0, pre-made HybridCache(544): ['self-BLEU Score for top_k (k=2): 0.2020', 'self-BLEU Score for top_p (p=0.6): 0.5542'] | cache len used 544
+no q1, fresh seed 0, pre-made HybridCache(282): ['self-BLEU Score for top_k (k=2): 0.2029', 'self-BLEU Score for top_p (p=0.6): 0.5542'] | cache len used 282

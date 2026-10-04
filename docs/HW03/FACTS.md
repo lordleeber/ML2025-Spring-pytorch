@@ -224,7 +224,7 @@
 10. **`--seed` 只能讓「同一條指令」重現**：
     - `.venv/bin/python HW03/hw3.py --q 4 --seed 0` 的 top-k 20 句，與 facts 腳本以 seed 0 重跑的結果逐句相同。
     - 但 `hw3.py --seed 0`（全部題目，Q1–Q3 先跑）的 Q4 和只跑 `--q 4 --seed 0` 不同：top-k 第 13 句不一樣，self-BLEU 是 0.2020 vs 0.2029。
-    - 原因推測是前面幾題的 GPU 運算改變了狀態，屬推論，沒有追。
+    - **原因已實測確認**（見「大綱審稿補測（第 1 輪）」的 R10 一節）：Q1 沒有動到亂數狀態。差別來自 `model.generate` 把 HybridCache 留在 `model._cache` 重複使用；Q1 留下長度 544 的 cache，Q4 就用 544 格而不是 62 格算，數值差一點點，翻掉了一次取樣。
     - 教材不要宣稱「設了 seed 就一定一樣」。
 
 ## 模型（ch00 模型總覽用；logs/facts_env_model_tok.txt）
@@ -542,7 +542,128 @@
 - **給教材的提醒**：
   - SAE 只在 block 20 的輸出上訓練，拿去編碼其他層的 hidden state，數值沒有「這一層有沒有這個概念」的嚴格意義。這是作業設計的簡化，教材要明講。
   - 投影片 p.27 的提示（「the lower/deeper layers tend to process complex information」）要在這個前提下讀。
-  - 而且 SAE 是在 **pt** 模型上訓練，這裡套在 **it** 模型上（cfg_dict 的 model_name 是 `gemma-2-2b`）。pt 的 SAE 用在 it 模型上效果如何，本機**沒有量**，也還沒查證 Gemma Scope 論文的說法。教材提到時標 `<!-- TODO(本機實測): pt SAE 用在 it 模型的影響 -->`，不要寫成定論。
+  - 而且 SAE 是在 **pt** 模型上訓練，這裡套在 **it** 模型上（cfg_dict 的 model_name 是 `gemma-2-2b`）。pt 的 SAE 用在 it 模型上效果如何，本機已實測，見「大綱審稿補測（第 1 輪）」的 ch08 一節：數值會變、結論不變。Gemma Scope 論文的說法仍然沒有查證。
+
+## 大綱審稿補測（第 1 輪，2026-10-04；outline.html 第 5 節的待補清單）
+
+指令都在 repo 根目錄跑：`.venv/bin/python docs/tools/hw03_facts.py <section>`，section 寫在每一節標題。
+
+### ch00 一層內的實際形狀（shapes；logs/facts_review1_shapes_q4steps_rescale26.txt）
+
+- 輸入：Q7 的 prompt c（"Time travel will become a reality as technology continues to advance."），含 `<bos>` 共 T = 13 個 token，`input_ids` (1, 13)。
+- 用 forward hook 印出 layers[0] 與 layers[1]（兩層形狀相同）：
+
+  | 模組 | 輸入 | 輸出 |
+  |---|---|---|
+  | embed_tokens | (1, 13) | (1, 13, 2304) |
+  | input_layernorm | (1, 13, 2304) | (1, 13, 2304) |
+  | self_attn.q_proj | (1, 13, 2304) | (1, 13, 2048) = 8 個 head × 256 |
+  | self_attn.k_proj／v_proj | (1, 13, 2304) | (1, 13, 1024) = 4 組 × 256 |
+  | self_attn.o_proj | (1, 13, 2048) | (1, 13, 2304) |
+  | post_attention_layernorm、pre_feedforward_layernorm | (1, 13, 2304) | (1, 13, 2304) |
+  | mlp.gate_proj／up_proj | (1, 13, 2304) | (1, 13, 9216) |
+  | mlp.down_proj | (1, 13, 9216) | (1, 13, 2304) |
+  | post_feedforward_layernorm | (1, 13, 2304) | (1, 13, 2304) |
+  | 整個 layers[i] | (1, 13, 2304) | (1, 13, 2304) |
+  | model.norm（最後的 norm） | (1, 13, 2304) | (1, 13, 2304) |
+  | lm_head | (1, 13, 2304) | (1, 13, 256000) |
+
+- 全部是 torch.float16。
+- `output_attentions=True`：26 個，每個 (1, 8, 13, 13)。`output_hidden_states=True`：27 個，每個 (1, 13, 2304)。
+- logits (1, 13, 256000)，絕對值最大 26.16（final soft-cap 是 30，所以不會超過 30）。
+- forward 回傳的 `past_key_values` 是 HybridCache。
+- **沒有直接量到的**：q／k／v 拆成 head 之後的 (1, 8, 13, 256)／(1, 4, 13, 256) 是在 attention 函式內部 `view` + `transpose` 出來的，hook 抓不到。教材可以寫成「q_proj 的 2048 = 8 × 256，拆開後是 (1, 8, T, 256)」，這是由實測的 2048 加上 config 推出來的。
+- config：`query_pre_attn_scalar` 256（attention 分數除以 √256 = 16），`sliding_window` 4096。
+
+### ch00 各題的時間與 GPU 記憶體（perq；logs/facts_review1_perq.txt）
+
+- 一個 process 載入模型一次，`torch.manual_seed(0)`，預設旗標，依序跑 Q1–Q7（和 `hw3.py --seed 0` 相同）。
+- 載入後：allocated 4.87 GiB、reserved 5.06 GiB。
+
+  | 題 | 秒數 | 峰值 allocated | 跑完後 allocated |
+  |---|---|---|---|
+  | Q1 | 10.7 s（含從快取載入評分模型） | 4.96 GiB | 4.95 GiB |
+  | Q2 | 0.8 s | 5.08 GiB | 4.95 GiB |
+  | Q3 | 0.0 s | 4.95 GiB | 4.95 GiB |
+  | Q4 | 23.8 s | 4.97 GiB | 4.95 GiB |
+  | Q5 | 0.5 s | 5.02 GiB | 4.95 GiB |
+  | Q6 | 0.7 s | 4.96 GiB | 4.95 GiB |
+  | Q7 | 2.5 s（含從快取載入 SAE） | 5.26 GiB | 5.24 GiB |
+  | 合計 | 39.0 s | | |
+
+- 不含載入模型；`hw3.py --seed 0` 整支指令從頭到尾是 45.7 s（run_seed0.txt）。
+- 這次的 Q4 self-BLEU 也是 0.2020／0.5542，和 `hw3.py --seed 0` 一致。
+- 結論：這份作業任何一題都只比模型本身多用不到 0.4 GiB；6 GiB 左右的 GPU 就跑得動（推論：峰值 5.26 GiB 加上 PyTorch 自己的保留量）。
+- 跑完 Q1 後一直多出來的約 0.08 GiB，其中 0.054 GiB 是 `generate` 留在 `model._cache` 的 HybridCache（max_cache_len 544）；Q7 之後再多約 0.29 GiB 是 SAE（75,532,544 個 float32 參數 ≈ 0.28 GiB）。
+- 評分模型（cross-encoder）確實在 CPU：`calculate_coherence`（hw3.py:65–70）的輸入沒有 `.to(DEVICE)`，模型若在 GPU 上會報錯。
+
+### ch04 p=0.6 時每一步的第 1 名機率（q4steps；同上 log）
+
+- 和 hw3.py:211–221 完全相同的 generation_params，另外打開 `output_logits`（過濾前的原始 logits）與 `output_scores`（過濾後的分數，被濾掉的是 −inf）。每個設定都從 `torch.manual_seed(0)` 起算，各 20 句。
+- 「第 1 名機率」是原始 logits 做 softmax 的最大值；「留下幾個 token」是過濾後分數不是 −inf 的個數。
+
+  | 設定 | 取樣步數 | 第 1 名機率 平均／中位數 | 第 1 名 > 0.6 的步數 | 只剩 1 個 token（等於 greedy）的步數 | 每步留下的 token 數 平均／中位數／最多 |
+  |---|---|---|---|---|---|
+  | top_k=2 | 457 | 0.784／0.842 | 350（76.6%） | 0（0.0%） | 2.01／2／3 |
+  | top_p=0.6 | 452 | 0.801／0.864 | 358（79.2%） | 360（79.6%） | 1.23／1／3 |
+  | top_p=0.999 | 459 | 0.767／0.833 | 337（73.4%） | 63（13.7%） | 20.36／20／51 |
+  | top_k=200 | 467 | 0.763／0.837 | 337（72.2%） | 0（0.0%） | 200.13／200／203 |
+
+- **這證實了原本的推論**：p=0.6 時約 8 成的步數只剩 1 個 token，也就是那一步等於 greedy；k=2 每一步都還有 2 個可以抽。所以 p=0.6 的 self-BLEU（0.5542）比 k=2（0.2029）高。
+- 「第 1 名 > 0.6」（358 步）和「只剩 1 個」（360 步）差 2 步，是 fp16／邊界值的差異，教材講「約 8 成」即可。
+- p=0.6 留下的 token 數分布：1 個 360 步、2 個 79 步、3 個 13 步。
+- top_k=2 偶爾留下 3 個、top_k=200 偶爾留下 201–203 個：transformers 的 top-k 是「保留分數 ≥ 第 k 名分數」的 token，同分的都留下（fp16 logits 容易同分）。
+- p=0.999 最多只留 51 個，因為同時開著預設的 top_k=50（R2）；多出的 1 個同樣是同分。
+
+### ch05 R10 的原因（logs/facts_review1_r10.txt；docs/tools/hw03_r10_cache.py）
+
+- 分開跑 `hw3.py --seed 0`：`--q 4`、`--q 3 4`、`--q 2 4` 的 top-k self-BLEU 都是 0.2029；只有 `--q 1 4` 是 0.2020。p=0.6 四者都是 0.5542。
+- 同一個 process 內：
+  - Q1 前後的 CUDA 與 CPU 亂數狀態完全沒變。
+  - Q1 跑完後 `model._cache` 是 max_cache_len 544 的 HybridCache（Q1 的 32 個 prompt token + max_new_tokens 512）。
+  - 接著跑 Q4：沿用這個 544 的 cache → 0.2020；先把 `model._cache = None` 再跑 Q4 → Q4 自己建 62 格的 cache → 0.2029。
+  - 完全不跑 Q1，只在 seed 0 之前放一個長度 544 的 HybridCache → 0.2020；放長度 282 的 → 0.2029。
+- 機制（transformers 4.47 `generation/utils.py:1603–1681` 的 `_get_cache`）：模型上已經有 `_cache`、而且長度夠用（`max_cache_len` ≥ 這次需要的長度）時，只 `reset()` 清空後沿用，不會重建。所以 Q4 實際是用 544 格的 KV cache 在算 attention；沒寫入的格子雖然被 mask 掉，但運算的形狀不同，fp16 的數值有極小差異，剛好讓第 13 句的某一步抽到不同的 token。
+- 為什麼 282 不會變、544 會變：沒有追，教材不要解釋，只說「cache 長度不同就可能不同」。（282 是 Q2 留下的長度：最後一輪 prompt 82 + max_new_tokens 200，這是計算值。）
+- 給教材：這是 R10 的定論。「設了 seed 也不一定一樣」的原因不是亂數，而是**同一個模型物件上留著前一次 generate 的狀態**。
+
+### ch09 把索引 26 縮放回 norm 前的尺度（rescale26；同上 log）
+
+- prompt c，feature 10004 在三種輸入上的值：
+
+  | 輸入 | <bos> | Time | ▁travel | ▁will | ▁technology | ▁continues | ▁to | . |
+  |---|---|---|---|---|---|---|---|---|
+  | hidden_states[25] | 15.31 | 10.19 | 78.85 | 23.87 | 0 | 0 | 0 | 55.78 |
+  | hidden_states[26]（hw3.py 的做法） | 0 | 0 | 11.76 | 0 | 0 | 0 | 0 | 11.39 |
+  | hidden_states[26] 每個 token 縮放到 [25] 的範數 | 0 | 15.41 | 84.92 | 40.58 | 19.14 | 11.71 | 21.99 | 64.69 |
+
+- 每個 token 的範數：[25] 是 540–946（`<bos>` 4244），[26] 是 80–149。[25] 和 [26] 的 cosine 只有 0.47–0.80。
+- 結論：縮放回去之後 feature 10004 回來了，▁travel 甚至比 [25] 還高，所以「索引 26 掉下去主要是尺度問題」得到支持。但縮放後原本是 0 的 ▁technology、▁continues、▁to 也變成非零，方向也變了（cosine 0.65 左右），所以不是單純的尺度問題。教材可以寫「尺度是主因之一」，並附這張表。
+
+### ch08 pt 版 SAE 用在 it 模型上（ptit；logs/facts_review1_ptit.txt）
+
+- 同一個 SAE（layer_20/width_16k/canonical），同樣的三句 prompt，分別把 `google/gemma-2-2b`（pt，SAE 訓練時用的模型）與 `google/gemma-2-2b-it`（作業用的模型）的 hidden state 餵進去。兩個模型都是 fp16、eager，tokenizer 共用 it 版的（兩者詞表相同）。
+- FVU 與 L0 都排除 `<bos>`；FVU 越小代表 SAE 重建得越好。
+
+  | prompt | hidden_states 索引 | it：FVU／L0／10004 最大值 | pt：FVU／L0／10004 最大值 |
+  |---|---|---|---|
+  | a | [20]（hw3.py） | 0.463／58.4／58.10（▁travel） | 0.488／49.0／43.85（▁travel） |
+  | a | [21]（SAE 的位置） | 0.279／89.0／71.27（▁travel） | 0.224／75.6／60.08（`.`；▁travel 51.86） |
+  | a | [24]（Q7.4 預設） | 1.057／462.2／74.22 | 0.825／360.2／76.26 |
+  | b | [20] | 0.463／63.5／31.74（`<bos>`，其他 token 全 0） | 0.498／53.3／25.08（`<bos>`，其他全 0） |
+  | b | [21] | 0.296／91.0／30.95（`<bos>`，其他全 0） | 0.240／77.6／23.43（`<bos>`，其他全 0） |
+  | b | [24] | 0.864／380.1／22.60（不含 `<bos>` 11.33） | 0.691／286.9／14.21（不含 `<bos>` 8.14） |
+  | c | [20] | 0.458／60.9／58.06（▁travel） | 0.507／48.4／43.83（▁travel） |
+  | c | [21] | 0.290／88.2／71.23（▁travel） | 0.238／76.6／51.82（▁travel） |
+  | c | [24] | 0.918／417.4／74.17（▁travel） | 0.775／333.0／53.31（`.`） |
+
+- **pt vs it 的結論**（在 SAE 真正的位置 [21]）：
+  - it 的 FVU 比 pt 高約 0.05（0.28–0.30 vs 0.22–0.24），L0 多約 13。SAE 用在 it 上確實比較差，但同一個數量級，還能用。
+  - feature 10004 在兩個模型上都是「時光旅行」的句子（a、c）在 ▁travel 附近亮，b 的真實 token 全部是 0。定性結論相同；it 的數值反而比較大（71 vs 52）。
+  - 所以「pt 的 SAE 用在 it 模型」對這份作業的影響是**數值會變、結論不變**。這是這三句話的實測，不是一般性的結論。
+- **順帶得到的**（支持 S4、ch09 的提醒）：拿到別層（[24]）時，兩個模型的 FVU 都升到 0.7–1.06、L0 從約 50–90 暴增到 290–460。FVU 接近或超過 1 表示重建幾乎沒用（比直接用平均值還差）。這是「SAE 只在一層校正過」最直接的證據。
+- 原本的 `TODO(本機實測): pt SAE 用在 it 模型的影響` 可以拿掉，改引用這張表。Gemma Scope 論文本身的說法仍然沒有查證，教材不要引用論文。
+- 第一次執行要下載 gemma-2-2b（HF 上是 fp32，約 10.5 GB）；之後只要讀快取。
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -563,6 +684,8 @@
 - run_q7_layer21_tok123.txt：`--q 7 --sae-layer-idx 21 --token-idx 1 2 3`。
 - facts_env_model_tok.txt、facts_q1_q2.txt、facts_q4_q7.txt：`docs/tools/hw03_facts.py` 的輸出。
 - neuronpedia_feature_10004.json：Neuronpedia API 的原始回應。
+- facts_review1_shapes_q4steps_rescale26.txt、facts_review1_perq.txt、facts_review1_ptit.txt：`docs/tools/hw03_facts.py shapes q4steps rescale26`、`perq`、`ptit` 的輸出（大綱審稿補測第 1 輪）。
+- facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
 ## 給大綱的建議（本機量完後的觀察，雲端可以調整）
