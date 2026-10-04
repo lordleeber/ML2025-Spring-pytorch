@@ -869,6 +869,17 @@
   - top_p=0.6：20 個新 token，`Professor Lee is highly regarded as a leading expert in machine learning education.`。只有 step 0（`▁` 0.5430）、step 7（▁as 0.5146）、step 9（▁leading 0.5978）留 2 個，其餘 17 步只留 1 個（等於 greedy），三步都抽到第 1 名。
   - **R3 的實況**：`<end_of_turn>`（107）之後沒有停，下一步模型以機率 1.0000 生成 `<eos>`（1）才停。top_k=2 的 20 句新 token 數：19, 27, 21, 28, 19, 20, 20, 19, 23, 21, 18, 27, 25, 28, 22, 17, 20, 30, 30, 23；19 句最後一個是 `<eos>`，第 17 句在第 30 個 token 剛好是 `<end_of_turn>`（碰到上限）。
 
+## ch04 寫作時查證的事項（雲端，2026-10-04）
+
+- **transformers 4.47.0 原始碼**：雲端從 GitHub `v4.47.0` tag 讀 `generation/utils.py`（4788 行）與 `generation/logits_process.py`（2955 行），「ch04 前置補測」列的行號全部吻合。ch04 逐字引用：utils.py:1057–1066（三個 warper 依序加入）、:3267–3271（logits 轉 fp32、logits_processor）、:3293–3306（softmax、multinomial、接回去）；logits_process.py:469–481（TopP 的 `__call__`）、:529–534（TopK 的 `__call__`）。另外：`TopPLogitsWarper.__init__` :457 的 `filter_value` 預設 `-float("Inf")`；:459 只擋 `top_p < 0` 或 `> 1.0`，所以 `top_p=0` 合法；TopP 的 softmax（:471）是對傳進來的分數做，前面若有 TopK，就是在 top-k 剩下的 token 之間重新算機率。
+- **hw3.py 行號**：`.replace(...).strip()` 在 :235（不是 :236）。
+- **投影片 p.18–19**：p.18 任務（20 次、self-BLEU、k=2 vs 200、p=0.6 vs 0.999、觀察 fluency／coherence／diversity），prompt 是 `'Professor Lee is ...'`（S1）。p.19 六小題：(1) self-BLEU 正確敘述選 2（0.25）、(2) top-p／top-k 正確敘述選 2（0.25）、(3) k=1 的生成句（0.2，填空）、(4) p=0 的生成句（0.2，填空）、(5) k 2 vs 200 哪個高、為什麼（0.25）、(6) p 0.6 vs 0.999（0.25）。選項不在投影片裡。
+- **原版 Colab**：第 22 格是「## Q4: Auto-regressive generation」標題，第 23 格是整個 Q4（第一個 TODO 寫死 `top_k = 2`、`top_p = 0.6`；建了 `kv_cache = HybridCache(...)` 但沒傳給 generate；第二個 TODO 的提示「Hint: You can check how we generate the text with top_k」），第 24 格是 `compute_self_bleu` 與印分數。
+- **計算值**：hw3.py `--q 4 --seed 0` 的 top-p 20 句裡，`Professor Lee is highly regarded as a leading expert in machine learning education.` 出現 10 次（本書數的，run_q4_seed0.txt 第 33–52 行）。top_k=200 的 467 步裡留下 201–203 個的有 57 步（53 + 3 + 1）。Q4 第一個新 token 前三名（空白、換行、兩個空白）合計 0.9279。
+- **top_k=2 第 17、18 句**都是 30 個新 token：第 18 句第 30 個是 `<eos>`（自己停），第 17 句第 30 個是 `<end_of_turn>`（被上限截斷）。
+- **沒有量、ch04 標為推論或 TODO 的**：k=200／p=0.999 碰到上限的句子中途有沒有 `<end_of_turn>`（TODO）；eos 改回 `[1, 107]` 後句子停在哪；`top_k=200` 與 `top_p=0.999, top_k=0` 抽出相同句子的原因；`.replace(" ,", ",")` 等在這次輸出裡有沒有作用；step 9 第 1 名 `-` 是要寫 leading-edge 之類；直接改 hw3.py:231 加 `top_k=0` 的對照（ch04 4.9 只給做法）。
+- **ch04 第一次交代的名詞**：sampling／取樣、top-k、top-p（nucleus sampling）、logits processor／warper、temperature、beam search（一句帶過）、`torch.multinomial`、原始機率 vs 重新正規化、機率質量、`min_tokens_to_keep`、`max_length` vs `max_new_tokens`、`return_dict_in_generate`／`.sequences`、`GenerationMixin`、`scatter`／`masked_fill`。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：

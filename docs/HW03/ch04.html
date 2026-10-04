@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 4 章　Q4（上）取樣：top-k、top-p 與 generate 的隱藏預設值 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch03.html">← 第 3 章</a><span class="disabled">第 5 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 4 章　Q4（上）取樣：top-k、top-p 與 generate 的隱藏預設值</h1>
+  <p class="chap-lead">第 1、2 章的 <code>generate</code> 都是 greedy：每一步取機率最高的那個 token。Q4 改成照機率<b>抽籤</b>，同一個 prompt 生成 20 次，比較兩種「從哪幾個 token 裡抽」的規則：top-k 與 top-p（也叫 nucleus sampling，程式註解用的是這個名字）。這一章把一步拆開來看：logits 怎麼被過濾、重新正規化、抽出一個 token；再逐項讀 hw3.py 傳給 <code>generate</code> 的參數，找出那些<b>沒寫出來、卻真的在作用</b>的設定。Q4 的另一半，20 句之間有多像（self-BLEU）與 seed 能不能讓結果重現，留到第 5 章。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">取樣的一步是：最後一個位置的 logits → 過濾器把不要的 token 設成 −inf → softmax 重新正規化 → <code>torch.multinomial</code> 抽一個。top-k 留分數最高的 k 個；top-p 從機率最低的往上累加，把累積 <code>&lt;= 1 − p</code> 的全部移除。hw3.py 的「top-p 組」其實同時開著預設的 top_k=50（R2），而且把停止 token 蓋成只剩 <code>&lt;eos&gt;</code>（R3）；prompt 沒有 chat template，所以第一個 token 多半是空白或換行（R4）。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:200–239（<code>q4</code>：k、p 的 TODO :203–206、prompt :208–209、<code>generation_params</code> :211–221、取樣迴圈 :223–239）；transformers 4.47.0 的 <code>generation/utils.py</code> 與 <code>generation/logits_process.py</code>（行號照 FACTS「ch04 前置補測」，雲端從 GitHub 的 <code>v4.47.0</code> tag 逐字核對過）。</li>
+    <li>本章的實測來自 <code>logs/run_q4_seed0.txt</code>、<code>logs/run_q4_k200_p0999_seed0.txt</code>、<code>logs/run_q4_k1_p0_n2.txt</code>（hw3.py 的實際輸出），以及事實腳本 <code>docs/tools/hw03_facts.py</code> 的 <code>pre_ch04</code>、<code>q4</code>、<code>q4steps</code> 段（<code>logs/facts_pre_ch04.txt</code>、<code>logs/facts_q4_q7.txt</code>、<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code>）。這些 log 是本機執行時另外存下的紀錄，已經放進 repo 的 <code>docs/HW03/logs/</code>；本章寫的 <code>logs/…</code> 都是指這個目錄。</li>
+    <li>本章常用的幾個代號：<b>R2、R3、R4</b> 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡 repo 問題的編號（原版就有、hw3.py 刻意保留的行為），<b>S1、S3</b> 是「投影片與程式不一致」的編號，第 1–3 章的「讀 code 不盡信文件」框也是這套編號；<b>FACTS</b> 指本機量好的事實清單 <code>docs/HW03/FACTS.md</code>，本章引用的「5 個 seed 表」就在它的「Q4 實測」一節。<b>事實腳本</b> <code>docs/tools/hw03_facts.py</code> 是 repo 附的量測腳本，會載入模型，依段落名稱印出各種量測（<a href="#lab">4.9 節</a>）；它量取樣時，<b>每一個設定都各自從 <code>torch.manual_seed(seed)</code> 重新起算</b>，而 hw3.py 是一次執行裡先抽 20 句 top-k、接著抽 20 句 top-p，共用同一條亂數流，所以兩者的 top-p 句子不是同一批。</li>
+    <li>比較「多樣性」時，本章優先用「20 句裡有幾種不同的句子」與逐步資料。偶爾引用 self-BLEU：它把 20 句兩兩比較，<b>越高代表越像</b>，定義與計算在第 5 章。</li>
+  </ul>
+</div>
+
+<h2 id="task">4.1　這一題要做什麼</h2>
+
+<p>投影片 p.18 的任務：用自回歸（autoregressive，一次生成一個 token、接回去再生成下一個）的方式把同一句話生成 <b>20 次</b>，算這 20 句的 self-BLEU，並比較 top-k 的 <b>k=2 vs k=200</b>、top-p 的 <b>p=0.6 vs p=0.999</b>，觀察流暢度、連貫性與多樣性。配分 1.4 分，是七題裡最重的。prompt 是：</p>
+
+<figure class="listing"><figcaption>hw3.py:200–209 — q4 的開頭：k、p 的 TODO 與 prompt</figcaption>
+<pre class="py" data-hot="201,204,205,208,209"><code>def q4(tokenizer, model, args):
+    max_generation_tokens = 30
+
+    ######################## TODO (Q4.3 ~ 4.6) ########################
+    top_k = args.top_k  # Set K for top-k sampling
+    top_p = args.top_p  # Set P for nucleus sampling
+    ###################################################################
+
+    prompt = "Generate a paraphrase of the sentence 'Professor Hung-yi Lee is one of the best teachers in the domain of machine learning'. Just response with one sentence."
+    input_ids = tokenizer(prompt, return_tensors="pt")</code></pre>
+</figure>
+
+<p>要模型把「李宏毅老師是機器學習領域最好的老師之一」改寫成一句話。p.19 的六小題：(1) 關於 self-BLEU 的正確敘述（選 2 個）；(2) 關於 top-p 與 top-k 的正確敘述（選 2 個）；(3) k=1 時生成的句子；(4) p=0 時生成的句子；(5) k=2 與 k=200 的 self-BLEU 哪個高、為什麼；(6) p=0.6 與 p=0.999 哪個高、為什麼。選擇題的敘述不在投影片與 Colab 裡，本書不編；本章列出本機實測的句子與數字，但不寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）。self-BLEU 相關的 (1)、(5)、(6) 的數字在第 5 章。</p>
+
+<p>和原版比：原版 Colab 第 23 格（第 22 格是「## Q4: Auto-regressive generation」標題）把 <code>top_k = 2</code>、<code>top_p = 0.6</code> 寫死在第一個 TODO 裡，要學生自己改數字重跑；hw3.py 改成 <code>--top-k</code>、<code>--top-p</code> 旗標（:204–205，預設 2 與 0.6，<a href="ch00.html#flags">第 0 章旗標表</a>）。原版還建了一個 <code>kv_cache = HybridCache(...)</code>（Gemma 2 用的 KV cache 類別，<a href="ch00b.html#hybrid">補充章 K.4 節</a>）卻從來沒有傳給 <code>generate</code>，hw3.py 刪掉了；20 次改成 <code>--num-samples</code>。<code>model.generate</code> 自己會準備 cache（<a href="ch00b.html#reuse">補充章 K.8 節</a>）；全部題目一起跑時，Q4 沿用的是 Q1 留下的 544 格（Q1 第一次 generate 配置的 32 + 512 格），這件事對 Q4 結果的影響在第 5 章。</p>
+
+<h2 id="one-step">4.2　生成一步做什麼</h2>
+
+<p>第 2 章看過，模型 forward 一次，最後一個位置的 logits 經過 softmax，就是「下一個 token」在 256000 個 token 上的機率分布（<a href="ch02.html#forward">2.4 節</a>）。greedy 直接取最大的那個；取樣則是照這個分布<b>抽籤</b>。但通常不會直接在 256000 個 token 上抽：機率很小的 token 數量極多，加起來也不少，抽到它們就會冒出奇怪的字。所以先<b>過濾</b>，只留一小群候選，再在它們之間抽。</p>
+
+<p><code>model.generate(do_sample=True)</code> 每一步做的事，在 transformers 4.47.0 的 <code>GenerationMixin._sample</code>（<code>GenerationMixin</code> 是 transformers 提供 <code>generate</code> 的類別，模型類別繼承了它，所以 <code>model.generate</code> 會走到這裡）（<code>generation/utils.py:3159</code> 起）裡。下面是關鍵的幾行（<code>generation/utils.py:3267–3271</code>，逐字）：</p>
+
+<pre class="py">            next_token_logits = outputs.logits[:, -1, :].clone().float()
+            next_token_logits = next_token_logits.to(input_ids.device)
+
+            # pre-process distribution
+            next_token_scores = logits_processor(input_ids, next_token_logits)</pre>
+
+<p>以及同一個迴圈稍後選 token、接回去的部分（<code>generation/utils.py:3293–3306</code>，逐字；中間那行 TODO 是 transformers 開發者的備忘，和取樣邏輯無關）：</p>
+
+<pre class="py">            # token selection
+            if do_sample:
+                probs = nn.functional.softmax(next_token_scores, dim=-1)
+                # TODO (joao): this OP throws "skipping cudagraphs due to ['incompatible ops']", find solution
+                next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+            else:
+                next_tokens = torch.argmax(next_token_scores, dim=-1)
+
+            # finished sentences should have their next token be a padding token
+            if has_eos_stopping_criteria:
+                next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
+
+            # update generated ids, model inputs, and length for next step
+            input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)</pre>
+
+<figure class="fig">
+<svg viewBox="0 0 900 230" role="img" aria-label="取樣的一步：最後一個位置的 logits 轉 fp32，經過 logits_processor 把不要的 token 設成負無限大，softmax 重新正規化，torch.multinomial 抽一個 token，接回 input_ids，下一步再 forward">
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <rect x="16" y="40" width="150" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="91" y="70" text-anchor="middle" font-weight="700">logits[:, -1, :]</text>
+  <text class="s-sm" x="91" y="92" text-anchor="middle">256000 個分數</text>
+  <text class="s-sm" x="91" y="110" text-anchor="middle">轉 fp32（:3267）</text>
+  <rect x="196" y="40" width="160" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="276" y="70" text-anchor="middle" font-weight="700">logits_processor</text>
+  <text class="s-sm" x="276" y="92" text-anchor="middle">TopK、TopP…</text>
+  <text class="s-sm" x="276" y="110" text-anchor="middle">不要的設成 −inf</text>
+  <rect x="386" y="40" width="150" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="461" y="70" text-anchor="middle" font-weight="700">softmax</text>
+  <text class="s-sm" x="461" y="92" text-anchor="middle">−inf 變成機率 0</text>
+  <text class="s-sm" x="461" y="110" text-anchor="middle">留下的加總為 1</text>
+  <rect x="566" y="40" width="150" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="641" y="70" text-anchor="middle" font-weight="700">multinomial</text>
+  <text class="s-sm" x="641" y="92" text-anchor="middle">照機率抽 1 個</text>
+  <text class="s-sm" x="641" y="110" text-anchor="middle">用 torch 的亂數</text>
+  <rect x="746" y="40" width="138" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="815" y="70" text-anchor="middle" font-weight="700">torch.cat</text>
+  <text class="s-sm" x="815" y="92" text-anchor="middle">接回 input_ids</text>
+  <text class="s-sm" x="815" y="110" text-anchor="middle">（:3306）</text>
+  <line x1="167" y1="80" x2="193" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#a4)"/>
+  <line x1="357" y1="80" x2="383" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#a4)"/>
+  <line x1="537" y1="80" x2="563" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#a4)"/>
+  <line x1="717" y1="80" x2="743" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#a4)"/>
+  <path d="M815,121 L815,175 L91,175 L91,124" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#a4)"/>
+  <text class="s-sm" x="453" y="167" text-anchor="middle">下一步：模型只 forward 新的這一個 token（前面的在 KV cache 裡），得到新的 logits</text>
+  <text class="s-sm" x="453" y="205" text-anchor="middle">直到抽到停止 token，或長度到 max_length 為止</text>
+</svg>
+<figcaption>圖 4.1 — <code>do_sample=True</code> 時的一步。greedy（<code>do_sample=False</code>）把 softmax 與 multinomial 換成 argmax，其他相同。</figcaption>
+</figure>
+
+<p>逐步說明：</p>
+
+<ol>
+<li><b>取最後一個位置、轉 fp32</b>（:3267）。<code>.float()</code> 把模型的 fp16 logits 轉成 fp32 再處理，和第 2 章 hw3.py:144 自己做的事一樣。</li>
+<li><b>過濾</b>（:3271）。<code>logits_processor</code> 是一串處理器，依序作用在分數上。top-k、top-p 都是其中一員，它們不改變留下來的 token 的分數，只把不要的設成 <code>-inf</code>。</li>
+<li><b>重新正規化</b>（:3295）。對過濾後的分數做 softmax：<code>-inf</code> 的機率變成 0，留下來的 token 依原本的比例放大到加總為 1。本章的表裡「原始機率」指過濾前在全部 256000 個 token 上的機率，「重新正規化」指過濾後、只在留下的 token 之間的機率，兩種數字要分清楚。</li>
+<li><b>抽一個</b>（:3297）。<code>torch.multinomial(probs, num_samples=1)</code> 照機率抽出一個 index：機率 0.7 的 token 大約七成的機會被抽中。它用的是 PyTorch 的全域亂數產生器，所以 <code>torch.manual_seed</code> 會影響抽到什麼（<code>--seed</code> 與可重現性是第 5 章的主題）。</li>
+<li><b>接回去</b>（:3306）。抽到的 token 接到序列尾巴，下一步模型只需要 forward 這一個新 token（<a href="ch00b.html#why">補充章 K.1 節</a>）。:3302–3303 那兩行是 batch 裡已經結束的句子改填 pad，hw3.py 一次只生成一句，用不到。</li>
+</ol>
+
+<h2 id="filters">4.3　top-k 與 top-p 的規則</h2>
+
+<p>過濾器是在 <code>_get_logits_processor</code>（<code>generation/utils.py:869</code> 起）裡依 <code>generation_config</code> 組出來的。取樣用的三個依序加入（<code>generation/utils.py:1057–1066</code>，逐字）：</p>
+
+<pre class="py">            if generation_config.temperature is not None and generation_config.temperature != 1.0:
+                processors.append(TemperatureLogitsWarper(generation_config.temperature))
+            if generation_config.top_k is not None and generation_config.top_k != 0:
+                processors.append(
+                    TopKLogitsWarper(top_k=generation_config.top_k, min_tokens_to_keep=min_tokens_to_keep)
+                )
+            if generation_config.top_p is not None and generation_config.top_p &lt; 1.0:
+                processors.append(
+                    TopPLogitsWarper(top_p=generation_config.top_p, min_tokens_to_keep=min_tokens_to_keep)
+                )</pre>
+
+<p>名稱裡的 Warper 是 logits processor 的一種：transformers 把「只在取樣時才用、會改變分布形狀」的處理器叫 warper，其他的（例如禁止重複的規則）叫 processor，兩者都放進同一串 <code>processors</code>。三件事從這幾行就讀得出來：temperature（把所有分數除以一個溫度，大於 1 讓分布變平、小於 1 讓分布變尖）等於 1.0 時不加（Q4 沒設，預設 1.0，所以沒有這一步）；<b>top_k 只要不是 None 也不是 0 就會加</b>；top_p 小於 1.0 才加。而且順序固定：<b>先 top-k、再 top-p</b>。<code>min_tokens_to_keep</code> 在非 beam search（另一種同時保留好幾條候選序列的生成方式，hw3.py 沒用）時是 1（:1053），意思是不管規則多嚴格，至少留 1 個 token。</p>
+
+<h3 id="topk">4.3.1　top-k：留分數最高的 k 個</h3>
+
+<p><code>TopKLogitsWarper.__call__</code>（<code>generation/logits_process.py:529–534</code>，逐字）：</p>
+
+<pre class="py">    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -&gt; torch.FloatTensor:
+        top_k = min(self.top_k, scores.size(-1))  # Safety check
+        # Remove all tokens with a probability less than the last token of the top-k
+        indices_to_remove = scores &lt; torch.topk(scores, top_k)[0][..., -1, None]
+        scores_processed = scores.masked_fill(indices_to_remove, self.filter_value)
+        return scores_processed</pre>
+
+<p>:532 是關鍵：<code>torch.topk(scores, k)</code> 回傳（前 k 大的值, 它們的 index）兩個 tensor，<code>[0]</code> 取值，<code>[..., -1, None]</code> 取其中最後一個（第 k 名的分數）並保留維度方便比較；<b>嚴格小於</b>它的才移除，<code>masked_fill</code> 把它們填成 <code>filter_value</code>，預設就是 <code>-inf</code>。所以和第 k 名<b>同分</b>的 token 全部留下，留下的可能多於 k 個。fp16 的 logits 解析度有限，同分並不罕見：本機統計 top_k=2 的 457 個取樣步裡，有 3 步留了 3 個；top_k=200 的 467 步裡，有 57 步留了 201–203 個（<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code> 的 q4steps 段）。</p>
+
+<h3 id="topp">4.3.2　top-p：從最小的往上累加，移除累積 &lt;= 1 − p 的</h3>
+
+<p><code>TopPLogitsWarper.__call__</code>（<code>generation/logits_process.py:469–481</code>，逐字）：</p>
+
+<pre class="py">    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -&gt; torch.FloatTensor:
+        sorted_logits, sorted_indices = torch.sort(scores, descending=False)
+        cumulative_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)
+
+        # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+        sorted_indices_to_remove = cumulative_probs &lt;= (1 - self.top_p)
+        # Keep at least min_tokens_to_keep
+        sorted_indices_to_remove[..., -self.min_tokens_to_keep :] = 0
+
+        # scatter sorted tensors to original indexing
+        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+        scores_processed = scores.masked_fill(indices_to_remove, self.filter_value)
+        return scores_processed</pre>
+
+<p>常見的說法是「從機率最高的往下加，加到超過 p 就停」。transformers 的寫法是反過來的：</p>
+
+<ol>
+<li>:470 <b>升冪</b>排序（<code>descending=False</code>），機率最小的在前面。</li>
+<li>:471 對<b>傳進來的分數</b>做 softmax，再累加。注意：如果前面已經有 top-k 把一些 token 設成 <code>-inf</code>，這裡的機率就是在剩下的 token 之間重新算的。</li>
+<li>:474 累積機率 <code>&lt;= 1 - top_p</code> 的全部移除。p=0.6 時門檻是 0.4：從最小的往上加，只要加起來還不到（或剛好等於）0.4，那些 token 都丟掉。</li>
+<li>:476 最後 <code>min_tokens_to_keep</code> 個（也就是機率最大的 1 個）無論如何保留。</li>
+<li>:479–480 把結果對回原本的 token 順序：上面的「要不要移除」是照排序後的位置算的，<code>scatter(1, sorted_indices, …)</code> 依 <code>sorted_indices</code>（每個排序位置原本是哪個 token id）把每個布林值放回那個 token id 的位置；<code>masked_fill</code> 再把標記為移除的位置填成 <code>filter_value</code>（預設 <code>-inf</code>，見 :457 的建構子）。</li>
+</ol>
+
+<p>換一個角度說：第 1 名被單獨留下的條件，是<b>其他所有 token 加起來 <code>&lt;= 1 − p</code></b>。p=0.6 時，第 1 名要大約 0.6 以上才會獨自留下。本機 Q4 第一個新 token 的第 1 名是空白 <code>' '</code> 0.5430，其他加起來約 0.457，大於 0.4，所以第 1 名不夠，第 2 名也留下；而某一步第 1 名是 0.6770 時，其他加起來約 0.323，全部移除，只剩 1 個（這兩個加總是用原始機率算的計算值；嚴格說 :471 用的是傳進來的分數重新算的機率，Q4 的 top-p 組在這之前還有 top_k=50，見 <a href="#r2">4.5.1 節</a>，差別很小）。p=0.6 這一題的兩種說法大多數情況結果相同，差在門檻剛好落在邊界與「先 top-k 再 top-p」時，以程式為準。</p>
+
+<h3 id="example">4.3.3　用第 2 章的真實分布試一次</h3>
+
+<p>拿<a href="ch02.html#top10">第 2 章</a>第 1 輪的分布（hw3.py 的 prompt、第 1 名 Indigo 0.3068）當例子，本機把各種過濾器實際套上去（<code>logs/facts_pre_ch04.txt</code> 第 6–13 行）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>設定</th><th class="num">留下幾個</th><th class="num">留下的原始機率合計</th><th>重新正規化後</th></tr></thead>
+<tbody>
+<tr><td>（過濾前，原始機率）</td><td class="num">256000</td><td class="num">1</td><td>Indigo 0.3068、Green 0.2624、Red 0.2012、Orange 0.1320、Violet 0.0409、…</td></tr>
+<tr><td><code>top_k=2</code></td><td class="num">2</td><td class="num">0.5692</td><td>Indigo <b>0.5390</b>、Green <b>0.4610</b></td></tr>
+<tr><td><code>top_p=0.6</code>（加上預設 top_k=50）</td><td class="num">3</td><td class="num">0.7704</td><td>Indigo <b>0.3982</b>、Green <b>0.3406</b>、Red <b>0.2612</b></td></tr>
+<tr><td><code>top_p=0.999</code>（加上預設 top_k=50）</td><td class="num">32</td><td class="num">0.9986</td><td>Indigo 0.3072、Green 0.2628、…（幾乎不變）</td></tr>
+<tr><td><code>top_p=0.999, top_k=0</code></td><td class="num">38</td><td class="num">0.9990</td><td>Indigo 0.3071、Green 0.2627、…</td></tr>
+<tr><td><code>top_k=200</code></td><td class="num">200</td><td class="num">1.0000</td><td>Indigo 0.3068、Green 0.2624、…（不變）</td></tr>
+<tr><td><code>top_k=1</code></td><td class="num">1</td><td class="num">0.3068</td><td>Indigo 1.0000</td></tr>
+<tr><td><code>top_p=0</code>（加上預設 top_k=50）</td><td class="num">1</td><td class="num">0.3068</td><td>Indigo 1.0000</td></tr>
+</tbody>
+</table></div>
+
+<figure class="fig">
+<svg viewBox="0 0 900 330" role="img" aria-label="第 2 章第 1 輪的機率分布畫成橫條：Indigo 0.3068、Green 0.2624、Red 0.2012、Orange 0.1320、Violet 0.0409、Blue 0.0226。top-k=2 留下前兩條，重新正規化成 0.5390 與 0.4610；top-p=0.6 留下前三條，重新正規化成 0.3982、0.3406、0.2612">
+  <text class="s-sm" x="20" y="22" text-anchor="start">左：原始機率（每 0.1 畫 150 px）；右兩欄：過濾、重新正規化之後的機率</text>
+  <text class="s-sm" x="560" y="44" text-anchor="middle" font-weight="700">top_k=2</text>
+  <text class="s-sm" x="760" y="44" text-anchor="middle" font-weight="700">top_p=0.6</text>
+
+  <text class="s-lbl" x="20" y="74" text-anchor="start">Indigo</text>
+  <rect x="90" y="58" width="460" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.6"/>
+  <text class="s-sm" x="96" y="75" text-anchor="start" style="fill: var(--fg)">0.3068</text>
+  <text class="s-key" x="560" y="75" text-anchor="middle" style="fill: var(--accent)">0.5390</text>
+  <text class="s-key" x="760" y="75" text-anchor="middle" style="fill: var(--accent-warm)">0.3982</text>
+
+  <text class="s-lbl" x="20" y="112" text-anchor="start">Green</text>
+  <rect x="90" y="96" width="394" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.6"/>
+  <text class="s-sm" x="96" y="113" text-anchor="start" style="fill: var(--fg)">0.2624</text>
+  <text class="s-key" x="560" y="113" text-anchor="middle" style="fill: var(--accent)">0.4610</text>
+  <text class="s-key" x="760" y="113" text-anchor="middle" style="fill: var(--accent-warm)">0.3406</text>
+
+  <line x1="80" y1="128" x2="650" y2="128" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+  <text class="s-sm" x="650" y="142" text-anchor="end" style="fill: var(--accent)">top_k=2 切在這裡</text>
+
+  <text class="s-lbl" x="20" y="166" text-anchor="start">Red</text>
+  <rect x="90" y="150" width="302" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.6"/>
+  <text class="s-sm" x="96" y="167" text-anchor="start" style="fill: var(--fg)">0.2012</text>
+  <text class="s-sm" x="560" y="167" text-anchor="middle">移除</text>
+  <text class="s-key" x="760" y="167" text-anchor="middle" style="fill: var(--accent-warm)">0.2612</text>
+
+  <line x1="80" y1="182" x2="870" y2="182" stroke="var(--accent-warm)" stroke-width="2" stroke-dasharray="6 4"/>
+  <text class="s-sm" x="870" y="196" text-anchor="end" style="fill: var(--accent-warm)">top_p=0.6 切在這裡</text>
+
+  <text class="s-lbl" x="20" y="220" text-anchor="start">Orange</text>
+  <rect x="90" y="204" width="198" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.3"/>
+  <text class="s-sm" x="96" y="221" text-anchor="start" style="fill: var(--fg)">0.1320</text>
+  <text class="s-sm" x="560" y="221" text-anchor="middle">移除</text>
+  <text class="s-sm" x="760" y="221" text-anchor="middle">移除</text>
+  <text class="s-lbl" x="20" y="256" text-anchor="start">Violet</text>
+  <rect x="90" y="240" width="61" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.3"/>
+  <text class="s-sm" x="160" y="257" text-anchor="start">0.0409</text>
+  <text class="s-lbl" x="20" y="292" text-anchor="start">Blue …</text>
+  <rect x="90" y="276" width="34" height="24" rx="3" style="fill: var(--accent); fill-opacity: 0.3"/>
+  <text class="s-sm" x="132" y="293" text-anchor="start">0.0226，其餘更小</text>
+  <text class="s-sm" x="20" y="322" text-anchor="start">Red 以下加起來約 0.43（1 − 0.5692），超過 0.4，所以 top_p=0.6 還要把 Red 留下；Orange 以下約 0.23，全部移除</text>
+</svg>
+<figcaption>圖 4.2 — 同一個分布（<a href="ch02.html#top10">第 2 章</a>第 1 輪），top-k=2 與 top-p=0.6 各自切掉哪些。所有機率都是本機實測（<code>logs/facts_pre_ch04.txt</code>）；圖底那兩個加總是計算值。</figcaption>
+</figure>
+
+<p>從表與圖可以看出：</p>
+
+<ul>
+<li><b>top-k 的候選數固定，不管分布長什麼樣</b>。這一步前兩名很接近（0.3068 與 0.2624），k=2 讓 Indigo 與 Green 幾乎各半；但如果某一步第 1 名是 0.99，k=2 還是硬留第 2 名。</li>
+<li><b>top-p 的候選數跟著分布變</b>。這一步分布很平，p=0.6 要留到第 3 名；分布尖的時候只留 1 個，等於 greedy（<a href="#walk">4.6 節</a>的逐步資料會看到這占了大多數步數）。</li>
+<li><b>重新正規化會把留下的放大</b>：Indigo 原本 0.3068，在 k=2 裡變成 0.5390，在 p=0.6 裡變成 0.3982。抽籤用的是放大後的數字。</li>
+<li><b>p 很大、k 很大時幾乎不過濾</b>：p=0.999 只砍掉約千分之一的機率質量（被移除的 token 的原始機率加總），k=200 在這一步砍掉的質量四捨五入後是 0；重新正規化後的機率和原始的幾乎一樣。</li>
+<li><b>k=1 與 p=0 都只剩第 1 名</b>，重新正規化成 1.0，抽籤就沒有懸念了（<a href="#greedy-limit">4.7.2 節</a>）。</li>
+</ul>
+
+<h2 id="params">4.4　generation_params 逐項讀</h2>
+
+<figure class="listing"><figcaption>hw3.py:211–221 — 傳給 generate 的參數</figcaption>
+<pre class="py" data-hot="212,213,215,219"><code>    generation_params = {
+        "do_sample": True,
+        "max_length": max_generation_tokens + len(input_ids.input_ids[0]),
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+        "bos_token_id": tokenizer.bos_token_id,
+        "attention_mask": input_ids.attention_mask.to(DEVICE),
+        "use_cache": True,
+        "return_dict_in_generate": True,
+        "output_scores": False,
+    }</code></pre>
+</figure>
+
+<p>這一段原封不動來自原版 Colab 第 23 格（只把 <code>"cuda"</code> 換成 <code>DEVICE</code>，並拿掉了原版的註解）。逐項：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>參數</th><th>值</th><th>意思</th></tr></thead>
+<tbody>
+<tr><td><code>do_sample</code></td><td><code>True</code></td><td>取樣，不是 greedy。第 1、2 章都是 <code>False</code></td></tr>
+<tr><td><code>max_length</code></td><td>30 + 32 = <b>62</b></td><td><b>總長</b>上限，包含 prompt。prompt 是 32 個 token（純文字加一個 <code>&lt;bos&gt;</code>，<code>logs/facts_q4_q7.txt</code>），所以最多 30 個新 token。和第 1 章的 <code>max_new_tokens</code>（只算新的）是兩種寫法</td></tr>
+<tr><td><code>pad_token_id</code></td><td>0（<code>&lt;pad&gt;</code>）</td><td>批次裡已結束的句子用它補位；一次一句時用不到</td></tr>
+<tr><td><code>eos_token_id</code></td><td><b>1</b>（<code>&lt;eos&gt;</code>）</td><td>停止 token。<b>這會蓋掉</b>模型 <code>generation_config</code> 的 <code>[1, 107]</code>，見 R3</td></tr>
+<tr><td><code>bos_token_id</code></td><td>2（<code>&lt;bos&gt;</code>）</td><td>和模型設定相同，沒有效果</td></tr>
+<tr><td><code>attention_mask</code></td><td>全是 1</td><td>標出哪些位置是真的 token；一句話沒有 padding，全部是 1</td></tr>
+<tr><td><code>use_cache</code></td><td><code>True</code></td><td>用 KV cache（預設就是），見補充章</td></tr>
+<tr><td><code>return_dict_in_generate</code></td><td><code>True</code></td><td><code>generate</code> 回傳一個物件而不是單純的 tensor，序列在 <code>.sequences</code>（:233 就是這樣取的）</td></tr>
+<tr><td><code>output_scores</code></td><td><code>False</code></td><td>不保留每一步的分數。事實腳本的逐步資料是另外打開它才量到的</td></tr>
+</tbody>
+</table></div>
+
+<p>表裡沒有的參數，就用模型的 <code>generation_config</code>（<a href="ch01.html#greedy">第 1 章 1.3.1 節</a>），再沒有就用 <code>GenerationConfig</code> 類別的預設值。本機印出的實際設定（<code>logs/facts_q4_q7.txt</code> q4 段第 2–3 行，逐字）：</p>
+
+<pre class="shell">generation_config top_k=50 top_p=1.0 temperature=1.0 eos=[1, 107]; tokenizer.eos_token_id=1
+GenerationConfig() class defaults: top_k=50 top_p=1.0; effective config for generate(top_p=0.6): top_k=50 top_p=0.6 temperature=1.0</pre>
+
+<p>第二行就是 R2 的出處：呼叫 <code>generate(top_p=0.6)</code> 時，實際生效的設定是 <b>top_k=50</b>、top_p=0.6。</p>
+
+<h2 id="hidden">4.5　沒寫出來的設定</h2>
+
+<p>取樣迴圈本身很短：</p>
+
+<figure class="listing"><figcaption>hw3.py:223–239 — 兩種方法各抽 num_samples 次</figcaption>
+<pre class="py" data-hot="228,231,233,234,235"><code>    generated_sentences_top_k = []
+    generated_sentences_top_p = []
+    for method in ["top-k", "top-p"]:
+        for _ in trange(args.num_samples, desc=method):
+            if method == "top-k":
+                generated_output = model.generate(input_ids=input_ids.input_ids.to(DEVICE), top_k=top_k, **generation_params)
+            else:
+                ######################## TODO (Q4.3 ~ 4.6) ########################
+                generated_output = model.generate(input_ids=input_ids.input_ids.to(DEVICE), top_p=top_p, **generation_params)
+                ###################################################################
+            generated_tokens = generated_output.sequences[0, len(input_ids.input_ids[0]):]
+            decoded_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+            sentence = decoded_text.replace(" ,", ",").replace(" 's", "'s").replace(" .", ".").strip()
+            if method == "top-k":
+                generated_sentences_top_k.append(sentence)
+            else:
+                generated_sentences_top_p.append(sentence)</code></pre>
+</figure>
+
+<p>:231 是第二個 TODO，原版 Colab 第 23 格的提示是「Hint: You can check how we generate the text with top_k」：照 :228 的樣子，把 <code>top_k=top_k</code> 換成 <code>top_p=top_p</code>。:233 用 prompt 長度切出新 token（和第 2 章 :163 同一招），:234 decode，:235 清理字串。<code>trange</code> 是 tqdm 的進度條版 <code>range</code>，<code>desc=method</code> 讓兩段進度條分別標成 <code>top-k</code>、<code>top-p</code>（本機存下的 log 裡沒有留下進度條）。</p>
+
+<p>這幾行看起來沒問題，但有三件事寫在別處、或根本沒寫。</p>
+
+<h3 id="r2">4.5.1　R2：top-p 組同時開著 top_k=50</h3>
+
+<p>:231 只傳了 <code>top_p</code>。<a href="#filters">4.3 節</a>那段 <code>_get_logits_processor</code> 說，<code>top_k</code> 只要不是 None、不是 0 就加 TopK；<code>generation_config</code> 的 <code>top_k</code> 沒被指定，用類別預設 <b>50</b>。所以「top-p 組」實際上是<b>先 top_k=50、再 top_p</b>。</p>
+
+<p>對 p=0.6 沒有影響：60% 的機率質量本來就落在前 50 名之內。本機 5 個 seed 下，<code>top_p=0.6</code> 與 <code>top_p=0.6, top_k=0</code>（明確關掉 top-k）的 self-BLEU 與「20 句裡有幾種」逐一相同（FACTS「Q4 實測」的 5 seed 表），seed 0 的 20 句也逐句相同（<code>logs/facts_q4_q7.txt</code>）。</p>
+
+<p>對 p=0.999 就有影響。Q4 prompt 的第一個新 token（<code>logs/facts_pre_ch04.txt</code> 第 14–19 行）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>設定</th><th class="num">留下幾個</th><th class="num">留下的原始機率合計</th></tr></thead>
+<tbody>
+<tr><td><code>top_p=0.999</code>（hw3.py，加上預設 top_k=50）</td><td class="num"><b>39</b></td><td class="num">0.9944</td></tr>
+<tr><td><code>top_p=0.999, top_k=0</code></td><td class="num"><b>607</b></td><td class="num">0.9990</td></tr>
+<tr><td><code>top_k=200</code></td><td class="num">200</td><td class="num">0.9981</td></tr>
+</tbody>
+</table></div>
+
+<p>想要「只用 top-p」，候選有 607 個；hw3.py 的寫法只剩 39 個（被 top_k=50 先砍到 50 個，top-p 再從中去掉一些）。投影片要比較的是 top-p 本身的效果，而 hw3.py 的 p=0.999 其實被 k=50 封頂了。用 20 句的 self-BLEU（越高越像，第 5 章）看，事實腳本各自從 seed 0 起算：預設寫法 0.1257、加上 <code>top_k=0</code> 0.1343，seed 3 則是 0.1371 對 0.1329，有差但方向不固定（FACTS「Q4 實測」5 seed 表的 p=0.999 兩欄）。</p>
+
+<h3 id="r3">4.5.2　R3：停止 token 被蓋成只剩 &lt;eos&gt;</h3>
+
+<p><a href="ch01.html#stop">第 1 章 1.3.2 節</a>說過，模型自己的 <code>generation_config</code> 是 <code>eos_token_id=[1, 107]</code>：生成 <code>&lt;eos&gt;</code> 或 <code>&lt;end_of_turn&gt;</code> 都會停。:215 傳了 <code>"eos_token_id": tokenizer.eos_token_id</code>，也就是只有 1。<b>傳進 <code>generate</code> 的參數優先</b>，所以 Q4 遇到 <code>&lt;end_of_turn&gt;</code>（107）不會停。</p>
+
+<p>本機逐步重現的 top_k=2 第 0 句，最後四步是（<code>logs/facts_pre_ch04.txt</code> 第 38–41 行，逐字）：</p>
+
+<pre class="shell">  step 15: picked '▁'              raw p 0.8353 renorm 0.9086 | kept  2 | raw top-1 '▁' 0.8353
+  step 16: picked '\n'             raw p 0.9979 renorm 0.9989 | kept  2 | raw top-1 '\n' 0.9979
+  step 17: picked '&lt;end_of_turn&gt;'  raw p 0.9998 renorm 0.9999 | kept  2 | raw top-1 '&lt;end_of_turn&gt;' 0.9998  «1»
+  step 18: picked '&lt;eos&gt;'          raw p 1.0000 renorm 1.0000 | kept  2 | raw top-1 '&lt;eos&gt;' 1.0000  «2»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>句子寫完，模型以 0.9998 的機率生成 <code>&lt;end_of_turn&gt;</code>。如果停止 token 包含 107，這裡就停了。</li>
+<li><span class="mk">2</span>因為沒停，模型多跑一步；它在 <code>&lt;end_of_turn&gt;</code> 後面以機率 1.0000 接 <code>&lt;eos&gt;</code>，這才碰到停止條件。</li>
+</ol>
+
+<p>所以在這個 prompt、top_k=2 下，R3 的代價大多只是多一步：本機 top_k=2 的 20 句，新 token 數是 19, 27, 21, 28, 19, 20, 20, 19, 23, 21, 18, 27, 25, 28, 22, 17, 20, 30, 30, 23，其中 <b>19 句最後一個 token 是 <code>&lt;eos&gt;</code></b>。第 17、18 句（從 0 起算）都用滿 30 個 token：第 18 句的第 30 個剛好是 <code>&lt;eos&gt;</code>，是自己停的；第 17 句的第 30 個是 <code>&lt;end_of_turn&gt;</code>，還沒來得及接 <code>&lt;eos&gt;</code> 就被長度上限截斷（<code>logs/facts_pre_ch04.txt</code> 第 63 行）。<code>skip_special_tokens=True</code> 把這兩個特殊 token 都拿掉，印出來看不出差別。</p>
+
+<p>分布平的設定就不一樣了。FACTS「Q4 實測」統計 5 個 seed、每個設定 20 句裡「碰到 30 token 上限」的句數：k=2 是 0–4 句，<b>k=200 是 3–7 句、p=0.999 是 3–7 句</b>，p=0.6 是 0 句。碰到上限的句子常常在句尾之後還接著寫，例如 hw3.py 的 k=200 第 13 句（<code>logs/run_q4_k200_p0999_seed0.txt</code> 第 30–34 行，逐字）：</p>
+
+<pre class="shell">13. Professor Lee is highly respected and renowned for his exceptional teaching in machine learning.
+
+Here's why this paraphrase works:
+
+* **Focuses on</pre>
+
+<p>改寫完一句之後，又開始解釋「為什麼這樣改寫」，到 30 個 token 被截斷。這段延伸的中間有沒有出現過 <code>&lt;end_of_turn&gt;</code>（也就是如果停止 token 包含 107，會不會早一點停），這次執行沒有逐步記錄，本機沒有量。<!-- TODO(本機實測): hw3.py --q 4 --seed 0 --top-k 200 --top-p 0.999 中碰到 30 token 上限的句子，逐步的 token 裡有沒有 <end_of_turn>（107）；若把 eos_token_id 改回 [1, 107]，這些句子會停在哪裡 --></p>
+
+<h3 id="r4">4.5.3　R4：沒有 chat template</h3>
+
+<p>:208–209 直接把 prompt 純文字交給 tokenizer，沒有 <code>apply_chat_template</code>。Gemma-2-2b-it 是對話格式訓練的（<a href="ch01.html#why">第 1 章 1.1 節</a>），沒有 <code>&lt;start_of_turn&gt;model\n</code>，它就不太確定「現在輪到誰說話」。本機量到第一個新 token 的分布（<code>logs/facts_pre_ch04.txt</code> 第 14 行，前 5 名）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>token</th><th class="num">原始機率</th></tr></thead>
+<tbody>
+<tr><td><code>' '</code>（一個空白，<code>▁</code>）</td><td class="num">0.5430</td></tr>
+<tr><td><code>'\n\n'</code></td><td class="num">0.2410</td></tr>
+<tr><td><code>'  '</code>（兩個空白，<code>▁▁</code>）</td><td class="num">0.1439</td></tr>
+<tr><td><code>' He'</code></td><td class="num">0.0219</td></tr>
+<tr><td><code>' Professor'</code></td><td class="num">0.0193</td></tr>
+</tbody>
+</table></div>
+
+<p>前三名都是空白或換行，加起來超過九成：模型傾向先「換個段落」再開始寫。所以句子 decode 出來的開頭多半是空白或換行。本機逐步看的兩個第 0 句（4.6 節），decode 出來分別是 <code>' \n\nHe is highly regarded as a top expert in machine learning education. \n'</code> 與 <code>' \n\nProfessor Lee is highly regarded as a leading expert in machine learning education. \n'</code>（<code>logs/facts_pre_ch04.txt</code> 第 22、42 行）：開頭一個空白加兩個換行、結尾一個空白加一個換行；其他句子第一步抽到的也可能是 <code>'\n\n'</code> 或兩個空白，本機沒有逐句統計（<code>▁</code> 與空白 token 見<a href="ch03.html#space">第 3 章 3.3 節</a>）。:235 最後的 <code>.strip()</code> 把頭尾的空白與換行去掉，印出來才是乾淨的一句。同一行的三個 <code>.replace(...)</code> 把「空白加標點」接回去（<code>" ,"</code> → <code>","</code> 等），是原版 Colab 就有的清理；這次的輸出裡有沒有真的出現這些組合，本機沒有逐一檢查（推論：它們是為了某些在標點前多加空白的解碼方式準備的）。</p>
+
+<p>沒有 template 還有一個後果：就算寫完了，模型仍然會生成 <code>&lt;end_of_turn&gt;</code>（和第 1 章沒有 template 的情況一樣），只是 Q4 又把它從停止 token 裡拿掉了（R3），兩件事疊在一起。</p>
+
+<h2 id="walk">4.6　一句話逐步看</h2>
+
+<p>本機用和 hw3.py 相同的順序（<code>torch.manual_seed(0)</code>、先抽 20 句 top_k=2、再抽 top_p=0.6），逐步記下每一步抽了什麼、留了幾個候選。兩種設定的第 0 句都和 <code>hw3.py --q 4 --seed 0</code> 的第 0 句逐字相同（<code>logs/run_q4_seed0.txt</code> 第 10、33 行）：</p>
+
+<pre class="shell">0. He is highly regarded as a top expert in machine learning education.
+0. Professor Lee is highly regarded as a leading expert in machine learning education.</pre>
+
+<p>第一行是 top_k=2 的第 0 句，第二行是 top_p=0.6 的第 0 句。逐步的資料（<code>logs/facts_pre_ch04.txt</code> 第 22–62 行）整理如下，「原始」是過濾前的機率，「重新正規化」是過濾後抽籤用的機率：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th class="num">step</th><th>top_k=2 抽到</th><th class="num">原始／重新正規化</th><th>當步第 1 名（原始）</th><th>top_p=0.6 抽到</th><th class="num">留下</th></tr></thead>
+<tbody>
+<tr><td class="num">0</td><td><code>▁</code></td><td class="num">0.5430／0.6926</td><td><code>▁</code> 0.5430</td><td><code>▁</code></td><td class="num">2</td></tr>
+<tr><td class="num">1</td><td><code>\n\n</code></td><td class="num">0.8960／0.9047</td><td><code>\n\n</code> 0.8960</td><td><code>\n\n</code></td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td><b>He</b></td><td class="num">0.1442／0.1755</td><td>Professor 0.6770</td><td>Professor</td><td class="num">1</td></tr>
+<tr><td class="num">3</td><td>▁is</td><td class="num">0.8971／0.9173</td><td>▁is 0.8971</td><td>▁Lee</td><td class="num">1</td></tr>
+<tr><td class="num">4</td><td>▁highly</td><td class="num">0.6378／0.8129</td><td>▁highly 0.6378</td><td>▁is</td><td class="num">1</td></tr>
+<tr><td class="num">5</td><td>▁regarded</td><td class="num">0.8236／0.8872</td><td>▁regarded 0.8236</td><td>▁highly</td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td>▁as</td><td class="num">0.5444／0.6584</td><td>▁as 0.5444</td><td>▁regarded</td><td class="num">1</td></tr>
+<tr><td class="num">7</td><td>▁a</td><td class="num">0.7180／0.7800</td><td>▁a 0.7180</td><td>▁as（0.5146）</td><td class="num">2</td></tr>
+<tr><td class="num">8</td><td><b>▁top</b></td><td class="num">0.1338／0.1733</td><td>▁leading 0.6384</td><td>▁a</td><td class="num">1</td></tr>
+<tr><td class="num">9</td><td><b>▁expert</b></td><td class="num">0.3530／0.4766</td><td><code>-</code> 0.3877</td><td>▁leading（0.5978）</td><td class="num">2</td></tr>
+<tr><td class="num">10–14</td><td>▁in ▁machine ▁learning ▁education .</td><td class="num">都是第 1 名</td><td></td><td>▁expert ▁in ▁machine ▁learning ▁education</td><td class="num">1</td></tr>
+<tr><td class="num">15–18</td><td><code>▁</code> <code>\n</code> <code>&lt;end_of_turn&gt;</code> <code>&lt;eos&gt;</code></td><td class="num">都是第 1 名</td><td></td><td>. <code>▁</code> <code>\n</code> <code>&lt;end_of_turn&gt;</code></td><td class="num">1</td></tr>
+<tr><td class="num">19</td><td>（已停，共 19 個）</td><td></td><td></td><td><code>&lt;eos&gt;</code>（共 20 個）</td><td class="num">1</td></tr>
+</tbody>
+</table></div>
+
+<p>兩種設定走出很不同的節奏：</p>
+
+<ul>
+<li><b>top_k=2 每一步都留 2 個</b>，所以每一步都有機會抽到第 2 名。第 0 句在 step 2、8、9 三步抽到非第 1 名：step 2 第 1 名是 Professor（0.6770），卻抽到 He（重新正規化 0.1755），整句從「Professor Lee」變成「He」；step 8 抽到 ▁top 而不是 ▁leading；step 9 的第 1 名是連字號 <code>-</code>（0.3877，大概是要寫 leading-edge 之類，推論），抽到第 2 名 ▁expert。</li>
+<li><b>top_p=0.6 有 17 步只剩 1 個</b>，那些步等於 greedy。只有 step 0（第 1 名 0.5430）、step 7（0.5146）、step 9（0.5978）三步的第 1 名不到 0.6，留下 2 個；這三步也剛好都抽到第 1 名，所以整句就是 greedy 的那一句（<a href="#greedy-limit">4.7.2 節</a>）。注意 step 9 的 0.5978 只差 0.6 一點點，一樣要留第 2 名：這就是 <code>&lt;= 1 − p</code> 規則的邊界（其他加起來 0.4022，大於 0.4）。</li>
+</ul>
+
+<p>這不是第 0 句的巧合。本機用事實腳本統計 20 句的所有取樣步（q4steps 段，<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code>）：<code>generation_params</code> 和 hw3.py:211–221 完全相同，但<b>每個設定都各自從 <code>torch.manual_seed(0)</code> 起算</b>、各抽 20 句，所以 top-p 那兩列和 hw3.py 的 top-p 組不是同一批句子。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>設定</th><th class="num">取樣步數</th><th class="num">第 1 名機率 平均／中位數</th><th class="num">第 1 名 &gt; 0.6 的步</th><th class="num">只剩 1 個（等於 greedy）的步</th><th class="num">每步留下 平均／中位數／最多</th></tr></thead>
+<tbody>
+<tr><td><code>top_k=2</code></td><td class="num">457</td><td class="num">0.784／0.842</td><td class="num">350（76.6%）</td><td class="num">0（0.0%）</td><td class="num">2.01／2／3</td></tr>
+<tr><td><code>top_p=0.6</code></td><td class="num">452</td><td class="num">0.801／0.864</td><td class="num">358（79.2%）</td><td class="num"><b>360（79.6%）</b></td><td class="num">1.23／1／3</td></tr>
+<tr><td><code>top_p=0.999</code></td><td class="num">459</td><td class="num">0.767／0.833</td><td class="num">337（73.4%）</td><td class="num">63（13.7%）</td><td class="num">20.36／20／51</td></tr>
+<tr><td><code>top_k=200</code></td><td class="num">467</td><td class="num">0.763／0.837</td><td class="num">337（72.2%）</td><td class="num">0（0.0%）</td><td class="num">200.13／200／203</td></tr>
+</tbody>
+</table></div>
+
+<p>這個 prompt 下，模型大部分的步都很篤定：約 3/4 的步第 1 名超過 0.6。對 p=0.6 來說，這些步全部只剩 1 個候選，<b>約 8 成的步數等於 greedy</b>（360 步）；k=2 則每一步都硬留第 2 名，0 步等於 greedy。「第 1 名 &gt; 0.6」的 358 步與「只剩 1 個」的 360 步差 2 步，是邊界值與 fp16 造成的差異。p=0.6 每步平均只留 1.23 個（1 個 360 步、2 個 79 步、3 個 13 步）。p=0.999 最多留到 51 個：是被預設的 top_k=50 封頂（R2），多出的 1 個是同分。</p>
+
+<p>所以 <b>p=0.6 比 k=2 更不多樣</b>。用「20 句裡有幾種不同的句子」看，FACTS 5 個 seed（每個設定各自從同一個 seed 起算）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>seed</th><th class="num">k=2</th><th class="num">k=200</th><th class="num">p=0.6</th><th class="num">p=0.999</th></tr></thead>
+<tbody>
+<tr><td>0</td><td class="num">20</td><td class="num">19</td><td class="num">9</td><td class="num">20</td></tr>
+<tr><td>1</td><td class="num">19</td><td class="num">20</td><td class="num">10</td><td class="num">20</td></tr>
+<tr><td>2</td><td class="num">18</td><td class="num">20</td><td class="num">13</td><td class="num">20</td></tr>
+<tr><td>3</td><td class="num">17</td><td class="num">20</td><td class="num">5</td><td class="num">20</td></tr>
+<tr><td>4</td><td class="num">19</td><td class="num">20</td><td class="num">9</td><td class="num">20</td></tr>
+</tbody>
+</table></div>
+
+<p>p=0.6 的 20 句只有 5 到 13 種，其他三個設定都是 17 到 20 種。hw3.py <code>--q 4 --seed 0</code> 的 top-p 組（它是接在 20 句 top-k 之後抽的，不是從 seed 0 起算，所以和上表的 seed 0 不是同一批）20 句裡，<code>Professor Lee is highly regarded as a leading expert in machine learning education.</code> 一句就出現了 10 次（<code>logs/run_q4_seed0.txt</code> 第 33–52 行，本書數的）。也就是說，「top-p 組比 top-k 組更不多樣」在這一題是<b>參數值</b>造成的（0.6 對這個 prompt 很嚴格、2 對它相對寬鬆），不是 top-p 這種方法天生比 top-k 保守。第 5 章會用 self-BLEU 量同一件事。</p>
+
+<h2 id="settings">4.7　四種設定，以及 k=1、p=0</h2>
+
+<h3 id="four">4.7.1　S3：程式預設只跑一組</h3>
+
+<p>投影片 p.18 要比較 k=2 vs k=200、p=0.6 vs p=0.999，p.19 還問 k=1、p=0。hw3.py 一次執行只跑一組 k 與一組 p，預設是 k=2、p=0.6；其他值要用旗標自己換（在 repo 根目錄）：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 4 --seed 0
+.venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-k 200 --top-p 0.999
+.venv/bin/python HW03/hw3.py --q 4 --top-k 1 --top-p 0 --num-samples 2</pre>
+
+<p>第 1、2 行本機的輸出在 <code>logs/run_q4_seed0.txt</code> 與 <code>logs/run_q4_k200_p0999_seed0.txt</code>；第 3 行在 <code>logs/run_q4_k1_p0_n2.txt</code>。前兩行各要跑約 25 秒（<a href="ch00.html#time-mem">第 0 章 0.10 節</a>量到 Q4 是 23.8 s），輸出依序是 20 句 top-k、20 句 top-p、兩個 self-BLEU 分數；第 3 行只抽 2 句，所以各印 2 句（<a href="#greedy-limit">4.7.2 節</a>）。中間 stderr 夾著 HybridCache 與 nltk（算 self-BLEU 用的自然語言處理套件，第 5 章）的警告（可以忽略，第 0 章 0.1 節）。<code>--num-samples</code> 至少要給 2，原因在第 5 章。<code>--seed 0</code> 讓結果和本書對得上；換了 GPU 或版本，抽到的句子可能不同（第 5 章）。</p>
+
+<p>四種設定的句子（seed 0，hw3.py 的輸出）讀起來的差異：</p>
+
+<ul>
+<li><b>k=2、p=0.6</b>：幾乎都是 <code>Professor Lee is highly regarded ...</code> 或 <code>He is highly regarded ...</code> 的變體，每句都是完整的一句話、停在句號。</li>
+<li><b>k=200、p=0.999</b>：用字明顯更多樣（renowned、pioneer、distinguished、top-notch…），但開始出現<b>偏離指令</b>的句子。例如 p=0.999 的第 4 句（<code>logs/run_q4_k200_p0999_seed0.txt</code> 第 48–53 行，逐字）：</li>
+</ul>
+
+<pre class="shell">4. Here's the original sentence:
+
+Professor Hung-yi Lee is one of the best teachers in the domain of machine learning.
+
+
+**Par</pre>
+
+<p>模型沒有改寫，而是先把原句抄一遍、準備寫「**Paraphrase**」，就被 30 token 的上限截斷了。同一份輸出裡 k=200 的第 11 句是 <code>Here I would like an accurate paraphrase,</code> 開頭，第 13 句是上一節的「Here's why this paraphrase works:」。分布越平，抽到低機率續寫的機會越多，句子越容易走偏、越容易寫到上限。這和<a href="#walk">上一節</a>的統計是同一件事的兩面：k=200 每步留 200 個、p=0.999 平均留 20 個，留下的候選裡有很多「不那麼像改寫」的選項。</p>
+
+<p>FACTS 還記錄了一個現象：事實腳本裡 <code>top_k=200</code> 與 <code>top_p=0.999, top_k=0</code> 兩個設定，在 5 個 seed 下抽出的 20 句<b>逐句相同</b>（<code>logs/facts_q4_q7.txt</code> 的兩段句子一模一樣）。<b>推論</b>：在這個 prompt 上，兩者留下的 token 集合幾乎相同（第一步一個留 200 個、一個留 607 個，但被額外留下的那些機率極小），同一條亂數流就抽出同樣的 token。本機沒有逐步比對兩者每一步的候選集合。</p>
+
+<h3 id="greedy-limit">4.7.2　k=1 與 p=0：都退化成 greedy</h3>
+
+<p><code>top_k=1</code>：TopK 只留第 1 名（同分除外）。<code>top_p=0</code>：門檻是 <code>1 − 0 = 1</code>，累積機率全部 <code>&lt;= 1</code>，所有 token 都被標記移除；但 :476 保留最後 <code>min_tokens_to_keep</code> = 1 個，也就是機率最高的那一個。兩者都只剩一個候選，重新正規化成 1.0，<code>multinomial</code> 只能抽到它：每一步都是第 1 名，就是 greedy。</p>
+
+<p>本機 <code>hw3.py --q 4 --top-k 1 --top-p 0 --num-samples 2</code> 的輸出（<code>logs/run_q4_k1_p0_n2.txt</code> 第 8–19 行，逐字）：</p>
+
+<pre class="shell">===== Top-K Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+
+===== Top-P Sampling Output =====
+
+0. Professor Lee is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+
+self-BLEU Score for top_k (k=1): 1.0000
+self-BLEU Score for top_p (p=0.0): 1.0000</pre>
+
+<p>四句完全相同（self-BLEU 1.0000，完全相同的句子就是 1）。FACTS 另外用事實腳本試了 3 個 seed、各抽 3 次，k=1 與 p=0 都只得到這一種句子，和 greedy 相同。這就是本機對 p.19 第 3、4 小題的結果；它是這台機器、這套版本跑出來的句子，換了環境，greedy 本身也可能在某一步因為 fp16 的差異走向別的字（<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。</p>
+
+<p>也注意 4.6 節 top_p=0.6 的第 0 句，正好也是這一句：p=0.6 約 8 成的步數等於 greedy，剩下的步也常常抽到第 1 名，所以它最常產生的就是 greedy 的答案。</p>
+
+<h2 id="dont-trust">4.8　讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：R2、R3、R4 與 S1</h4>
+<p>（R2–R4 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡 repo 問題的第 2–4 條，S1 是「投影片與程式不一致」的第 1 條；S3 在 <a href="#four">4.7.1 節</a>。）這四條都是原版 Colab 就有、hw3.py 為了和助教的參考答案一致而保留的（hw3.py 的 docstring，<a href="ch00.html#skeleton">第 0 章 0.2 節</a>）。</p>
+<p><b>R2　「top-p 組」其實是 top_k=50 加上 top-p。</b>程式只傳 <code>top_p</code>，<code>generation_config</code> 的預設 top_k=50 照樣生效，而且先作用。p=0.6 時沒差；p=0.999 時，第一步的候選從 607 個變成 39 個（<a href="#r2">4.5.1 節</a>）。投影片問「top-p 的效果」，量到的是「top-k=50 之後的 top-p」。要只用 top-p，:231 加上 <code>top_k=0</code>。</p>
+<p><b>R3　eos_token_id 被蓋成 1。</b><code>generation_params</code> 傳了 <code>tokenizer.eos_token_id</code>（只有 <code>&lt;eos&gt;</code>），蓋掉模型的 <code>[1, 107]</code>，遇到 <code>&lt;end_of_turn&gt;</code> 不停。在 k=2 下多半只是多生成一個 <code>&lt;eos&gt;</code>；分布平的設定裡，有些句子寫到 30 token 上限（<a href="#r3">4.5.2 節</a>）。要和模型的預設一致，把 :215 拿掉，或改成 <code>"eos_token_id": [1, 107]</code>。改了之後句子會在哪裡停，本機沒有量。</p>
+<p><b>R4　沒有 chat template。</b>一個對話格式訓練的模型，拿到裸的指令，第一個 token 有超過九成的機率是空白或換行，句子開頭多半是空白與換行（本機的第 0 句是 <code>' \n\n'</code>），靠 :235 的 <code>.strip()</code> 收拾（<a href="#r4">4.5.3 節</a>）。第 1 章看過，同一個模型有沒有 template，回答的樣子很不同；Q4 測的是「沒有 template 時的改寫」。</p>
+<p><b>S1　投影片的 prompt 少了 Hung-yi。</b>p.18 寫 <code>'Professor Lee is one of the best teachers in the domain of machine learning'</code>，原版 Colab 與 hw3.py:208 都是 <code>'Professor Hung-yi Lee is one of the best teachers ...'</code>。以程式為準：你自己跑時用的是程式裡的句子。生成的句子大多寫成「Professor Lee」，但也有寫出全名的（例如 k=2 第 14 句 <code>Professor Hung-yi Lee is highly regarded ...</code>），那是 prompt 裡本來就有全名的緣故。</p>
+</div>
+
+<h2 id="lab">4.9　動手做</h2>
+
+<div class="lab">
+<h4>自己跑 Q4，看每一步</h4>
+<p>先用 <a href="#four">4.7.1 節</a>的三條指令跑出四種設定與 k=1、p=0 的句子（需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>）。和本章對照時，看的是「句子長什麼樣、有幾種不同的句子、有沒有走偏」，不必逐句相同。</p>
+<p>想看 <a href="#example">4.3.3 節</a>的過濾表與 <a href="#walk">4.6 節</a>的逐步資料，用 repo 附的事實腳本（同樣在 repo 根目錄；會載入模型；結果印在終端機，不會寫進 <code>logs/</code>）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch04</pre>
+<p>輸出格式就是 <code>logs/facts_pre_ch04.txt</code>：Q2 第 1 輪與 Q4 第一個新 token 在各種設定下留幾個、重新正規化後的機率；接著 top_k=2 與 top_p=0.6 第 0 句的逐步表（每行 <code>step N: picked … raw p … renorm … | kept … | raw top-1 …</code>）；最後是 20 句的新 token 數與最後一個 token。本機約 15 秒。<a href="#walk">4.6 節</a>那張 4 個設定的統計表來自 <code>q4steps</code> 段：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py q4steps</pre>
+<p>本機約 48 秒。每個設定印兩行，第一行就是 <a href="#walk">4.6 節</a>表裡的數字，例如（逐字）：</p>
+<pre class="shell">top_p=0.6: 452 sampling steps over 20 sentences; top-1 prob mean 0.801 median 0.864; steps with top-1 &gt; 0.6: 358 (79.2%); steps where only 1 token survives filtering: 360 (79.6%); kept tokens per step mean 1.23 median 1 max 3</pre>
+<p>第二行是「每步留下幾個」的次數分布（<code>kept-token histogram</code>）。</p>
+<p>想用 hw3.py 自己驗證 R2，要做一組前後對照，兩次的旗標完全相同，只差 :231 有沒有 <code>top_k=0</code>。先用沒改過的 hw3.py 跑一次當基準：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-p 0.999</pre>
+<p>再把 :231 暫時改成在 <code>top_p=top_p</code> 後面多傳一個 <code>top_k=0</code>，用同一條指令再跑一次，比較兩次的 top-p 組。兩次的 top-k 組（k=2，在 top-p 之前抽）應該逐句相同，因為它們用的亂數一樣；top-p 組的句子則可能不同。這組對照本書沒有跑過，所以沒有預期的句子；事實腳本做過的對照（各自從 seed 0 起算）見 <a href="#r2">4.5.1 節</a>。改完記得把 :231 改回來。</p>
+</div>
+
+<h2 id="pitfalls">4.10　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 top-p 想成「從大往下加到 p」</h4>
+<dl>
+<dt>症狀</dt><dd>認為第 1 名 0.5978 時，「加到 0.6 還差一點，再加第 2 名就夠了」和「0.5978 &lt; 0.6 所以只留第 1 名」之間猶豫。</dd>
+<dt>後果</dt><dd>在邊界上算錯留下幾個，也看不出為什麼 0.5978 那一步留了 2 個。</dd>
+<dt>正解</dt><dd class="fix">transformers 是升冪累加，移除累積 <code>&lt;= 1 − p</code> 的；第 1 名獨自留下的條件是其他加起來 <code>&lt;= 1 − p</code>（logits_process.py:474）。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>混用原始機率與重新正規化的機率</h4>
+<dl>
+<dt>症狀</dt><dd>說「k=2 時 He 被抽中的機率是 0.1442」。</dd>
+<dt>後果</dt><dd>低估了實際抽中的機會；跨設定比較時數字對不上。</dd>
+<dt>正解</dt><dd class="fix">抽籤用的是過濾後重新正規化的機率（He 在 k=2 裡是 0.1755）。原始機率只用來決定誰留下。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為只傳 top_p 就是純 top-p</h4>
+<dl>
+<dt>症狀</dt><dd><code>generate(top_p=0.999)</code>，以為候選有幾百個。</dd>
+<dt>後果</dt><dd>實際被預設的 top_k=50 封頂，第一步只有 39 個（R2）。</dd>
+<dt>正解</dt><dd class="fix">要純 top-p，明寫 <code>top_k=0</code>；想知道實際設定，印出 <code>model.generation_config</code> 與 <code>GenerationConfig()</code> 的預設值。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 max_length 當成新 token 數</h4>
+<dl>
+<dt>症狀</dt><dd>以為 <code>max_length=30</code> 就能生成 30 個 token。</dd>
+<dt>後果</dt><dd>prompt 已經 32 個 token，超過 30，生成不出新東西。</dd>
+<dt>正解</dt><dd class="fix"><code>max_length</code> 是含 prompt 的總長；hw3.py 寫成 30 + prompt 長度。只想限制新 token，用 <code>max_new_tokens</code>（第 1 章）。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為句子都停在 &lt;end_of_turn&gt;</h4>
+<dl>
+<dt>症狀</dt><dd>看到印出的句子很乾淨，以為和第 1、2 章一樣停在 <code>&lt;end_of_turn&gt;</code>。</dd>
+<dt>後果</dt><dd>看不懂為什麼有些句子後面接了「Here's why …」被截斷。</dd>
+<dt>正解</dt><dd class="fix">Q4 的停止 token 只有 <code>&lt;eos&gt;</code>（R3）；<code>skip_special_tokens</code> 把兩個特殊 token 都藏起來了。要看真相，decode 時不跳過特殊 token。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 top-p 天生比 top-k 保守</h4>
+<dl>
+<dt>症狀</dt><dd>從 p=0.6 比 k=2 更不多樣，推出「top-p 比較不多樣」。</dd>
+<dt>後果</dt><dd>把參數值的效果當成方法的性質。</dd>
+<dt>正解</dt><dd class="fix">p=0.6 在這個 prompt 上約 8 成步數只留 1 個，k=2 每步都留 2 個；換成 p=0.999 就比 k=2 多樣得多。比較的是這兩組值，不是兩種方法。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>取樣的一步：logits 轉 fp32 → <code>logits_processor</code> 把不要的設成 −inf → softmax 重新正規化 → <code>torch.multinomial</code> 抽 1 個 → 接回序列（transformers <code>_sample</code>，utils.py:3267–3306）。</li>
+<li>top-k 留分數 ≥ 第 k 名的（同分都留）；top-p 升冪累加、移除累積 <code>&lt;= 1 − p</code> 的，至少留 1 個。順序是先 top-k 再 top-p。第 2 章第 1 輪：k=2 → Indigo 0.5390、Green 0.4610；p=0.6 → Indigo、Green、Red 0.3982／0.3406／0.2612（重新正規化）。</li>
+<li><code>generation_params</code>：<code>max_length</code> = 30 + 32 = 62 是總長；<code>eos_token_id</code> = 1；<code>return_dict_in_generate</code> 讓結果在 <code>.sequences</code>。</li>
+<li>R2：top-p 組同時開著預設 top_k=50，p=0.999 第一步 39 個而不是 607 個。R3：停止 token 只剩 <code>&lt;eos&gt;</code>，<code>&lt;end_of_turn&gt;</code> 之後還要再生成一個 <code>&lt;eos&gt;</code>，分布平時有句子寫到 30 上限。R4：沒有 template，第一個 token 最可能是空白，靠 <code>.strip()</code> 收拾。S1：以程式的 prompt 為準。</li>
+<li>p=0.6 約 8 成步數只剩 1 個候選（等於 greedy），k=2 每步都留 2 個，所以 p=0.6 的 20 句只有 5–13 種、k=2 有 17–20 種。k=200、p=0.999 用字多樣但會走偏。</li>
+<li>k=1 與 p=0 都退化成 greedy：本機兩者都是 <code>Professor Lee is highly regarded as a leading expert in machine learning education.</code></li>
+</ul>
+<p>下一章是 Q4 的下半：self-BLEU 怎麼用一個數字量「20 句有多像」，以及設了 <code>--seed</code> 為什麼還不一定重現得出同樣的 20 句。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. 某一步的原始機率前三名是 0.55、0.25、0.15，其餘加起來 0.05。top_p=0.6 時留下幾個？top_k=2 時呢？（假設沒有其他過濾器、沒有同分。）</summary>
+<p>top-p：第 1 名以外加起來 0.45，大於 0.4，第 1 名不能獨自留下；前兩名以外加起來 0.20，<code>&lt;= 0.4</code>，全部移除。所以留 2 個，重新正規化成 0.55/0.80 ≈ 0.69 與 0.25/0.80 ≈ 0.31（計算值）。top-k=2 也是留這兩個。這個例子兩者剛好一樣；本機 Q4 第一個新 token 就是這種情況（0.5430、0.2410，兩者都留 2 個）。</p>
+</details>
+
+<details class="quiz"><summary>2. 第一名是 0.62 時，top_p=0.6 與 top_k=2 各留幾個？哪一個比較像 greedy？</summary>
+<p>top-p：第 1 名以外加起來 0.38 <code>&lt;= 0.4</code>，全部移除，只留 1 個，這一步就是 greedy。top-k=2 一定留 2 個，第 2 名還有被抽中的機會。這正是 p=0.6 在本機約 8 成步數等於 greedy、k=2 一步都沒有的原因。</p>
+</details>
+
+<details class="quiz"><summary>3. hw3.py 的 top-p 組，<code>generate</code> 實際用了哪些過濾器？順序是什麼？</summary>
+<p>先 <code>TopKLogitsWarper(top_k=50)</code>，再 <code>TopPLogitsWarper(top_p=p)</code>。top_k=50 來自 <code>GenerationConfig</code> 的類別預設值，因為 :231 沒有傳 top_k；temperature 是 1.0，不加 Temperature。這是 R2。</p>
+</details>
+
+<details class="quiz"><summary>4. Q4 的句子在 <code>&lt;end_of_turn&gt;</code> 之後為什麼還多生成了一個 token？印出來的句子看得到它們嗎？</summary>
+<p><code>generation_params</code> 傳了 <code>eos_token_id=tokenizer.eos_token_id</code>（1），蓋掉模型的 <code>[1, 107]</code>，所以 107 不再是停止 token；模型在 <code>&lt;end_of_turn&gt;</code> 後面以機率約 1.0 接 <code>&lt;eos&gt;</code>，才停（R3）。印出來看不到，因為 :234 用 <code>skip_special_tokens=True</code> decode，兩個特殊 token 都被拿掉。</p>
+</details>
+
+<details class="quiz"><summary>5. <code>top_p=0</code> 照公式會把所有 token 都移除，為什麼還能生成句子？生成的句子是什麼？</summary>
+<p>門檻 <code>1 − 0 = 1</code>，累積機率全部 <code>&lt;= 1</code>，確實全部被標記；但 logits_process.py:476 保留最後 <code>min_tokens_to_keep</code>（1）個，也就是機率最大的那一個。所以每一步都是第 1 名，等於 greedy。本機得到的是 <code>Professor Lee is highly regarded as a leading expert in machine learning education.</code>，和 k=1 相同。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Holtzman et al., <i>The Curious Case of Neural Text Degeneration</i>, 2020, <a href="https://arxiv.org/abs/1904.09751">arXiv:1904.09751</a>：提出 nucleus（top-p）sampling 的論文。</li>
+<li>Fan et al., <i>Hierarchical Neural Story Generation</i>, 2018, <a href="https://arxiv.org/abs/1805.04833">arXiv:1805.04833</a>：常被引用為 top-k sampling 的出處。</li>
+<li>transformers v4.47.0 文件 <a href="https://huggingface.co/docs/transformers/v4.47.0/en/generation_strategies">Text generation strategies</a>：<code>do_sample</code>、<code>top_k</code>、<code>top_p</code> 與 <code>generation_config</code>。</li>
+<li>transformers v4.47.0 原始碼 <a href="https://github.com/huggingface/transformers/blob/v4.47.0/src/transformers/generation/logits_process.py">generation/logits_process.py</a>（<code>TopPLogitsWarper</code>、<code>TopKLogitsWarper</code>）與 <a href="https://github.com/huggingface/transformers/blob/v4.47.0/src/transformers/generation/utils.py">generation/utils.py</a>（<code>_get_logits_processor</code>、<code>_sample</code>）：本章引用的行號以這個版本為準。</li>
+<li>PyTorch 文件 <a href="https://pytorch.org/docs/stable/generated/torch.multinomial.html">torch.multinomial</a>。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch03.html">← 第 3 章</a><span class="disabled">第 5 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
