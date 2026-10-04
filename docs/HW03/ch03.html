@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 3 章　Q3 Tokenization：一句話怎麼變成 token id — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch02.html">← 第 2 章</a><span class="disabled">第 4 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 3 章　Q3 Tokenization：一句話怎麼變成 token id</h1>
+  <p class="chap-lead">前兩章一直在說「32 個 token」「Indigo 是 id 173209」，卻沒有停下來看一句話是怎麼被切開的。Q3 只做這一件事：把一句英文交給 tokenizer，印出每一塊的字串與 id，不經過模型。這一章用它把前面欠的帳一次還清：<code>▁</code> 是什麼、為什麼 <code>Orange</code> 和 <code>' Orange'</code> 是兩個 token、中文和數字怎麼切、詞表裡沒有的字元怎麼辦。最後教你自己跑出投影片 p.17 的四個空格。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">Q3 的 TODO 是兩行：<code>tokenizer.encode(sentence, add_special_tokens=False)</code> 拿 id，<code>tokenizer.convert_ids_to_tokens(token_ids)</code> 把 id 換回字串。Gemma 的 tokenizer 把空白併進<b>下一個</b> token 的開頭，記成 <code>▁</code>，所以同一個字前面有沒有空白就是不同的 token（<code>you</code> 4747、<code>▁you</code> 692）。詞表裡沒有的字元會拆成 UTF-8 位元組 token，本機實測從來沒有出現 <code>&lt;unk&gt;</code>。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:171–182（<code>q3</code>，TODO 在 :174–179）、:493（<code>--sentence</code> 的預設句子）。</li>
+    <li>本章的實測數字來自 <code>logs/run_seed0.txt</code> 的 Q3 段與 <code>logs/review_ch03_q3.txt</code>（hw3.py 的實際輸出），以及 <code>logs/facts_pre_ch03.txt</code>、<code>logs/facts_env_model_tok.txt</code>（事實腳本 <code>docs/tools/hw03_facts.py</code> 的 <code>pre_ch03</code>、<code>tok</code> 段的輸出）。這些檔案是本機執行時把終端輸出另外存下來的紀錄，放在 repo 的 <code>docs/HW03/logs/</code>；本章寫「第 N 行」指的是這些檔案裡的行號，你自己在終端機跑時不會有同樣的行號，對照內容即可。</li>
+    <li><b>這一章不寫出 Q3 的答案</b>（<a href="index.html#hw">目錄頁第 1 節</a>）。預設句子的輸出裡，對應投影片四個空格的那三行一律省略；<a href="#answer">3.6 節</a>教你怎麼自己跑出來。</li>
+  </ul>
+</div>
+
+<h2 id="task">3.1　這一題要做什麼</h2>
+
+<p>投影片 p.16 的題目是「How is the prompt being tokenized into? Please write the corresponding token index.」：把一句話切成 token，寫出每個 token 的 index（也就是 id）。句子是 hw3.py 裡 <code>--sentence</code> 的預設值：</p>
+
+<figure class="listing"><figcaption>hw3.py:493 — --sentence 的預設句子</figcaption>
+<pre class="py"><code>    parser.add_argument("--sentence", default="I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?")</code></pre>
+</figure>
+
+<p>p.17 把這句話的輸出列成 18 行 <code>Token: …, token index: …</code>，其中連續三行挖了四個空格（兩個 token、兩個 token index），配分 2 × 0.1 + 2 × 0.15 = 0.5 分。這四個空格就是 Q3 在 Gradescope 上要填的東西，本章不寫出來。</p>
+
+<p>p.16 右邊的截圖是 OpenAI 的線上 tokenizer（標籤寫著 GPT-3.5 &amp; GPT-4），只是拿來示意「一句話會被切成好幾塊」。那是另一套 tokenizer，切法與 id 都和 Gemma 不同，不能拿來對答案。</p>
+
+<h2 id="todo">3.2　TODO 的填法：encode 與 convert_ids_to_tokens</h2>
+
+<p>原版 Colab 第 21 格（前面第 20 格是「## Q3: Tokenization of Sentence」的標題格）：</p>
+
+<pre class="py">sentence = "I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?" #@param {type:"string"}
+
+######################## TODO (Q3.1 ~ 3.4) ########################
+### You can refer to https://huggingface.co/learn/nlp-course/en/chapter2/4?fw=pt for basic tokenizer usage
+### and https://huggingface.co/docs/transformers/en/main_classes/tokenizer for full tokenizer usage
+
+
+# Encode the sentence into token IDs without adding special tokens
+token_ids =
+
+# Convert the token IDs back to their corresponding tokens (words or subwords)
+tokens =
+###################################################################
+
+# Iterate through the tokens and their corresponding token IDs
+for t, t_id in zip(tokens, token_ids):
+    # Print the token and its index (ID)
+    print(f"Token: {t}, token index: {t_id}")</pre>
+
+<p><code>#@param {type:"string"}</code> 是 Colab 的表單語法，讓這一行在 Colab 裡變成一個可以直接改字的輸入框。hw3.py 的對應做法是 <code>--sentence</code> 旗標。填好之後：</p>
+
+<figure class="listing"><figcaption>hw3.py:171–182 — q3：兩行 TODO 與印出</figcaption>
+<pre class="py" data-hot="176,178,182"><code>def q3(tokenizer, model, args):
+    sentence = args.sentence
+
+    ######################## TODO (Q3.1 ~ 3.4) ########################
+    # Encode the sentence into token IDs without adding special tokens
+    token_ids = tokenizer.encode(sentence, add_special_tokens=False)
+    # Convert the token IDs back to their corresponding tokens (words or subwords)
+    tokens = tokenizer.convert_ids_to_tokens(token_ids)
+    ###################################################################
+
+    for t, t_id in zip(tokens, token_ids):
+        print(f"Token: {t}, token index: {t_id}")</code></pre>
+</figure>
+
+<p>兩行各做一件事：</p>
+
+<ul>
+<li><b>:176 <code>tokenizer.encode(sentence, add_special_tokens=False)</code></b>：字串 → 一個 Python list 的 id。和第 1、2 章用的 <code>tokenizer(prompt)</code> 不同，<code>encode</code> 只回傳 id 的 list，沒有 <code>attention_mask</code>，也不是 tensor（因為沒有 <code>return_tensors</code>）。</li>
+<li><b>:178 <code>tokenizer.convert_ids_to_tokens(token_ids)</code></b>：每個 id 查表換回詞表裡那一格的<b>字串原樣</b>，包括 <code>▁</code> 這個記號（<a href="#space">3.3 節</a>）。它和 <code>decode</code> 不一樣：<code>decode</code> 會把 <code>▁</code> 換回空白、把整串接成一句話；<code>convert_ids_to_tokens</code> 一個 id 給一個字串，不做任何轉換。</li>
+</ul>
+
+<p><code>q3</code> 的參數裡有 <code>model</code>，但函式裡完全沒用到：Q3 只用 tokenizer，不做任何 forward。所以<a href="ch00.html#time-mem">第 0 章 0.10 節</a>量到 Q3 是 0.0 s，GPU 記憶體也沒有增加；不過 <code>main</code> 不管跑哪一題都會先載入模型，所以 <code>--q 3</code> 整條指令仍然要等模型載入、仍然需要 GPU（第 0 章拿它當環境檢查，就是這個原因）。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 250" role="img" aria-label="字串經過 encode 變成 id 的 list，經過 convert_ids_to_tokens 變成 token 字串的 list，兩者用 zip 配對印出；decode 則把 id 換回原句">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="a3w" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent-warm)"/>
+    </marker>
+  </defs>
+  <rect x="20" y="40" width="190" height="70" rx="9" class="s-box"/>
+  <text class="s-lbl" x="115" y="68" text-anchor="middle" font-weight="700">sentence（str）</text>
+  <text class="s-mono" x="115" y="92" text-anchor="middle">"you and you"</text>
+  <rect x="320" y="40" width="230" height="70" rx="9" class="s-box"/>
+  <text class="s-lbl" x="435" y="68" text-anchor="middle" font-weight="700">token_ids（list[int]）</text>
+  <text class="s-mono" x="435" y="92" text-anchor="middle">[4747, 578, 692]</text>
+  <rect x="650" y="40" width="230" height="70" rx="9" class="s-box"/>
+  <text class="s-lbl" x="765" y="68" text-anchor="middle" font-weight="700">tokens（list[str]）</text>
+  <text class="s-mono" x="765" y="92" text-anchor="middle">['you', '▁and', '▁you']</text>
+  <line x1="211" y1="75" x2="316" y2="75" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <text class="s-sm" x="264" y="64" text-anchor="middle">encode</text>
+  <line x1="551" y1="75" x2="646" y2="75" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <text class="s-sm" x="598" y="64" text-anchor="middle">convert_ids_</text>
+  <text class="s-sm" x="598" y="100" text-anchor="middle">to_tokens</text>
+  <path d="M435,111 L435,160 L115,160 L115,114" fill="none" stroke="var(--accent-warm)" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#a3w)"/>
+  <text class="s-sm" x="275" y="152" text-anchor="middle" style="fill: var(--accent-warm)">decode：▁ 換回空白、接成一句，還原原句</text>
+  <rect x="320" y="185" width="560" height="44" rx="9" class="s-box"/>
+  <text class="s-mono" x="600" y="212" text-anchor="middle">Token: ▁and, token index: 578</text>
+  <line x1="765" y1="111" x2="765" y2="182" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="470" y1="111" x2="470" y2="182" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <text class="s-sm" x="618" y="160" text-anchor="middle">zip 配對，一行印一組（:181–182）</text>
+</svg>
+<figcaption>圖 3.1 — Q3 的資料流，以 <code>"you and you"</code> 為例（id 是 <code>logs/review_ch03_q3.txt</code> 的實測）。<code>encode</code> 與 <code>convert_ids_to_tokens</code> 兩步得到兩個等長的 list，<code>zip</code> 起來逐行印出；<code>decode</code> 走的是反方向，把 id 換回原本的字串。</figcaption>
+</figure>
+
+<p>本機核對過三件事（<code>logs/facts_pre_ch03.txt</code>，用預設句子）：</p>
+
+<ul>
+<li><code>tokenizer.tokenize(sentence)</code>（一步直接得到 token 字串）與 hw3.py 這兩步的結果相同（<code>tokenize() == convert_ids_to_tokens(encode()): True</code>）。兩步的寫法多拿到了 id，Q3 正好兩個都要。</li>
+<li><code>decode(encode(sentence))</code> 與 <code>convert_tokens_to_string(tokens)</code> 都完整還原原句（81 個字元，一個字都不差）。tokenizer 的切法是<b>可逆</b>的：沒有丟掉任何資訊，空白也沒有。</li>
+<li>預設句子切成 <b>18 個 token</b>。</li>
+</ul>
+
+<h3 id="no-bos">3.2.1　為什麼 add_special_tokens=False</h3>
+
+<p><code>encode</code> 的預設是 <code>add_special_tokens=True</code>，會在最前面加一個 <code>&lt;bos&gt;</code>（id 2，特殊 token 見<a href="ch01.html#special-tokens">第 1 章 1.1.1 節</a>）。本機實測預設句子用預設值 encode，得到 19 個 token，開頭是 <code>[2, 235285]</code>，也就是 <code>['&lt;bos&gt;', 'I']</code>（<code>logs/facts_pre_ch03.txt</code> 第 4 行）。</p>
+
+<p>Q3 問的是「這句話被切成哪些 token」，<code>&lt;bos&gt;</code> 不是句子的一部分，是送進模型時才需要的開頭記號，所以 TODO 的註解直接要求「without adding special tokens」，投影片 p.17 的表也從 <code>I</code> 開始。忘了加這個參數，輸出會多一行 <code>Token: &lt;bos&gt;, token index: 2</code>，後面每一行的位置都往下錯一行。</p>
+
+<p>這和第 1 章的雙 <code>&lt;bos&gt;</code>（<a href="ch01.html#r1">1.7 節</a>）是同一個參數：那裡因為<b>沒有</b>關掉它，template 已經帶一個 <code>&lt;bos&gt;</code> 的字串又被加了一個；這裡則是明確關掉，只看句子本身。</p>
+
+<h2 id="space">3.3　▁ 是什麼</h2>
+
+<p>先看本機跑預設句子的輸出。下面是 <code>logs/run_seed0.txt</code> Q3 段的逐字內容，只是中間三行換成了省略號：</p>
+
+<pre class="shell">############################## Q3 ##############################
+Token: I, token index: 235285  «1»
+Token: ▁love, token index: 2182  «2»
+Token: ▁taking, token index: 4998
+Token: ▁a, token index: 476
+Token: ▁Machine, token index: 13403
+Token: ▁Learning, token index: 14715
+Token: ▁course, token index: 3205
+Token: ▁by, token index: 731
+Token: ▁Professor, token index: 11325
+…（這三行是空格 (1)–(4) 的答案，請自己跑，見 3.6 節）
+Token: ▁Lee, token index: 9201
+Token: ,, token index: 235269  «3»
+Token: ▁What, token index: 2439
+Token: ▁about, token index: 1105
+Token: ▁you, token index: 692  «4»
+Token: ?, token index: 235336  «5»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>句首的 <code>I</code> 前面沒有空白，所以沒有 <code>▁</code>。</li>
+<li><span class="mk">2</span><code>love</code> 前面有一個空白，那個空白變成了 <code>▁</code>，黏在 <code>love</code> 的開頭，成為同一個 token。之後每一個英文字都一樣。</li>
+<li><span class="mk">3</span>逗號緊貼在 <code>Lee</code> 後面、前面沒有空白，所以是不帶 <code>▁</code> 的 <code>,</code>。印出來是 <code>,,</code>：前一個逗號是 token 本身，後一個是 f-string 裡的逗號。</li>
+<li><span class="mk">4</span><code>you</code> 前面有空白，是 <code>▁you</code>，id 692。<a href="#s2">3.7 節</a>會回到這一行。</li>
+<li><span class="mk">5</span>問號緊貼 <code>you</code>，是不帶 <code>▁</code> 的 <code>?</code>，id 235336。</li>
+</ol>
+
+<p><code>▁</code>（U+2581，「下八分之一方塊」，看起來像底線但不是底線）是 <b>SentencePiece</b> 用的記號。SentencePiece 是一套把文字切成 subword（介於字元與單字之間的小塊）的 tokenizer 工具；它的做法是先把空白換成 <code>▁</code>，再把整串文字當成一般字元去切，所以空白本身會成為某個 token 的一部分（Kudo &amp; Richardson 2018，見延伸閱讀）。Gemma 的 tokenizer 是 SentencePiece 系的：HF 快取裡除了 <code>tokenizer.json</code> 還有一個 <code>tokenizer.model</code>（<a href="ch00.html#params">第 0 章 0.8 節</a>的快取清單），那就是 SentencePiece 的模型檔。詞表是怎麼訓練出來的（用哪種演算法、怎麼決定哪些片段收進詞表），本機沒有量，這一章不談。</p>
+
+<p>從上面的輸出可以歸納出 Gemma 的規則：<b>空白併進後面那個 token 的開頭</b>。不是前一個字的結尾，也不是單獨一個 token（除了下面幾種例外）。所以 <code>convert_ids_to_tokens</code> 印出的 <code>▁love</code>，意思是「一個空白加上 love」；<code>decode([692])</code> 得到的是 <code>' you'</code>，前面帶一個空白（<code>logs/facts_pre_ch03.txt</code> 第 7 行：<code>id 692: token '▁you', decode ' you'</code>）。<a href="ch02.html#generate">第 2 章 2.6 節</a>那個單獨的 <code>▁</code>（id 235248），<code>decode</code> 出來就是一個空白 <code>' '</code>。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 270" role="img" aria-label="you and you 的每個字元與 token 的對應：兩個空白各自併進後面的 and、you，成為 ▁and 與 ▁you；Google 加一個結尾空白，空白後面沒有字，單獨成為 ▁">
+  <text class="s-sm" x="20" y="22" text-anchor="start">上排是字串的每個字元（␣ 表示空白），下排是切出來的 token；框住的字元屬於同一個 token</text>
+  <text class="s-mono" x="20" y="62" text-anchor="start">"you and you"</text>
+  <text class="s-key" x="200" y="62" text-anchor="middle">y</text><text class="s-key" x="230" y="62" text-anchor="middle">o</text><text class="s-key" x="260" y="62" text-anchor="middle">u</text>
+  <text class="s-key" x="290" y="62" text-anchor="middle" style="fill: var(--accent-warm)">␣</text><text class="s-key" x="320" y="62" text-anchor="middle">a</text><text class="s-key" x="350" y="62" text-anchor="middle">n</text><text class="s-key" x="380" y="62" text-anchor="middle">d</text>
+  <text class="s-key" x="410" y="62" text-anchor="middle" style="fill: var(--accent-warm)">␣</text><text class="s-key" x="440" y="62" text-anchor="middle">y</text><text class="s-key" x="470" y="62" text-anchor="middle">o</text><text class="s-key" x="500" y="62" text-anchor="middle">u</text>
+  <rect x="186" y="40" width="88" height="32" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="276" y="40" width="118" height="32" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="396" y="40" width="118" height="32" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="186" y="96" width="88" height="44" rx="6" class="s-box"/>
+  <text class="s-key" x="230" y="116" text-anchor="middle">you</text>
+  <text class="s-sm" x="230" y="133" text-anchor="middle">4747</text>
+  <rect x="276" y="96" width="118" height="44" rx="6" class="s-box"/>
+  <text class="s-key" x="335" y="116" text-anchor="middle">▁and</text>
+  <text class="s-sm" x="335" y="133" text-anchor="middle">578</text>
+  <rect x="396" y="96" width="118" height="44" rx="6" class="s-box"/>
+  <text class="s-key" x="455" y="116" text-anchor="middle">▁you</text>
+  <text class="s-sm" x="455" y="133" text-anchor="middle">692</text>
+  <text class="s-sm" x="540" y="116" text-anchor="start">同一個字 you，句首是 4747，</text>
+  <text class="s-sm" x="540" y="134" text-anchor="start">前面有空白是 692</text>
+
+  <text class="s-mono" x="20" y="192" text-anchor="start">"Google "</text>
+  <text class="s-key" x="200" y="192" text-anchor="middle">G</text><text class="s-key" x="230" y="192" text-anchor="middle">o</text><text class="s-key" x="260" y="192" text-anchor="middle">o</text><text class="s-key" x="290" y="192" text-anchor="middle">g</text><text class="s-key" x="320" y="192" text-anchor="middle">l</text><text class="s-key" x="350" y="192" text-anchor="middle">e</text>
+  <text class="s-key" x="380" y="192" text-anchor="middle" style="fill: var(--accent-warm)">␣</text>
+  <rect x="186" y="170" width="178" height="32" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="366" y="170" width="28" height="32" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="186" y="214" width="178" height="44" rx="6" class="s-box"/>
+  <text class="s-key" x="275" y="234" text-anchor="middle">Google</text>
+  <text class="s-sm" x="275" y="251" text-anchor="middle">12583</text>
+  <rect x="366" y="214" width="58" height="44" rx="6" class="s-box"/>
+  <text class="s-key" x="395" y="234" text-anchor="middle">▁</text>
+  <text class="s-sm" x="395" y="251" text-anchor="middle">235248</text>
+  <text class="s-sm" x="450" y="234" text-anchor="start">結尾的空白後面沒有字可以併，</text>
+  <text class="s-sm" x="450" y="252" text-anchor="start">單獨成為一個 ▁</text>
+</svg>
+<figcaption>圖 3.2 — 空白併進後面那個 token。兩個例子都是 <code>hw3.py --q 3 --sentence ...</code> 的實測（<code>logs/review_ch03_q3.txt</code>）。</figcaption>
+</figure>
+
+<p>空白的幾種特殊情況，本機都實測過（<code>logs/facts_pre_ch03.txt</code>、<code>logs/review_ch03_q3.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>字串</th><th>切成</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td><code>'I love'</code></td><td><code>I</code> 235285、<code>▁love</code> 2182</td><td>句首的 I 沒有 <code>▁</code></td></tr>
+<tr><td><code>' I love'</code></td><td><code>▁I</code> 590、<code>▁love</code> 2182</td><td>前面多一個空白，I 就變成另一個 token <code>▁I</code></td></tr>
+<tr><td><code>'Google '</code></td><td><code>Google</code> 12583、<code>▁</code> 235248</td><td>結尾的空白後面沒有字，單獨成為 <code>▁</code>。第 7 章 Q6 的 prompt 就是 <code>"Google "</code></td></tr>
+<tr><td><code>'a  b'</code>（兩個空白）</td><td><code>a</code>、<code>▁▁</code> 139、<code>b</code></td><td>連續空白合成一個 token，後面的 <code>b</code> 反而<b>不帶</b> <code>▁</code></td></tr>
+<tr><td><code>'a   b'</code>（三個空白）</td><td><code>a</code>、<code>▁▁▁</code> 140、<code>b</code></td><td>同上，三個空白一個 token</td></tr>
+<tr><td><code>'Lee,'</code></td><td><code>Lee</code> 22504、<code>,</code> 235269</td><td>逗號緊貼前一個字</td></tr>
+<tr><td><code>'Lee ,'</code></td><td><code>Lee</code> 22504、<code>▁,</code> 1688</td><td>逗號前面有空白，就是另一個 token <code>▁,</code></td></tr>
+<tr><td><code>'Hello\nworld'</code></td><td><code>Hello</code> 4521、<code>\n</code> 108、<code>world</code> 9097</td><td>換行是自己一個 token，後面的字不帶 <code>▁</code></td></tr>
+<tr><td><code>'\tx'</code></td><td><code>\t</code> 226、<code>x</code> 235297</td><td>tab 也是自己一個 token</td></tr>
+</tbody>
+</table></div>
+
+<p>連續空白那兩列說明 <code>▁</code> 的規則不是「每個空白各自黏到下一個字」，而是 tokenizer 在所有可能的切法裡，挑出詞表裡有的片段：<code>▁▁</code>、<code>▁▁▁</code> 本身就是詞表裡的 token，所以整段空白被一次切走。為什麼詞表會收這些片段，本機沒有查證；程式碼的縮排常常是連續空白，是一個合理的推測（推論）。Gemma 的詞表裡以 <code>▁</code> 開頭的 token 有 125,261 個（<code>logs/facts_pre_ch03.txt</code>），將近一半（48.9%，計算值）：英文的絕大多數字都有「前面帶空白」與「不帶空白」兩個版本。</p>
+
+<h2 id="same-word">3.4　同一個字，不同的 token</h2>
+
+<p>上一節的直接後果：<b>同一個字，前面有沒有空白、大小寫不同，就是不同的 token、不同的 id</b>。本機用 <code>Machine</code> 試了四種寫法（<code>logs/facts_pre_ch03.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>字串</th><th>token</th><th class="num">id</th></tr></thead>
+<tbody>
+<tr><td><code>'Machine'</code></td><td><code>Machine</code></td><td class="num">24911</td></tr>
+<tr><td><code>'machine'</code></td><td><code>machine</code></td><td class="num">26504</td></tr>
+<tr><td><code>' machine'</code></td><td><code>▁machine</code></td><td class="num">6479</td></tr>
+<tr><td><code>' Machine'</code></td><td><code>▁Machine</code></td><td class="num">13403</td></tr>
+</tbody>
+</table></div>
+
+<p>四個 id 彼此毫無關係，數字大小也看不出規律。預設句子裡的是 <code>▁Machine</code> 13403（它在 <code>a</code> 後面、有空白）。同理，<code>you</code> 是 4747、<code>▁you</code> 是 692（圖 3.2）；<code>transformers</code> 140247 與 <code>Transformers</code> 158434 都是單一 token，但 id 不同（<code>logs/facts_pre_ch03.txt</code>）。</p>
+
+<p>這就是<a href="ch02.html#top10">第 2 章 2.5 節</a>的那兩條「Orange」：第 2 輪第 1 名的 <code>'Orange'</code>（id 36565）是緊接在 <code>&lt;start_of_turn&gt;model\n</code> 換行後面、不帶空白的版本；第 10 名的 <code>' Orange'</code>（id 20723）是前面帶空白的版本，依同樣的規則，<code>convert_ids_to_tokens</code> 會印成 <code>▁Orange</code>，<code>decode</code> 出來是 <code>' Orange'</code>。小寫的 <code>orange</code> 又是第三個 token。模型輸出的機率是分給 256000 個 <b>token</b> 的，所以「Orange 這個字」的機率被拆散在好幾個 token 上。</p>
+
+<p>模型怎麼知道 <code>you</code> 與 <code>▁you</code> 是同一個字？從 id 看不出來：它們在 embedding 表（<a href="ch00.html#arch">第 0 章 0.5 節</a>的 256000 × 2304）裡是兩列不同的向量，彼此的關係只能在訓練時從資料中學到。本機量了這兩列向量的 cosine 相似度（<code>logs/review_ch03.txt</code>）：<code>you</code> 與 <code>▁you</code> 是 0.6692，<code>Machine</code> 與 <code>▁Machine</code> 0.9081，<code>Orange</code> 與 <code>▁Orange</code> 0.9197；對照組 <code>you</code> 與 <code>▁Machine</code> 是 −0.0186，隨機抽 10000 對 id 的平均是 0.1640（99% 分位 0.4201）。訓練確實把同一個字的兩種寫法放得很近，但 id 本身完全看不出這層關係。</p>
+
+<p>反過來，一個字也可能被切成好幾塊：<code>unbelievable</code> → <code>un</code> 549、<code>believable</code> 145340；<code>unsupervised</code> → <code>un</code> 549、<code>supervised</code> 122612（<code>logs/facts_env_model_tok.txt</code>）；<code>ChatGPT</code> → <code>Chat</code> 15180、<code>GPT</code> 98502；<code>naïve</code> → <code>na</code> 556、<code>ï</code> 236370、<code>ve</code> 524（這兩個與 <code>unbelievable</code> 都來自 <code>logs/facts_pre_ch03.txt</code>）；第 2 章看過的 <code>Vermilion</code> → <code>Ver</code>、<code>m</code>、<code>ilion</code>。哪些字是一整塊、哪些被拆開，取決於詞表收了什麼，只能實際切切看。</p>
+
+<h2 id="other">3.5　中文、數字與詞表裡沒有的字元</h2>
+
+<h3 id="chinese">3.5.1　中文</h3>
+
+<p>用 <code>--sentence</code> 換一句中文（<code>logs/review_ch03_q3.txt</code> 第 1–18 行，逐字）：</p>
+
+<pre class="shell">$ .venv/bin/python HW03/hw3.py --q 3 --sentence "我喜歡上李宏毅老師的機器學習課，你呢？"
+
+############################## Q3 ##############################
+Token: 我, token index: 235509
+Token: 喜歡, token index: 44480
+Token: 上, token index: 235502
+Token: 李, token index: 236454
+Token: 宏, token index: 238805
+Token: 毅, token index: 239597
+Token: 老師, token index: 85722
+Token: 的, token index: 235370
+Token: 機器, token index: 100697
+Token: 學習, token index: 88900
+Token: 課, token index: 237958
+Token: ，, token index: 235365
+Token: 你, token index: 235608
+Token: 呢, token index: 236512
+Token: ？, token index: 235544</pre>
+
+<p>第一行開頭的 <code>$ </code> 是 log 記錄指令的方式，不是輸出。從這 15 個 token 看得到的事：</p>
+
+<ul>
+<li><b>中文沒有 <code>▁</code></b>：這句話裡沒有任何空白，所以沒有東西可以併。中文的 token 邊界完全由詞表決定。</li>
+<li><b>有些兩個字一個 token，有些一個字一個</b>：<code>喜歡</code>、<code>老師</code>、<code>機器</code>、<code>學習</code> 各是一個 token；<code>李</code>、<code>宏</code>、<code>毅</code> 三個字各一個。能說的只有「這幾個兩字詞在詞表裡、這三個字的組合不在」；為什麼收了這些詞，本機沒有查證（推論：詞表是從大量文字裡統計出來的，常見的詞比較可能整個收進去）。</li>
+<li><b>全形與半形標點是不同的 token</b>：全形逗號 <code>，</code> 235365、全形問號 <code>？</code> 235544，和預設句子裡半形的 <code>,</code> 235269、<code>?</code> 235336 都不同。</li>
+<li>同樣意思的句子，中文 15 個 token、19 個字（含標點）；英文的預設句子 81 個字元、18 個 token（計算值）。token 數和字數沒有固定比例，不同語言差很多。</li>
+</ul>
+
+<p>Gemma 的詞表裡，單一個 CJK 統一漢字（U+4E00–U+9FFF）的 token 有 9,772 個（<code>logs/facts_pre_ch03.txt</code>），連 <code>龘</code>（250883）這種罕見字都有自己的 token。</p>
+
+<h3 id="digits">3.5.2　數字</h3>
+
+<p>再換一句有數字的（<code>logs/review_ch03_q3.txt</code> 第 33–53 行；<code>GPT-4o</code> 那四行和數字無關，這裡省略）。第一行是 log 記下的指令，用的是雙引號；在 bash 裡雙引號會展開 <code>$2</code>，自己跑請用 <a href="#answer">3.6 節</a>的單引號版本：</p>
+
+<pre class="shell">$ .venv/bin/python HW03/hw3.py --q 3 --sentence "In 2025, GPT-4o costs $2.50."
+
+############################## Q3 ##############################
+Token: In, token index: 886
+Token: ▁, token index: 235248  «1»
+Token: 2, token index: 235284  «2»
+Token: 0, token index: 235276
+Token: 2, token index: 235284
+Token: 5, token index: 235308
+Token: ,, token index: 235269
+…
+Token: ▁costs, token index: 6331
+Token: ▁$, token index: 697  «3»
+Token: 2, token index: 235284
+Token: ., token index: 235265
+Token: 5, token index: 235308
+Token: 0, token index: 235276
+Token: ., token index: 235265</pre>
+<ol class="notes">
+<li><span class="mk">1</span><code>2025</code> 前面的空白沒有併進數字，而是單獨成為一個 <code>▁</code>（和 <code>'Google '</code> 結尾的那個是同一個 token 235248）。</li>
+<li><span class="mk">2</span><b>每一個數字一個 token</b>：<code>2025</code> 切成 <code>2</code>、<code>0</code>、<code>2</code>、<code>5</code>，兩個 <code>2</code> 的 id 都是 235284。本機另外試過 <code>'12345'</code>，也是 5 個 token（<code>logs/facts_env_model_tok.txt</code>）。</li>
+<li><span class="mk">3</span>空白併進了 <code>$</code>，成為 <code>▁$</code>；後面的 <code>2.50</code> 一樣一位一個 token，小數點也是獨立的 <code>.</code>。</li>
+</ol>
+
+<p>數字一律拆成單一位數，本機掃過整個詞表（<code>logs/review_ch03.txt</code>）：沒有 <code>▁2</code> 這類「空白加數字」的 token，也沒有任何兩位數以上的數字 token；含 ASCII 數字的 379 個 token 是 <code>0</code>–<code>9</code> 十個單一數字，加上 <code>&lt;h5&gt;</code> 這類數字夾在其他字元裡的片段。所以數字前的空白只好自己成為一個 <code>▁</code>。這和 Gemma 第一代技術報告的描述一致：「It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens」（見延伸閱讀）。好處是每個數字都由同樣 10 個 token 組成，模型不會碰到「2025 是一個 token、2026 是兩個」這種不一致。</p>
+
+<h3 id="byte-fallback">3.5.3　詞表裡沒有的字元：byte fallback，不是 &lt;unk&gt;</h3>
+
+<p>詞表只有 256000 格，世界上的字元比這多。遇到詞表裡沒有的字元怎麼辦？常見的說法是「切成 <code>&lt;unk&gt;</code>（unknown）」，Gemma 的特殊 token 裡也確實有 <code>&lt;unk&gt;</code>（id 3）。但本機實測，<b>從來沒有出現 <code>&lt;unk&gt;</code></b>（<code>logs/facts_pre_ch03.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>字串</th><th>切成</th></tr></thead>
+<tbody>
+<tr><td><code>🙂</code></td><td><code>🙂</code> 237760（一個 token）</td></tr>
+<tr><td><code>👍🏽</code>（豎拇指加膚色）</td><td><code>👍</code> 237019、<code>🏽</code> 239518（膚色修飾是另一個字元，各一個 token）</td></tr>
+<tr><td><code>龘</code></td><td><code>龘</code> 250883</td></tr>
+<tr><td><code>é</code></td><td><code>é</code> 235335</td></tr>
+<tr><td><code>𠀀</code>（U+20000，CJK 擴充 B 區的第一個字）</td><td><code>&lt;0xF0&gt;</code> 457、<code>&lt;0xA0&gt;</code> 377、<code>&lt;0x80&gt;</code> 345、<code>&lt;0x80&gt;</code> 345</td></tr>
+<tr><td><code>𓀀</code>（U+13000，埃及象形文字）</td><td><code>&lt;0xF0&gt;</code> 457、<code>&lt;0x93&gt;</code> 364、<code>&lt;0x80&gt;</code> 345、<code>&lt;0x80&gt;</code> 345</td></tr>
+</tbody>
+</table></div>
+
+<p>最後兩列就是 <b>byte fallback</b>：字元不在詞表裡，就把它的 UTF-8 編碼拆成一個一個位元組，每個位元組用一個 <code>&lt;0x..&gt;</code> token 表示。<code>𠀀</code> 的 UTF-8 是 <code>f0 a0 80 80</code> 四個位元組，所以變成四個 token。因為任何字串都能寫成位元組，<b>任何輸入都切得出來，不需要 <code>&lt;unk&gt;</code></b>。本機測的這些字串，<code>decode</code> 都還原成原本的字元。</p>
+
+<p>詞表裡的位元組 token 本機數過：<code>&lt;0x00&gt;</code> 到 <code>&lt;0xFF&gt;</code> 照理是 256 個，實際只有 <b>255 個</b>（id 217–472），<b>缺 <code>&lt;0x09&gt;</code></b>；它的位置 id 226 是 tab 字元 <code>\t</code> 本身（上一節的 <code>'\tx'</code>）。所以 tab 走的是一般 token，不需要 fallback。為什麼少這一個，本機沒有追。另外，<code>\x07</code>（響鈴這種控制字元）也有自己的一般 token 249340，沒有用到 <code>&lt;0x07&gt;</code>。</p>
+
+<p>代價是長度：一個字元可能變成 4 個 token，比一般文字貴很多。好在詞表已經收了大量的 emoji、罕見漢字與各種文字（<code>฿</code>、<code>ᚠ</code>、<code>🫠</code> 都是單一 token），本機要特地找 U+20000、U+13000 這類字元才碰得到 fallback。</p>
+
+<h2 id="answer">3.6　怎麼跑出 Q3 的答案</h2>
+
+<p>在 repo 根目錄執行（需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>；Q3 本身不用 GPU，但 <code>main</code> 會先載入模型）：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3</pre>
+
+<p>不給 <code>--sentence</code> 就是預設句子，輸出是載入模型的進度條、Q3 的分隔線，接著 18 行 <code>Token: …</code>，格式和 <a href="#space">3.3 節</a>那段一樣。和投影片 p.17 的表逐行對照：前 9 行（到 <code>▁Professor</code>）與後 6 行（從 <code>▁Lee</code> 開始）應該和本書、和投影片一致（投影片有兩行例外，見 <a href="#s2">3.7 節</a>）；中間那三行就是空格所在的位置，把你跑出來的 token 與 token index 對上去。注意投影片寫的「token」是 <code>convert_ids_to_tokens</code> 的字串，所以前面有空白的 token 要寫出 <code>▁</code>（投影片用底線 <code>_</code> 來表示它，<a href="#s2">3.7 節</a>）。</p>
+
+<p>想換一句話，加 <code>--sentence</code>，用雙引號把整句包起來（句子裡有空白，不包的話 shell 會把它拆成好幾個參數）：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3 --sentence "you and you"</pre>
+
+<p>應該印出三行：<code>Token: you, token index: 4747</code>、<code>Token: ▁and, token index: 578</code>、<code>Token: ▁you, token index: 692</code>（<code>logs/review_ch03_q3.txt</code> 第 20–25 行）。本章的中文句、<code>"Google "</code>、<code>"In 2025, GPT-4o costs $2.50."</code> 都是這樣跑出來的。句子裡有 <code>$</code> 時要小心：在 bash 裡，雙引號內的 <code>$2</code> 會被當成「第 2 個位置參數」展開（互動 shell 裡通常是空字串），句子就變了；用單引號 <code>'...'</code> 包住，shell 就不會動它。本機錄製 <code>logs/review_ch03_q3.txt</code> 時是由腳本把 <code>$</code> 跳脫後傳進去的，所以輸出有 <code>▁$</code>、<code>2</code>，效果等同單引號。真的在 bash 裡用雙引號打，本機實測（<code>logs/review_ch03.txt</code>）句子會變成 <code>In 2025, GPT-4o costs .50.</code>，只剩 16 個 token，最後幾行是 <code>▁.</code> 954、<code>5</code>、<code>0</code>、<code>.</code>，<code>▁$</code> 與 <code>2</code> 都不見了，而且不會有任何錯誤訊息。自己跑的話請用單引號：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3 --sentence 'In 2025, GPT-4o costs $2.50.'</pre>
+
+<p>預期是 18 行 <code>Token: …</code>，其中 14 行應該和 <a href="#digits">3.5.2 節</a>列出的相同，另外 4 行是 <code>GPT-4o</code> 的切法（那一節省略了，自己看）。本機照字面跑過這一行，18 行與 <code>logs/review_ch03_q3.txt</code> 第 36–53 行逐字相同（<code>logs/review_ch03.txt</code>）。</p>
+
+<p>想看 <a href="#space">3.3 節</a>以後那些空白、大小寫、byte fallback 的對照，用 repo 附的事實腳本（同樣在 repo 根目錄；它也會載入模型，需要 GPU 與 HF 授權；結果印在終端機，不會寫進 <code>logs/</code>）：</p>
+
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch03</pre>
+
+<p>3.4 節 <code>unsupervised</code>、3.5.2 節 <code>12345</code> 這類切法來自同一支腳本的 <code>tok</code> 段（<code>.venv/bin/python docs/tools/hw03_facts.py tok</code>，輸出格式見 <code>logs/facts_env_model_tok.txt</code> 的 tokenizer 段，第 1 章用過）。<code>pre_ch03</code> 的輸出格式就是 <code>logs/facts_pre_ch03.txt</code>：先印預設句子的字元數與 token 數、幾個 id 的對照，再逐行列出每個測試字串切成的 <code>(token, id)</code> 與 <code>roundtrip True</code>（<code>decode</code> 能還原），最後是詞表統計與 byte fallback。注意它的 id 對照那幾行會直接印出空格的答案，想自己做題的話，先跑 hw3.py 再看它。</p>
+
+<h2 id="s2">3.7　投影片的兩個錯字：讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：S2 投影片 p.17 參考表的兩個錯字</h4>
+<p>（S2 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡第 2 條「投影片與程式不一致」的編號。）</p>
+<p>p.17 的表除了四個空格，最後兩行和本機的輸出對不上：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>投影片 p.17</th><th>hw3.py 實測（<code>logs/run_seed0.txt</code>）</th><th>差在哪</th></tr></thead>
+<tbody>
+<tr><td><code>Token: you, token index: 692</code></td><td><code>Token: ▁you, token index: 692</code></td><td>id 對，token 少了 <code>▁</code>。不帶 <code>▁</code> 的 <code>you</code> 是另一個 token，id 4747</td></tr>
+<tr><td><code>Token: ?, token index: 23533</code></td><td><code>Token: ?, token index: 235336</code></td><td>token 對，id 少了最後一位 6。23533 是另一個 token：<code>▁Operation</code></td></tr>
+</tbody>
+</table></div>
+<p>兩個都由本機查證過（<code>logs/facts_pre_ch03.txt</code> 第 7–10 行）：</p>
+<pre class="shell">  id 692: token '▁you', decode ' you'
+  id 4747: token 'you', decode 'you'
+  id 23533: token '▁Operation', decode ' Operation'
+  id 235336: token '?', decode '?'</pre>
+<p><b>為什麼會錯</b>：投影片其他行都用底線 <code>_</code> 代替 <code>▁</code>（例如 <code>_love</code>、<code>_Machine</code>），唯獨 <code>you</code> 這一行漏了；23533 則像是抄的時候少打一位數。兩者看起來都是手打或轉貼時的筆誤，不是程式的問題（推論）。另外要注意，投影片的 <code>_</code> 是一般的底線（U+005F），不是 <code>▁</code>（U+2581），兩者在程式裡是不同的字元；要拿字串去比對時，以程式印出的 <code>▁</code> 為準。</p>
+<p><b>這對你的意義</b>：投影片的表是「參考」，不是「標準」。填空時以自己跑出來的輸出為準；看到表上的值和輸出不同，先懷疑表。Gradescope 上這兩行沒有挖空，不影響作答，但如果你拿投影片的表去核對自己的程式，會在這兩行以為自己錯了。</p>
+</div>
+
+<h2 id="pitfalls">3.8　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>忘了 add_special_tokens=False</h4>
+<dl>
+<dt>症狀</dt><dd>輸出第一行是 <code>Token: &lt;bos&gt;, token index: 2</code>，共 19 行。</dd>
+<dt>後果</dt><dd>和投影片的表錯開一行，空格的位置跟著對錯。</dd>
+<dt>正解</dt><dd class="fix"><code>tokenizer.encode(sentence, add_special_tokens=False)</code>，只看句子本身。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>用 decode 取代 convert_ids_to_tokens</h4>
+<dl>
+<dt>症狀</dt><dd>印出的 token 是 <code>' love'</code>（前面一個空白）而不是 <code>▁love</code>；或整串 id 一次 decode，得到原句。</dd>
+<dt>後果</dt><dd>和投影片的格式對不上；整串 decode 更是看不到切在哪裡。</dd>
+<dt>正解</dt><dd class="fix"><code>convert_ids_to_tokens</code> 一個 id 給一個詞表字串，保留 <code>▁</code>；<code>decode</code> 是「還原成文字」，兩者用途不同。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 ▁ 寫成底線</h4>
+<dl>
+<dt>症狀</dt><dd>照投影片打 <code>_love</code>，拿去 <code>tokenizer.convert_tokens_to_ids("_love")</code> 查，得不到 <code>▁love</code> 的 2182。</dd>
+<dt>後果</dt><dd><code>convert_tokens_to_ids</code> 是直接查詞表，不像 <code>encode</code> 會走 byte fallback；詞表裡沒有 <code>_love</code> 這個字串，所以回傳 <code>&lt;unk&gt;</code> 的 id 3；換成 <code>▁love</code> 才是 2182（本機實測，<code>logs/review_ch03.txt</code>）。</dd>
+<dt>正解</dt><dd class="fix"><code>▁</code> 是 U+2581，不是 <code>_</code>。在程式裡用 <code>"▁love"</code>，或直接從 <code>convert_ids_to_tokens</code> 的輸出複製。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為同一個字只有一個 id</h4>
+<dl>
+<dt>症狀</dt><dd>查到 <code>you</code> 是 4747，就認定句子裡的 you 都是 4747。</dd>
+<dt>後果</dt><dd>句中前面有空白的 you 其實是 <code>▁you</code> 692；跟投影片那一行一樣的錯。</dd>
+<dt>正解</dt><dd class="fix">token 取決於前面有沒有空白與大小寫；要知道某個位置的 id，就把整句切一次，不要單獨查一個字。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為詞表裡沒有就變成 &lt;unk&gt;</h4>
+<dl>
+<dt>症狀</dt><dd>預期罕見字元會變成 id 3。</dd>
+<dt>後果</dt><dd>看到 <code>&lt;0xF0&gt;</code> 這種 token 以為是 bug；或高估資訊遺失。</dd>
+<dt>正解</dt><dd class="fix">Gemma 用 byte fallback：拆成 UTF-8 位元組 token，<code>decode</code> 能完整還原。本機測過的字串都沒有出現 <code>&lt;unk&gt;</code>。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>--sentence 沒有加引號</h4>
+<dl>
+<dt>症狀</dt><dd><code>--sentence you and you</code>，argparse 先印出 usage，再報錯 <code>hw3.py: error: unrecognized arguments: and you</code>，結束碼 2（本機實測，<code>logs/review_ch03.txt</code>）。</dd>
+<dt>後果</dt><dd>shell 把句子拆成三個參數，<code>--sentence</code> 只拿到第一個字，多出來的 <code>and</code>、<code>you</code> 沒有旗標認領；argparse 在載入模型之前就報錯退出，什麼都不會跑。</dd>
+<dt>正解</dt><dd class="fix">整句用引號包起來；句子裡有 <code>$</code> 時用單引號（<a href="#answer">3.6 節</a>）。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>Q3 的 TODO：<code>tokenizer.encode(sentence, add_special_tokens=False)</code> 得到 id，<code>tokenizer.convert_ids_to_tokens(token_ids)</code> 得到詞表字串；結果和 <code>tokenize()</code> 一樣，<code>decode</code> 能還原原句。關掉特殊 token 是為了不多一個 <code>&lt;bos&gt;</code>（19 → 18 個）。</li>
+<li><code>▁</code>（U+2581）是 SentencePiece 表示空白的記號。Gemma 把空白併進<b>下一個</b> token 的開頭；句首沒有 <code>▁</code>；結尾空白、數字前的空白單獨成為 <code>▁</code>；連續空白合成 <code>▁▁</code>、<code>▁▁▁</code>。</li>
+<li>同一個字，空白與大小寫不同就是不同的 token：<code>Machine</code> 24911、<code>machine</code> 26504、<code>▁machine</code> 6479、<code>▁Machine</code> 13403；<code>you</code> 4747、<code>▁you</code> 692；第 2 章的 <code>Orange</code> 36565 與 <code>' Orange'</code> 20723 也是如此。</li>
+<li>中文沒有 <code>▁</code>，有的兩字一個 token（喜歡、老師、機器、學習），有的一字一個（李、宏、毅）；全形與半形標點是不同 token。數字一位一個 token。</li>
+<li>詞表裡沒有的字元拆成 UTF-8 位元組 token（byte fallback），本機沒看過 <code>&lt;unk&gt;</code>；位元組 token 只有 255 個，缺 <code>&lt;0x09&gt;</code>，id 226 是 <code>\t</code>。</li>
+<li>S2：投影片 p.17 的 <code>you 692</code> 應是 <code>▁you</code>，<code>? 23533</code> 應是 235336。空格的答案用 <code>.venv/bin/python HW03/hw3.py --q 3</code> 自己跑。</li>
+</ul>
+<p>下一章是 Q4：從「下一個 token 的機率」出發，不再每次都取第一名，而是照機率抽籤。top-k 與 top-p 怎麼決定「從哪幾個 token 裡抽」，以及 <code>generate</code> 沒寫出來的預設值。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. <code>tokenizer.encode("I love you")</code> 不加任何參數，會得到幾個 id？第一個是什麼？為什麼 Q3 不要它？</summary>
+<p>預設 <code>add_special_tokens=True</code>，會在最前面多一個 <code>&lt;bos&gt;</code>，id 2。所以是「句子本身的 token 數 + 1」，第一個是 2（本機用預設句子實測：18 → 19 個，開頭 <code>[2, 235285]</code>）。<code>"I love you"</code> 依本章的例子會切成 <code>I</code>、<code>▁love</code>、<code>▁you</code> 三個，加上 <code>&lt;bos&gt;</code> 共 4 個：本機實測是 <code>['&lt;bos&gt;', 'I', '▁love', '▁you']</code>（<code>logs/review_ch03.txt</code>）。Q3 問的是句子被切成哪些 token，<code>&lt;bos&gt;</code> 不屬於句子，加了會讓每一行和投影片的表錯開。</p>
+</details>
+
+<details class="quiz"><summary>2. <code>"you and you"</code> 裡兩個 you 的 id 為什麼不同？<code>" you and you"</code>（前面多一個空白）會怎樣？</summary>
+<p>第一個 you 在句首、前面沒有空白，是 <code>you</code> 4747；第二個前面有空白，空白併進它的開頭，是 <code>▁you</code> 692。前面多一個空白時，第一個 you 前面也有空白了，依同樣的規則會是 <code>▁you</code>，兩個 id 相同：本機實測 <code>' you and you'</code> 切成 <code>▁you</code> 692、<code>▁and</code> 578、<code>▁you</code> 692（<code>logs/review_ch03.txt</code>）。</p>
+</details>
+
+<details class="quiz"><summary>3. <code>convert_ids_to_tokens([692])</code> 和 <code>decode([692])</code> 分別得到什麼？Q3 為什麼用前者？</summary>
+<p>前者是 <code>['▁you']</code>，詞表裡的字串原樣；後者是 <code>' you'</code>，<code>▁</code> 換回了空白。Q3 要列出「切成了哪些 token」，用前者才看得到 <code>▁</code>、也才和投影片的格式一致。</p>
+</details>
+
+<details class="quiz"><summary>4. 一段文字裡有一個詞表裡沒有的字元，Gemma 的 tokenizer 會把它變成 <code>&lt;unk&gt;</code> 嗎？token 數會怎樣？</summary>
+<p>不會。它把那個字元的 UTF-8 編碼拆成位元組，每個位元組一個 <code>&lt;0x..&gt;</code> token（byte fallback），<code>decode</code> 可以完整還原。代價是一個字元可能佔 2 到 4 個 token（UTF-8 的長度），例如本機測的 U+20000 變成 4 個。</p>
+</details>
+
+<details class="quiz"><summary>5. 投影片 p.17 最後一行寫 <code>Token: ?, token index: 23533</code>，你的程式印出 235336。該相信哪一個？怎麼確認？</summary>
+<p>相信程式。用 <code>tokenizer.convert_ids_to_tokens([23533])</code> 查，得到的是 <code>▁Operation</code>，不是 <code>?</code>；而 235336 查回來是 <code>?</code>。投影片少打了一位數（S2）。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Kudo &amp; Richardson, <i>SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing</i>, 2018, <a href="https://arxiv.org/abs/1808.06226">arXiv:1808.06226</a>：<code>▁</code> 記號與「把空白當一般字元」的做法。</li>
+<li>Gemma Team, <i>Gemma: Open Models Based on Gemini Research and Technology</i>, 2024, <a href="https://arxiv.org/abs/2403.08295">arXiv:2403.08295</a>：第一代 Gemma 的技術報告。描述 tokenizer 的原文是「We use a subset of the SentencePiece tokenizer … of Gemini for compatibility. It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens … The vocabulary size is 256k tokens.」</li>
+<li>Hugging Face LLM Course 的 <a href="https://huggingface.co/learn/nlp-course/en/chapter2/4?fw=pt">Tokenizers</a> 一節：原版 Colab 第 21 格的註解推薦的入門資料，<code>encode</code>、<code>convert_ids_to_tokens</code>、<code>decode</code> 的用法。</li>
+<li>Sennrich et al., <i>Neural Machine Translation of Rare Words with Subword Units</i>, 2016, <a href="https://arxiv.org/abs/1508.07909">arXiv:1508.07909</a>：subword tokenization（BPE）的經典論文。</li>
+<li><a href="https://www.unicode.org/charts/PDF/U2580.pdf">Unicode Block Elements 表</a>：U+2581 LOWER ONE EIGHTH BLOCK，也就是 <code>▁</code>。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch02.html">← 第 2 章</a><span class="disabled">第 4 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
