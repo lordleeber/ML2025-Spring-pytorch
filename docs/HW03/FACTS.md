@@ -1106,6 +1106,21 @@
   - `--token-idx 13`（prompt c 只有 13 個 token，0–12）→ hw3.py:442 `IndexError: index 13 is out of bounds for dimension 0 with size 13`，結束碼 1。
   - 兩者都在 Q7.1–7.3 跑完、印出、存圖之後才出錯；`--token-idx 13` 還會先跑完 Q7.4–7.6。
 
+## ch09 寫作時查證的事項（雲端，2026-10-04）
+
+- **投影片 p.26–27**：Problem 7-4～7-6（各 0.2 分）「based on the activations for each token in layer 24 about feature 10004, which of the following statement is correct?」；Problem 7-7～7-9（各 0.2 分）：第 1 題「which of the following statement is INCORRECT?」，Hint「You can alter the tokens and observe the figure. (e.g. the lower/deeper layers tend to process complex information)」，第 2、3 題 true/false。選項不在投影片裡。
+- **原版 Colab**：第 36 格「## Q7.4~7.6: Activation distribution for specific layer」；第 37 格 `plot_token_activations`（docstring「layer_idx: Layer to analyze (None uses sae.cfg.hook_layer)」）與 `layer_idx = 24`；第 38 格「## Q7.7~7.9」；第 39 格 `plot_layer_activations` 與 `token_idx = 1`（註解「Alter the token index to observe the figure」）。原版不印數值。
+- **hw3.py:415 的 `None` 分支走不到**：`--sae-layer-idx` 是 `type=int`、預設 24；就算是 None，也會拿 `hidden_states[hook_layer]` = [20]，和 R5 同一個差一。
+- **索引與 block 的對照**（ch09 9.4 節表）：[25] 是 block 24 的輸出，[26] 是 block 25（最後一個 block）的輸出經過 norm。所以 rescale26 比的 [25] 與 [26] 隔了「block 25 本身」加上「norm」兩件事；方向差異（cosine 0.47–0.80）來自哪一個，實驗沒有分開，ch09 標為推論。
+- **計算值**：[24] 的 L0 417.4 ÷ [21] 的 88.2 ≈ 4.7；Time 的範數 [25] 540 ÷ [26] 117 ≈ 4.6；其他 12 個非 `<bos>` token 從 [25] 到 [26] 短了約 4.9–11.8 倍（由 rescale26 的範數算出）。
+- **從 log 推出的計數**：[24] 上非零的 token 10 個、[21] 上 7 個（都含 `<bos>`）；Time 在 FVU < 1 的索引 17–24 之間只有 17（8.72）、24（10.80）非零。
+- **ch09 標為推論或沒有跑過的**：「越深的層處理越複雜」是投影片引的一般說法，本機沒有驗證；換用各層 SAE 要改 `load_sae` 的 `sae_id`（沒做過）；[26] 方向改變的來源；`--token-idx 0` 的逐層輸出沒有用 hw3.py 跑過（9.10 第 4 步寫的預期 `L21:30.95` 來自事實腳本的 [21] 值；標了 TODO）。
+- **ch09 第一次交代的名詞**：逐 token／逐層 activation、FVU 的 U 形曲線、「Layer」軸 = hidden_states 索引、rescale（放大到 [25] 的範數）、cosine 的方向比較。
+
+## ch09 審稿補測（本機，2026-10-04；logs/run_q7_token0.txt）
+
+- `hw3.py --q 7 --token-idx 0`：`Token 0 = '<bos>', activations per layer:` L0–L8 0.00、L9 9.56、L10 12.09、L11 15.35、L12 18.18、L13 22.22、L14 25.07、L15 26.21、L16 31.54、L17 32.02、L18 33.55、L19 33.08、L20 31.74、L21 30.95、L22 29.68、L23 28.24、L24 22.60、L25 15.31、L26 0.00；結束碼 0，存成 HW03/outputs/q7_layer_activations_tok0.png。與「Q7 實測」的 `<bos>` 一列一致。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1151,6 +1166,7 @@
 - review_ch08.txt：ch08 審稿補測（照 8.9 節改 hw3.py 複本跑 `--q 7` 的三種組合）。
 - facts_pre_ch09.txt：`hw03_facts.py pre_ch09` 的輸出（SAE 在每一個 hidden_states 索引上的 FVU、L0、feature 10004 最大值）。
 - run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
+- run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
