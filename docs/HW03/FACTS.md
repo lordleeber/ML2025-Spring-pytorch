@@ -779,6 +779,15 @@
   - `models/gemma2/modeling_gemma2.py`：`Gemma2Attention.forward` :362–412（k、v 先過 RoPE :383–384，再 `past_key_value.update` :386–394）；`self.sliding_window` 只在偶數層設定 :345；forward 自建 HybridCache :711–719；`_update_causal_mask` 的 `target_length = past_key_values.get_max_cache_shape()` :812–813；mask 產生 :866–872；eager attention 加 mask :189–191。
   - `generation/utils.py`：`_get_cache` :1589–1681（沿用的判斷 :1603–1616，沿用時 `reset()` :1680）。
 
+## ch02 前置補測（本機，2026-10-04；logs/review_ch02_q2.txt）
+
+- **Q2 不受 KV cache 沿用影響**：`hw3.py --q 2` 單獨跑、`--q 1 2`、以及 `--seed 0` 全部題目一起跑，Q2 段的輸出（三輪 prompt、top-10 機率表、回答）忽略空白行後逐字相同。單獨跑時每輪 `generate` 自己配置 27+200、59+200、82+200 格；接在 Q1 後面時沿用 Q1 的 544 格（補充章 K.8）。每輪只生成 4 個 token，這次沒有碰到前兩名幾乎同分的步驟。
+- **`--interactive`**：
+  - 用管線餵入 Q2_TURNS 的三句話再加一行 `exit`：模型三輪的回答與預設模式逐字相同（Indigo、Orange、Green），結束碼 0。開頭多印 `Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)`（hw3.py:123）。
+  - 管線輸入不會回顯，所以 log 裡 `You: ` 後面直接接著下一行輸出；在終端機裡打字時，打的字會出現在 `You: ` 後面。
+  - 沒打 `exit` 就結束輸入（管線讀完，等同在終端機按 Ctrl-D）：hw3.py:124 的 `input("You: ")` 丟出 `EOFError: EOF when reading a line`，結束碼 1。已經跑完的輪次照常輸出、圖也已存檔。
+  - `exit` 要單獨一行、完全相符（`iter(callable, sentinel)` 比對的是整個字串），`Exit` 或 `exit ` 不會結束（由程式碼讀出，沒有實測）。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -804,6 +813,7 @@
 - review_ch01_cache.txt：`docs/tools/hw03_q1_cache.py` 的輸出（Q1 三條路 × cache 長度）。
 - facts_kvcache.txt：`hw03_facts.py kvcache` 的輸出（KV cache 補充章）。
 - facts_kvcache_overflow.txt：`docs/tools/hw03_cache_overflow.py` 的輸出。
+- review_ch02_q2.txt：Q2 的 `--interactive` 兩種跑法（正常 exit、EOF）與「Q2 不受 cache 沿用影響」的比對結論。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

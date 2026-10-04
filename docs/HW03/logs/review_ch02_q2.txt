@@ -1,0 +1,127 @@
+$ printf "<Q2_TURNS 的三句話，各一行>\nexit\n" | .venv/bin/python HW03/hw3.py --q 2 --interactive
+# 用管線餵入，打的字不會回顯，所以 "You: " 後面直接接下一行輸出
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.16s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.79it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.54it/s]
+
+############################## Q2 ##############################
+Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)
+You: The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+=== Prompt with chat template format inputted to the model on round 1 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+          'Indigo'  0.3068
+           'Green'  0.2624
+             'Red'  0.2012
+          'Orange'  0.1320
+          'Violet'  0.0409
+            'Blue'  0.0226
+          'orange'  0.0080
+          'Purple'  0.0056
+           'green'  0.0042
+          'indigo'  0.0036
+[saved] HW03/outputs/q2_round1_top_tokens.png
+Chatbot: Indigo 
+
+
+You: === Prompt with chat template format inputted to the model on round 2 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+Indigo<end_of_turn>
+<start_of_turn>user
+That's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+          'Orange'  0.4887
+           'Green'  0.2168
+          'Violet'  0.1689
+             'Red'  0.0255
+          'Purple'  0.0175
+            'Blue'  0.0115
+          'Yellow'  0.0113
+          'orange'  0.0063
+            'Teal'  0.0059
+         ' Orange'  0.0056
+[saved] HW03/outputs/q2_round2_top_tokens.png
+Chatbot: Orange 
+
+
+You: === Prompt with chat template format inputted to the model on round 3 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+Indigo<end_of_turn>
+<start_of_turn>user
+That's great! Now, could you tell me another color that I can find in a rainbow?<end_of_turn>
+<start_of_turn>model
+Orange<end_of_turn>
+<start_of_turn>user
+Could you continue and name yet another color from the rainbow?<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+           'Green'  0.5125
+          'Yellow'  0.2659
+             'Red'  0.0978
+          'Violet'  0.0786
+          'Purple'  0.0212
+            'Blue'  0.0063
+            'Gold'  0.0044
+         'Scarlet'  0.0021
+             'Ver'  0.0012
+         'Magenta'  0.0008
+[saved] HW03/outputs/q2_round3_top_tokens.png
+Chatbot: Green 
+
+
+You: exit=0
+
+$ printf "<第一句>\n" | .venv/bin/python HW03/hw3.py --q 2 --interactive   # 沒有 exit 就結束輸入（等同 Ctrl-D）
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.17s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.80it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.54it/s]
+
+############################## Q2 ##############################
+Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)
+You: The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+=== Prompt with chat template format inputted to the model on round 1 ===
+<bos><start_of_turn>user
+Name a color in a rainbow, please just answer in a word without any emoji.<end_of_turn>
+<start_of_turn>model
+
+===============================================
+Top-10 next tokens:
+          'Indigo'  0.3068
+           'Green'  0.2624
+             'Red'  0.2012
+          'Orange'  0.1320
+          'Violet'  0.0409
+            'Blue'  0.0226
+          'orange'  0.0080
+          'Purple'  0.0056
+           'green'  0.0042
+          'indigo'  0.0036
+[saved] HW03/outputs/q2_round1_top_tokens.png
+Chatbot: Indigo 
+
+
+You: Traceback (most recent call last):
+  File "HW03/hw3.py", line 521, in <module>
+    main()
+  File "HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "HW03/hw3.py", line 129, in q2
+    for round_idx, user_input in enumerate(turns, start=1):
+  File "HW03/hw3.py", line 124, in <lambda>
+    turns = iter(lambda: input("You: "), "exit")
+                         ^^^^^^^^^^^^^^
+EOFError: EOF when reading a line
+exit=1
+
+# --q 2 單獨跑（--seed 不影響 Q2）與 hw3.py --seed 0 全部題目一起跑時的 Q2 段：忽略空白行後逐字相同（diff -B 無差異）
