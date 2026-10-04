@@ -1073,6 +1073,26 @@
 - **R6 的 `<bos>`**：prompt a 與 b 都是 22 個 token，hidden_states[20] 第 0 個位置（`<bos>`）逐元素完全相同（max|a − b| = 0.0），所以 feature 10004 在兩句的 `<bos>` 都是 31.7407。第一個位置在 causal attention 下只看得到自己，和後面接什麼句子無關。prompt c（13 個 token）的 `<bos>` 是 31.7425，差 0.002，是序列長度不同造成的 fp16 運算差異（補充章 K.8.1 同一類現象）。
 - **W_dec[10004] 投影到詞表**（用 it 模型的 embedding，tied，所以等於 lm_head；沒有經過最後的 norm 與 soft-cap）top-12：▁dimension 0.315、▁dimensional 0.299、▁dimensions 0.278、▁Dimension 0.271、▁portal 0.269、dimension 0.268、dimensional 0.265、▁multiverse 0.264、▁space 0.264、▁tele 0.262、▁Dimensional 0.256、▁Dimensions 0.255。和 Neuronpedia 的 positive logits（▁dimension 1.077、▁dimensional 0.983、▁space 0.921…）排序相近、數值尺度不同；Neuronpedia 怎麼算的（用哪個模型、是否經過 norm）本機沒有查證。
 
+## ch08 寫作時查證的事項（雲端，2026-10-04）
+
+- **sae-lens 原始碼逐字核對**：雲端從 GitHub `jbloomAus/SAELens` 的 `v5.11.0` tag 讀 `sae_lens/sae.py`（747 行）：`encode_jumprelu` :417–430、`process_sae_in` :444–451、`decode` :453–（:458–459 `feature_acts @ W_dec + b_dec`，經過 `apply_finetuning_scaling_factor`）、`self.encode = self.encode_jumprelu` :172–174，與 FACTS 一致；ch08 逐字引用前兩段。
+- **投影片 p.24–25**：Problem 7-1（0.5 分）「What does feature 10004 mean? What does activations density mean? (You should choose EXACT 3 answers)」；Problem 7-2、7-3（0.6 分）：(1) 0.2 分「Which is larger?」(2) 0.4 分「Explain the reason」，Hint「You can use the activation distributions for each prompt to explain the result」。都是選擇題，選項不在投影片裡。
+- **原版 Colab**：第 29 格標題「## Q7: Observe the Activation Scores」；第 30 格註明改編自 Gemma 官方教學與 SAELens tutorial_2_0；第 31 格 `!pip install sae-lens`；第 32 格 `SAE.from_pretrained` 與 `print`；第 33 格 `get_dashboard_html` 與 `IFrame`；第 34 格標題「## Q7.2~7.3」；第 35 格 `get_max_activation`（函式內 `sae.to(device)`、沒有 `no_grad`、`.cpu().detach().numpy()`、`max_activation = -float("inf")` 再取 max）與兩句 prompt。
+- **Neuronpedia JSON 裡的其他欄位**（logs/neuronpedia_feature_10004.json）：5 條 explanation 的 `explanationModelName` 依序是 gemini-1.5-pro、claude-3-5-sonnet-20240620、gpt-4o-mini、gemini-2.0-flash、gemini-2.5-flash-lite；`pos_values` 第 6、7 名是 `dimension` 0.914、`dimensional` 0.895；`neg_str` 前幾名是 `ReusableCell`、`ArgsConstructor`、`BeginContext` 等程式碼識別字；`modelId` `gemma-2-2b`；`createdAt` 2024-07-25。
+- **`--sae-layer-idx` 不影響 Q7.2–7.3**：logs/run_q7_layer21_tok123.txt（`--q 7 --sae-layer-idx 21 --token-idx 1 2 3`）第 19–20 行的兩個 max_activation 與 run_seed0.txt 相同（58.10378646850586、31.740745544433594）。那份 log 的 Q7 段也印出 HybridCache 的 deprecation 訊息。
+- **計算值**：SAE 75,532,544 × 4 bytes = 302,130,176 bytes ≈ 0.28 GiB；1 / 0.0035 ≈ 286 個 token 亮一次；16384 / 2304 ≈ 7.1。
+- **FVU 的算法**（`hw03_facts.py` :456、:597）：一句話排除 `<bos>` 後，Σ‖x̂ − x‖² ／ Σ‖x − x̄‖²，x̄ 是這句話各 token（不含 `<bos>`）的平均向量。L0 是每個 token（不含 `<bos>`）非零 feature 數的平均。
+- **ch08 標為推論或沒有跑過的**：prompt a 後半的字詞因為上下文而亮；block 19 與 20 的輸出接近所以 [20] 的定性結論不變；`<bos>` 的大範數、attention sink、大 SAE activation 的關聯；Neuronpedia 網頁與 API 同源；R5 修法（:393 改成 `hook_layer + 1`）與 R6 修法（:397、:400 改成 `feature_acts[1:, feature_idx]`）都沒有照字面改 hw3.py 跑過；8.10 第 4 步寫的三種組合預期值（只修 R5：a 約 71.27、b 約 30.95；只修 R6：a 約 58.10、b 0.0；都修：a 約 71.27、b 0.0）是從事實腳本的 [20]／[21] 數字推的，標了 TODO。
+- **ch08 第一次交代的名詞**：SAE、feature、預激活（hidden_pre）、JumpReLU 與門檻、W_enc／W_dec／b_enc／b_dec、FVU、L0、activation density（frac_nonzero）、Neuronpedia、自動解釋、正向／負向 logit、`hook_resid_post`、HookPoint。
+
+## ch08 審稿補測（本機，2026-10-04；logs/review_ch08.txt）
+
+- **照 ch08 8.9 節的示意改 hw3.py 跑 `--q 7`**（改的是暫存複本，repo 的 hw3.py 沒動；圖存到暫存目錄，沒有覆蓋 HW03/outputs/）：
+  - 只修 R5（:393 改成 `hidden_states[sae.cfg.hook_layer + 1]`）：a 71.27471160888672、b 30.95028305053711（仍是 `<bos>`）。
+  - 只修 R6（:397 與 :400 改成 `feature_acts[1:, feature_idx]`）：a 58.10378646850586、b 0.0。
+  - 兩個都修：a 71.27471160888672、b 0.0。
+  - 與事實腳本的數字一致（logs/facts_q4_q7.txt 的 q7 段）。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1115,6 +1135,7 @@
 - facts_pre_ch07.txt：`hw03_facts.py pre_ch07` 的輸出（hw3.q6 的矩陣與標籤、與一次 forward 逐層逐列比較、多配一格的對照）。
 - review_ch07.txt：ch07 審稿補測（捲動後的 cache 內容、空格權重、R7 修法、(22, 23) 畫圖、超出範圍的旗標）。
 - facts_pre_ch08.txt：`hw03_facts.py pre_ch08` 的輸出（JumpReLU 手算、`<bos>` 在 a、b 相同、W_dec[10004] 投影到詞表）。
+- review_ch08.txt：ch08 審稿補測（照 8.9 節改 hw3.py 複本跑 `--q 7` 的三種組合）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。

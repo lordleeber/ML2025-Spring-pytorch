@@ -1,0 +1,40 @@
+==================== review_ch08: 照 ch08 8.9 節的示意改 hw3.py:393 / :397 / :400，跑 --q 7（改的是暫存複本，不是 repo 的 hw3.py）====================
+--- r5: diff vs HW03/hw3.py
+393c393
+<     hidden_states = outputs.hidden_states[sae.cfg.hook_layer]
+---
+>     hidden_states = outputs.hidden_states[sae.cfg.hook_layer + 1]
+[saved] <暫存目錄>/outputs/q7_max_activation_a.png
+[saved] <暫存目錄>/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 71.27471160888672
+max_activation for prompt_b: 30.95028305053711
+--- r6: diff vs HW03/hw3.py
+397c397
+<     max_activation = feature_acts[:, feature_idx].max().item()
+---
+>     max_activation = feature_acts[1:, feature_idx].max().item()
+400c400
+<     plt.hist(feature_acts[:, feature_idx].float().cpu().numpy(), bins=50, alpha=0.75, color="blue", edgecolor="black")
+---
+>     plt.hist(feature_acts[1:, feature_idx].float().cpu().numpy(), bins=50, alpha=0.75, color="blue", edgecolor="black")
+[saved] <暫存目錄>/outputs/q7_max_activation_a.png
+[saved] <暫存目錄>/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 58.10378646850586
+max_activation for prompt_b: 0.0
+--- both: diff vs HW03/hw3.py
+393c393
+<     hidden_states = outputs.hidden_states[sae.cfg.hook_layer]
+---
+>     hidden_states = outputs.hidden_states[sae.cfg.hook_layer + 1]
+397c397
+<     max_activation = feature_acts[:, feature_idx].max().item()
+---
+>     max_activation = feature_acts[1:, feature_idx].max().item()
+400c400
+<     plt.hist(feature_acts[:, feature_idx].float().cpu().numpy(), bins=50, alpha=0.75, color="blue", edgecolor="black")
+---
+>     plt.hist(feature_acts[1:, feature_idx].float().cpu().numpy(), bins=50, alpha=0.75, color="blue", edgecolor="black")
+[saved] <暫存目錄>/outputs/q7_max_activation_a.png
+[saved] <暫存目錄>/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 71.27471160888672
+max_activation for prompt_b: 0.0
