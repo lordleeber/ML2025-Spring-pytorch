@@ -1083,7 +1083,7 @@ max_activation for prompt_b: 31.740745544433594</pre>
 <h4>讀 code 不盡信文件：R5 hidden_states 的索引差一</h4>
 <p><b>程式做的</b>：hw3.py:393 與原版 Colab 第 35 格都寫 <code>outputs.hidden_states[sae.cfg.hook_layer]</code>。<code>hook_layer</code> 是 20，指的是 block 20；但 <code>hidden_states[20]</code> 是 block 19 的輸出，block 20 的輸出在 <code>[21]</code>（<a href="#r5">8.8 節</a>）。</p>
 <p><b>後果</b>：SAE 量的是它沒訓練過的那一層。prompt a 的最大值 58.10（正確的位置是 71.27），重建誤差 FVU 0.463（正確的位置是 0.279），L0 58.4（正確的位置 89.0）。定性結論（a 在 <code>▁travel</code> 最亮、b 的字詞全是 0）不變。</p>
-<p><b>正確的寫法</b>（本書的示意，不在 hw3.py 裡）：把 :393 改成 <code>hidden_states = outputs.hidden_states[sae.cfg.hook_layer + 1]</code>。事實腳本在 <code>[21]</code> 上量到的就是上面那些數字；hw3.py 照這樣改完重跑，本機沒有跑過。hw3.py 為了和助教的參考答案一致，保留原版的寫法。</p>
+<p><b>正確的寫法</b>（本書的示意，不在 hw3.py 裡）：把 :393 改成 <code>hidden_states = outputs.hidden_states[sae.cfg.hook_layer + 1]</code>。事實腳本在 <code>[21]</code> 上量到的就是上面那些數字；本機也把 hw3.py 的複本照這樣改完重跑過，印出 <code>max_activation for prompt_a: 71.27471160888672</code>（<code>logs/review_ch08.txt</code>）。hw3.py 為了和助教的參考答案一致，保留原版的寫法。</p>
 <p><b>為什麼文件看不出來</b>：<code>hook_layer</code> 這個名字看起來就是「第幾層」，而 <code>hidden_states</code> 也是一層一個。差別在 <code>hidden_states[0]</code> 是 embedding，不是任何一個 block 的輸出；只有讀 <code>hook_name</code> 的 <code>resid_post</code>，再對照 <code>hidden_states</code> 的定義，才看得出差一。</p>
 </div>
 
@@ -1091,7 +1091,7 @@ max_activation for prompt_b: 31.740745544433594</pre>
 <h4>讀 code 不盡信文件：R6 prompt b 的最大值來自 &lt;bos&gt;</h4>
 <p><b>程式做的</b>：hw3.py:397 與原版 Colab 第 35 格對 22 個位置取最大值，包括第 0 個位置 <code>&lt;bos&gt;</code>。</p>
 <p><b>後果</b>：prompt b 印出 31.74，看起來 b 也有一點「時光旅行」；其實 b 的 21 個字詞 token 全是 0，31.74 是 <code>&lt;bos&gt;</code> 的值。而且 a、b 的 <code>&lt;bos&gt;</code> hidden state 逐元素相同，這個數字和句子內容無關（<a href="#bos">8.7 節</a>）。「比較兩句的最大值」時，b 的數字是假訊號；a 的 58.10 不受影響，因為它在 <code>▁travel</code>，比 <code>&lt;bos&gt;</code> 的 31.74 大。</p>
-<p><b>正確的寫法</b>（本書的示意）：把 :397 改成 <code>max_activation = feature_acts[1:, feature_idx].max().item()</code>，跳過第 0 個位置。本機在 <code>[20]</code> 上量到排除 <code>&lt;bos&gt;</code> 後的最大值：a 58.1038、b 0.0000（<code>logs/facts_q4_q7.txt</code> 的 <code>max excl &lt;bos&gt;</code>）。直方圖要同樣排除第 0 個位置，就把 :400 的 <code>feature_acts[:, feature_idx]</code> 也改成 <code>feature_acts[1:, feature_idx]</code>。這兩處改法和上面的 R5 一樣只是示意，hw3.py 沒有改。</p>
+<p><b>正確的寫法</b>（本書的示意）：把 :397 改成 <code>max_activation = feature_acts[1:, feature_idx].max().item()</code>，跳過第 0 個位置。本機在 <code>[20]</code> 上量到排除 <code>&lt;bos&gt;</code> 後的最大值：a 58.1038、b 0.0000（<code>logs/facts_q4_q7.txt</code> 的 <code>max excl &lt;bos&gt;</code>）。直方圖要同樣排除第 0 個位置，就把 :400 的 <code>feature_acts[:, feature_idx]</code> 也改成 <code>feature_acts[1:, feature_idx]</code>。本機把 hw3.py 的複本照這兩處改完重跑過，印出 <code>max_activation for prompt_b: 0.0</code>（<code>logs/review_ch08.txt</code>）；hw3.py 本身沒有改。</p>
 <p><b>為什麼文件看不出來</b>：投影片的提示叫你看直方圖，直方圖只畫出 b 有一個孤立的值，不會標出它是哪個 token。<code>tokenizer.encode</code> 自動加 <code>&lt;bos&gt;</code> 這件事，也不在 :390 那一行上看得到。</p>
 </div>
 
@@ -1108,7 +1108,7 @@ max_activation for prompt_b: 31.740745544433594</pre>
 <p><b>3. JumpReLU 手算與 <code>&lt;bos&gt;</code> 的比對</b>（事實腳本，在 repo 根目錄，會載入模型與 SAE，約 5 秒；結果印在終端機）：</p>
 <pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch08</pre>
 <p>輸出格式就是 <code>logs/facts_pre_ch08.txt</code>：feature 10004 的參數、prompt c 在 <code>[20]</code> 與 <code>[21]</code> 上每個 token 的預激活與三種情況（<code>kept</code>、<code>pre&gt;0 but below threshold</code>、<code>pre&lt;=0</code>）、ReLU 與 JumpReLU 各留下幾個 feature、a 與 b 的 <code>&lt;bos&gt;</code> 比對（<code>max|a - b| = 0.0</code>），以及 <code>W_dec[10004]</code> 投影到詞表的前 12 名。要看 8.6、8.8 節兩張表的數字，改跑 <code>q7</code> 段（<code>.venv/bin/python docs/tools/hw03_facts.py q7</code>，輸出就是 <code>logs/facts_q4_q7.txt</code> 的 q7 段）。</p>
-<p><b>4. 自己修 R5、R6</b>：照 8.9 節兩個框的示意改 hw3.py:393、:397 與 :400，再跑第 1 步。依事實腳本在同樣的 hidden state 上量到的值（<code>logs/facts_q4_q7.txt</code> 的 q7 段），兩行 <code>max_activation</code> 預期是：只修 R5（:393）時 a 約 71.27、b 約 30.95（仍是 <code>&lt;bos&gt;</code>）；只修 R6（:397）時 a 約 58.10、b 是 0.0；兩個都修時 a 約 71.27、b 是 0.0。hw3.py 照字面改完重跑，本機沒有做過，這些是預期值。<!-- TODO(本機實測): 照 ch08 8.9 節的示意分別改 hw3.py:393、:397（與 :400）跑 --q 7，記下三種組合印出的兩行 max_activation --> Q7.4–7.9 不受影響（它們不經過 <code>get_max_activation</code>）。兩張直方圖會覆蓋 <code>HW03/outputs/</code> 裡同名的檔案；做完把 hw3.py 改回來，再跑一次第 1 步，原本的圖就回來了。</p>
+<p><b>4. 自己修 R5、R6</b>：照 8.9 節兩個框的示意改 hw3.py:393、:397 與 :400，再跑第 1 步。依事實腳本在同樣的 hidden state 上量到的值（<code>logs/facts_q4_q7.txt</code> 的 q7 段），兩行 <code>max_activation</code> 應該是（本機把 hw3.py 的複本照字面改完、三種組合各跑一次，<code>logs/review_ch08.txt</code>）：只修 R5（:393）時 a 是 71.27471160888672、b 是 30.95028305053711（仍是 <code>&lt;bos&gt;</code>）；只修 R6（:397、:400）時 a 是 58.10378646850586、b 是 0.0；兩個都修時 a 是 71.27471160888672、b 是 0.0。 Q7.4–7.9 不受影響（它們不經過 <code>get_max_activation</code>）。兩張直方圖會覆蓋 <code>HW03/outputs/</code> 裡同名的檔案；做完把 hw3.py 改回來，再跑一次第 1 步，原本的圖就回來了。</p>
 </div>
 
 <h2 id="pitfalls">8.11　常見錯誤</h2>

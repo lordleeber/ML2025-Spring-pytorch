@@ -1085,6 +1085,14 @@
 - **ch08 標為推論或沒有跑過的**：prompt a 後半的字詞因為上下文而亮；block 19 與 20 的輸出接近所以 [20] 的定性結論不變；`<bos>` 的大範數、attention sink、大 SAE activation 的關聯；Neuronpedia 網頁與 API 同源；R5 修法（:393 改成 `hook_layer + 1`）與 R6 修法（:397、:400 改成 `feature_acts[1:, feature_idx]`）都沒有照字面改 hw3.py 跑過；8.10 第 4 步寫的三種組合預期值（只修 R5：a 約 71.27、b 約 30.95；只修 R6：a 約 58.10、b 0.0；都修：a 約 71.27、b 0.0）是從事實腳本的 [20]／[21] 數字推的，標了 TODO。
 - **ch08 第一次交代的名詞**：SAE、feature、預激活（hidden_pre）、JumpReLU 與門檻、W_enc／W_dec／b_enc／b_dec、FVU、L0、activation density（frac_nonzero）、Neuronpedia、自動解釋、正向／負向 logit、`hook_resid_post`、HookPoint。
 
+## ch08 審稿補測（本機，2026-10-04；logs/review_ch08.txt）
+
+- **照 ch08 8.9 節的示意改 hw3.py 跑 `--q 7`**（改的是暫存複本，repo 的 hw3.py 沒動；圖存到暫存目錄，沒有覆蓋 HW03/outputs/）：
+  - 只修 R5（:393 改成 `hidden_states[sae.cfg.hook_layer + 1]`）：a 71.27471160888672、b 30.95028305053711（仍是 `<bos>`）。
+  - 只修 R6（:397 與 :400 改成 `feature_acts[1:, feature_idx]`）：a 58.10378646850586、b 0.0。
+  - 兩個都修：a 71.27471160888672、b 0.0。
+  - 與事實腳本的數字一致（logs/facts_q4_q7.txt 的 q7 段）。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1127,6 +1135,7 @@
 - facts_pre_ch07.txt：`hw03_facts.py pre_ch07` 的輸出（hw3.q6 的矩陣與標籤、與一次 forward 逐層逐列比較、多配一格的對照）。
 - review_ch07.txt：ch07 審稿補測（捲動後的 cache 內容、空格權重、R7 修法、(22, 23) 畫圖、超出範圍的旗標）。
 - facts_pre_ch08.txt：`hw03_facts.py pre_ch08` 的輸出（JumpReLU 手算、`<bos>` 在 a、b 相同、W_dec[10004] 投影到詞表）。
+- review_ch08.txt：ch08 審稿補測（照 8.9 節改 hw3.py 複本跑 `--q 7` 的三種組合）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
