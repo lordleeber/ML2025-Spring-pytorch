@@ -834,10 +834,20 @@
 - **投影片 p.16–17**：p.16 題目「How is the prompt being tokenized into? Please write the corresponding token index.」，右邊是 OpenAI tokenizer（GPT-3.5 & GPT-4）的截圖，只是示意。p.17 配分 2 × 0.1 + 2 × 0.15，題目「You need to write the corresponding token / token index」，表用底線 `_`（U+005F）代替 `▁`（U+2581）。
 - **原版 Colab**：第 20 格是「## Q3: Tokenization of Sentence」標題，第 21 格是 TODO（`#@param {type:"string"}` 表單、註解推薦 HF LLM Course 的 Tokenizers 一節）。
 - **`q3` 沒用到 `model`**，但 `main` 一律先載入模型，所以 `--q 3` 仍需要 GPU。
-- **`$2.50` 與 shell 引號**：review_ch03_q3.txt 記的指令用雙引號，在 bash 互動 shell 裡 `$2` 應該會被展開，但 log 的輸出有 `▁$`、`2`，當時沒被展開；原因 log 沒記。ch03 建議單引號，並留了 TODO。
-- **沒有量、ch03 標為推論的**：`convert_tokens_to_ids("_love")` 的回傳值（推論為 unk id 3）；`" you and you"` 兩個 you 都是 `▁you`；`"I love you"` 加 `<bos>` 共 4 個；詞表沒有「空白加數字」token；`you`／`▁you` 的 embedding 相似度；`--sentence` 不加引號時 argparse 的錯誤訊息。
-- **Gemma 第一代技術報告（arXiv:2403.08295）對 tokenizer 的描述**（拆數字、保留空白、byte fallback）是從記憶引用，ch03 註明「沒有逐字核對原文」。
+- **`$2.50` 與 shell 引號**：review_ch03_q3.txt 記的指令用雙引號，在 bash 互動 shell 裡 `$2` 應該會被展開，但 log 的輸出有 `▁$`、`2`，當時沒被展開；原因 log 沒記。ch03 建議單引號，並留了 TODO。→ 本機審稿：錄製時腳本以 `\$` 跳脫傳入，log 第 33 行已改成單引號並加註；雙引號實測見「ch03 審稿補測」。
+- **沒有量、ch03 標為推論的**（本機審稿已全部實測，見「ch03 審稿補測」）：`convert_tokens_to_ids("_love")` 的回傳值（推論為 unk id 3）；`" you and you"` 兩個 you 都是 `▁you`；`"I love you"` 加 `<bos>` 共 4 個；詞表沒有「空白加數字」token；`you`／`▁you` 的 embedding 相似度；`--sentence` 不加引號時 argparse 的錯誤訊息。
+- **Gemma 第一代技術報告（arXiv:2403.08295）對 tokenizer 的描述**（拆數字、保留空白、byte fallback）是從記憶引用，ch03 註明「沒有逐字核對原文」。→ 本機審稿已核對原文並改成引文。
 - **ch03 第一次交代的名詞**：SentencePiece、subword、`▁`（U+2581）、`convert_ids_to_tokens` 與 `decode` 的差別、byte fallback、UTF-8 位元組 token、全形／半形標點、`#@param`。
+
+## ch03 審稿補測（本機，2026-10-04；`hw03_facts.py review_ch03`，logs/review_ch03.txt）
+
+- **shell 引號**：單引號 `--sentence 'In 2025, GPT-4o costs $2.50.'` 的 18 行與 review_ch03_q3.txt 第 36–53 行相同。bash 互動 shell 裡用雙引號，`$2` 展開成空字串，句子變成 `In 2025, GPT-4o costs .50.`，16 個 token，結尾 `▁.` 954、5、0、`.`，沒有任何錯誤。
+- **不加引號** `--sentence you and you`：argparse 印 usage 後 `hw3.py: error: unrecognized arguments: and you`，結束碼 2，模型沒有載入。
+- `convert_tokens_to_ids`：`'_love'` → 3（`<unk>`）、`'▁love'` → 2182、`'love'` → 12870、`'_Machine'` → 3。
+- `' you and you'` → ▁you 692、▁and 578、▁you 692。`'I love you'`（預設 add_special_tokens）→ `['<bos>', 'I', '▁love', '▁you']`，4 個。
+- **詞表裡的數字**：沒有 `▁` 加數字的 token，也沒有兩位數以上的數字 token；含 ASCII 數字的 token 共 379 個（0–9 十個，其餘如 `<h5>`）。
+- **embedding cosine**（`model.get_input_embeddings()`，fp32 計算）：you／▁you 0.6692、Machine／▁Machine 0.9081、machine／▁machine 0.8716、Machine／machine 0.8679、Orange／▁Orange 0.9197、you／▁Machine −0.0186；隨機 10000 對 id（seed 0）平均 0.1640、標準差 0.0936、99% 分位 0.4201。
+- **Gemma 技術報告（arXiv:2403.08295）原文**：「We use a subset of the SentencePiece tokenizer (Kudo and Richardson, 2018) of Gemini for compatibility. It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens, following the techniques used for both (Chowdhery et al., 2022) and (Gemini Team, 2023). The vocabulary size is 256k tokens.」（arxiv.org/html/2403.08295 擷取）
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -868,6 +878,7 @@
 - review_ch02.txt：`hw03_facts.py review_ch02` 的輸出（prompt 逐 token 前綴、單 `<bos>`、`Ver`），加上 seaborn 警告對照與 ch02 printf 指令的重跑紀錄。
 - review_ch03_q3.txt：`hw3.py --q 3 --sentence ...` 四句的逐字輸出（中文、you and you、Google 加空白、數字）。
 - facts_pre_ch03.txt：`hw03_facts.py pre_ch03` 的輸出與 byte fallback 的補充。
+- review_ch03.txt：ch03 審稿補測（shell 引號、argparse 錯誤、`hw03_facts.py review_ch03` 的輸出）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

@@ -30,7 +30,7 @@ $ .venv/bin/python HW03/hw3.py --q 3 --sentence "Google "
 Token: Google, token index: 12583
 Token: ▁, token index: 235248
 
-$ .venv/bin/python HW03/hw3.py --q 3 --sentence "In 2025, GPT-4o costs $2.50."
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence 'In 2025, GPT-4o costs $2.50.'   # 錄製時由腳本以 \$ 跳脫傳入，$2.50 原樣進到 hw3.py，等同單引號；雙引號的結果見 review_ch03.txt
 
 ############################## Q3 ##############################
 Token: In, token index: 886

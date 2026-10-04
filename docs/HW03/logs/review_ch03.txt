@@ -1,0 +1,78 @@
+==================== review_ch03: shell 引號與 $（bash -i，位置參數為空）====================
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence 'In 2025, GPT-4o costs $2.50.'
+
+############################## Q3 ##############################
+Token: In, token index: 886
+Token: ▁, token index: 235248
+Token: 2, token index: 235284
+Token: 0, token index: 235276
+Token: 2, token index: 235284
+Token: 5, token index: 235308
+Token: ,, token index: 235269
+Token: ▁GPT, token index: 162174
+Token: -, token index: 235290
+Token: 4, token index: 235310
+Token: o, token index: 235253
+Token: ▁costs, token index: 6331
+Token: ▁$, token index: 697
+Token: 2, token index: 235284
+Token: ., token index: 235265
+Token: 5, token index: 235308
+Token: 0, token index: 235276
+Token: ., token index: 235265
+exit=0
+
+$ bash -ic 'echo "In 2025, GPT-4o costs $2.50."'   # 雙引號裡的 $2 在互動 shell 展開成什麼
+In 2025, GPT-4o costs .50.
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence "In 2025, GPT-4o costs $2.50."   # 在 bash -i 裡執行（repo 根目錄）
+bash: cannot set terminal process group (-1): Inappropriate ioctl for device
+bash: no job control in this shell
+
+############################## Q3 ##############################
+Token: In, token index: 886
+Token: ▁, token index: 235248
+Token: 2, token index: 235284
+Token: 0, token index: 235276
+Token: 2, token index: 235284
+Token: 5, token index: 235308
+Token: ,, token index: 235269
+Token: ▁GPT, token index: 162174
+Token: -, token index: 235290
+Token: 4, token index: 235310
+Token: o, token index: 235253
+Token: ▁costs, token index: 6331
+Token: ▁., token index: 954
+Token: 5, token index: 235308
+Token: 0, token index: 235276
+Token: ., token index: 235265
+exit=0
+
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence you and you
+usage: hw3.py [-h] [--q {1,2,3,4,5,6,7} [{1,2,3,4,5,6,7} ...]] [--seed SEED]
+              [--max-new-tokens MAX_NEW_TOKENS] [--interactive]
+              [--sentence SENTENCE] [--top-k TOP_K] [--top-p TOP_P]
+              [--num-samples NUM_SAMPLES] [--layer-idx LAYER_IDX]
+              [--head-idx HEAD_IDX] [--sae-layer-idx SAE_LAYER_IDX]
+              [--token-idx TOKEN_IDX [TOKEN_IDX ...]]
+hw3.py: error: unrecognized arguments: and you
+exit=2
+load_model 2.4s
+
+==================== review_ch03 ====================
+convert_tokens_to_ids('_love') -> 3
+convert_tokens_to_ids('▁love') -> 2182
+convert_tokens_to_ids('love') -> 12870
+convert_tokens_to_ids('_Machine') -> 3
+' you and you' -> [('▁you', 692), ('▁and', 578), ('▁you', 692)]
+'you and you' -> [('you', 4747), ('▁and', 578), ('▁you', 692)]
+'I love you' with <bos>: 4 tokens ['<bos>', 'I', '▁love', '▁you']
+tokens containing an ASCII digit: 379; examples ['0', '7', '5', '6', '9', '1', '4', '3', '2', '8', '<h5>', '<h1>']
+'▁' + digit tokens: []; multi-digit tokens: 0
+embedding cosine 'you' vs '▁you': 0.6692
+embedding cosine 'Machine' vs '▁Machine': 0.9081
+embedding cosine 'machine' vs '▁machine': 0.8716
+embedding cosine 'Machine' vs 'machine': 0.8679
+embedding cosine 'Orange' vs '▁Orange': 0.9197
+embedding cosine 'you' vs '▁Machine': -0.0186
+10000 random id pairs (seed 0): cosine mean 0.1640, std 0.0936, 99th pct 0.4201
+[review_ch03 took 0.6s]

@@ -824,7 +824,7 @@ Token: ?, token index: 235336  «5»</pre>
 
 <p>這就是<a href="ch02.html#top10">第 2 章 2.5 節</a>的那兩條「Orange」：第 2 輪第 1 名的 <code>'Orange'</code>（id 36565）是緊接在 <code>&lt;start_of_turn&gt;model\n</code> 換行後面、不帶空白的版本；第 10 名的 <code>' Orange'</code>（id 20723）是前面帶空白的版本，依同樣的規則，<code>convert_ids_to_tokens</code> 會印成 <code>▁Orange</code>，<code>decode</code> 出來是 <code>' Orange'</code>。小寫的 <code>orange</code> 又是第三個 token。模型輸出的機率是分給 256000 個 <b>token</b> 的，所以「Orange 這個字」的機率被拆散在好幾個 token 上。</p>
 
-<p>模型怎麼知道 <code>you</code> 與 <code>▁you</code> 是同一個字？從 id 看不出來：它們在 embedding 表（<a href="ch00.html#arch">第 0 章 0.5 節</a>的 256000 × 2304）裡是兩列不同的向量，彼此的關係只能在訓練時從資料中學到。本機沒有量這兩列向量有多像（推論：應該比隨便兩個字接近，但沒有證據）。</p>
+<p>模型怎麼知道 <code>you</code> 與 <code>▁you</code> 是同一個字？從 id 看不出來：它們在 embedding 表（<a href="ch00.html#arch">第 0 章 0.5 節</a>的 256000 × 2304）裡是兩列不同的向量，彼此的關係只能在訓練時從資料中學到。本機量了這兩列向量的 cosine 相似度（<code>logs/review_ch03.txt</code>）：<code>you</code> 與 <code>▁you</code> 是 0.6692，<code>Machine</code> 與 <code>▁Machine</code> 0.9081，<code>Orange</code> 與 <code>▁Orange</code> 0.9197；對照組 <code>you</code> 與 <code>▁Machine</code> 是 −0.0186，隨機抽 10000 對 id 的平均是 0.1640（99% 分位 0.4201）。訓練確實把同一個字的兩種寫法放得很近，但 id 本身完全看不出這層關係。</p>
 
 <p>反過來，一個字也可能被切成好幾塊：<code>unbelievable</code> → <code>un</code> 549、<code>believable</code> 145340；<code>unsupervised</code> → <code>un</code> 549、<code>supervised</code> 122612（<code>logs/facts_env_model_tok.txt</code>）；<code>ChatGPT</code> → <code>Chat</code> 15180、<code>GPT</code> 98502；<code>naïve</code> → <code>na</code> 556、<code>ï</code> 236370、<code>ve</code> 524（這兩個與 <code>unbelievable</code> 都來自 <code>logs/facts_pre_ch03.txt</code>）；第 2 章看過的 <code>Vermilion</code> → <code>Ver</code>、<code>m</code>、<code>ilion</code>。哪些字是一整塊、哪些被拆開，取決於詞表收了什麼，只能實際切切看。</p>
 
@@ -892,7 +892,7 @@ Token: ., token index: 235265</pre>
 <li><span class="mk">3</span>空白併進了 <code>$</code>，成為 <code>▁$</code>；後面的 <code>2.50</code> 一樣一位一個 token，小數點也是獨立的 <code>.</code>。</li>
 </ol>
 
-<p>數字一律拆成單一位數，所以詞表裡應該沒有 <code>▁2</code> 這類「空白加數字」的 token，空白只好自己成為一個 <code>▁</code>（推論，本機沒有掃詞表確認）。這和 Gemma 第一代技術報告的描述一致：tokenizer 會「split digits」（見延伸閱讀；本書沒有逐字核對原文）。好處是每個數字都由同樣 10 個 token 組成，模型不會碰到「2025 是一個 token、2026 是兩個」這種不一致。</p>
+<p>數字一律拆成單一位數，本機掃過整個詞表（<code>logs/review_ch03.txt</code>）：沒有 <code>▁2</code> 這類「空白加數字」的 token，也沒有任何兩位數以上的數字 token；含 ASCII 數字的 379 個 token 是 <code>0</code>–<code>9</code> 十個單一數字，加上 <code>&lt;h5&gt;</code> 這類數字夾在其他字元裡的片段。所以數字前的空白只好自己成為一個 <code>▁</code>。這和 Gemma 第一代技術報告的描述一致：「It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens」（見延伸閱讀）。好處是每個數字都由同樣 10 個 token 組成，模型不會碰到「2025 是一個 token、2026 是兩個」這種不一致。</p>
 
 <h3 id="byte-fallback">3.5.3　詞表裡沒有的字元：byte fallback，不是 &lt;unk&gt;</h3>
 
@@ -928,11 +928,11 @@ Token: ., token index: 235265</pre>
 
 <pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3 --sentence "you and you"</pre>
 
-<p>應該印出三行：<code>Token: you, token index: 4747</code>、<code>Token: ▁and, token index: 578</code>、<code>Token: ▁you, token index: 692</code>（<code>logs/review_ch03_q3.txt</code> 第 20–25 行）。本章的中文句、<code>"Google "</code>、<code>"In 2025, GPT-4o costs $2.50."</code> 都是這樣跑出來的。句子裡有 <code>$</code> 時要小心：在 bash 裡，雙引號內的 <code>$2</code> 會被當成「第 2 個位置參數」展開（互動 shell 裡通常是空字串），句子就變了；用單引號 <code>'...'</code> 包住，shell 就不會動它。本機 log 裡的 <code>$2.50</code> 有原樣傳進去（輸出有 <code>▁$</code>、<code>2</code>），當時是怎麼執行的、為什麼沒被展開，log 沒有記錄。自己跑的話建議改用單引號：</p>
+<p>應該印出三行：<code>Token: you, token index: 4747</code>、<code>Token: ▁and, token index: 578</code>、<code>Token: ▁you, token index: 692</code>（<code>logs/review_ch03_q3.txt</code> 第 20–25 行）。本章的中文句、<code>"Google "</code>、<code>"In 2025, GPT-4o costs $2.50."</code> 都是這樣跑出來的。句子裡有 <code>$</code> 時要小心：在 bash 裡，雙引號內的 <code>$2</code> 會被當成「第 2 個位置參數」展開（互動 shell 裡通常是空字串），句子就變了；用單引號 <code>'...'</code> 包住，shell 就不會動它。本機錄製 <code>logs/review_ch03_q3.txt</code> 時是由腳本把 <code>$</code> 跳脫後傳進去的，所以輸出有 <code>▁$</code>、<code>2</code>，效果等同單引號。真的在 bash 裡用雙引號打，本機實測（<code>logs/review_ch03.txt</code>）句子會變成 <code>In 2025, GPT-4o costs .50.</code>，只剩 16 個 token，最後幾行是 <code>▁.</code> 954、<code>5</code>、<code>0</code>、<code>.</code>，<code>▁$</code> 與 <code>2</code> 都不見了，而且不會有任何錯誤訊息。自己跑的話請用單引號：</p>
 
 <pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3 --sentence 'In 2025, GPT-4o costs $2.50.'</pre>
 
-<p>預期是 18 行 <code>Token: …</code>，其中 14 行應該和 <a href="#digits">3.5.2 節</a>列出的相同，另外 4 行是 <code>GPT-4o</code> 的切法（那一節省略了，自己看）。這一行本書沒有照字面跑過。<!-- TODO(本機實測): 在一般 bash 互動 shell 裡跑 --sentence "In 2025, GPT-4o costs $2.50."（雙引號）與單引號版本，確認雙引號是否把 $2 展開、單引號版本是否與 logs/review_ch03_q3.txt 第 36–53 行相同 --></p>
+<p>預期是 18 行 <code>Token: …</code>，其中 14 行應該和 <a href="#digits">3.5.2 節</a>列出的相同，另外 4 行是 <code>GPT-4o</code> 的切法（那一節省略了，自己看）。本機照字面跑過這一行，18 行與 <code>logs/review_ch03_q3.txt</code> 第 36–53 行逐字相同（<code>logs/review_ch03.txt</code>）。</p>
 
 <p>想看 <a href="#space">3.3 節</a>以後那些空白、大小寫、byte fallback 的對照，用 repo 附的事實腳本（同樣在 repo 根目錄；它也會載入模型，需要 GPU 與 HF 授權；結果印在終端機，不會寫進 <code>logs/</code>）：</p>
 
@@ -985,7 +985,7 @@ Token: ., token index: 235265</pre>
 <h4>把 ▁ 寫成底線</h4>
 <dl>
 <dt>症狀</dt><dd>照投影片打 <code>_love</code>，拿去 <code>tokenizer.convert_tokens_to_ids("_love")</code> 查，得不到 <code>▁love</code> 的 2182。</dd>
-<dt>後果</dt><dd><code>convert_tokens_to_ids</code> 是直接查詞表，不像 <code>encode</code> 會走 byte fallback；詞表裡若沒有 <code>_love</code> 這個字串，依 transformers 的慣例會回傳 <code>&lt;unk&gt;</code> 的 id 3（推論，本機沒有實際查過 <code>_love</code>）。</dd>
+<dt>後果</dt><dd><code>convert_tokens_to_ids</code> 是直接查詞表，不像 <code>encode</code> 會走 byte fallback；詞表裡沒有 <code>_love</code> 這個字串，所以回傳 <code>&lt;unk&gt;</code> 的 id 3；換成 <code>▁love</code> 才是 2182（本機實測，<code>logs/review_ch03.txt</code>）。</dd>
 <dt>正解</dt><dd class="fix"><code>▁</code> 是 U+2581，不是 <code>_</code>。在程式裡用 <code>"▁love"</code>，或直接從 <code>convert_ids_to_tokens</code> 的輸出複製。</dd>
 </dl>
 </div>
@@ -1008,8 +1008,8 @@ Token: ., token index: 235265</pre>
 <div class="pit">
 <h4>--sentence 沒有加引號</h4>
 <dl>
-<dt>症狀</dt><dd><code>--sentence you and you</code>，argparse 報錯 <code>unrecognized arguments: and you</code>（推論，本機沒有跑過這一行）。</dd>
-<dt>後果</dt><dd>shell 把句子拆成三個參數，<code>--sentence</code> 只拿到第一個字。</dd>
+<dt>症狀</dt><dd><code>--sentence you and you</code>，argparse 先印出 usage，再報錯 <code>hw3.py: error: unrecognized arguments: and you</code>，結束碼 2（本機實測，<code>logs/review_ch03.txt</code>）。</dd>
+<dt>後果</dt><dd>shell 把句子拆成三個參數，<code>--sentence</code> 只拿到第一個字，多出來的 <code>and</code>、<code>you</code> 沒有旗標認領；argparse 在載入模型之前就報錯退出，什麼都不會跑。</dd>
 <dt>正解</dt><dd class="fix">整句用引號包起來；句子裡有 <code>$</code> 時用單引號（<a href="#answer">3.6 節</a>）。</dd>
 </dl>
 </div>
@@ -1031,11 +1031,11 @@ Token: ., token index: 235265</pre>
 <h2 id="quiz">自我測驗</h2>
 
 <details class="quiz"><summary>1. <code>tokenizer.encode("I love you")</code> 不加任何參數，會得到幾個 id？第一個是什麼？為什麼 Q3 不要它？</summary>
-<p>預設 <code>add_special_tokens=True</code>，會在最前面多一個 <code>&lt;bos&gt;</code>，id 2。所以是「句子本身的 token 數 + 1」，第一個是 2（本機用預設句子實測：18 → 19 個，開頭 <code>[2, 235285]</code>）。<code>"I love you"</code> 依本章的例子會切成 <code>I</code>、<code>▁love</code>、<code>▁you</code> 三個，加上 <code>&lt;bos&gt;</code> 共 4 個（推算，這一句本機沒有單獨跑過）。Q3 問的是句子被切成哪些 token，<code>&lt;bos&gt;</code> 不屬於句子，加了會讓每一行和投影片的表錯開。</p>
+<p>預設 <code>add_special_tokens=True</code>，會在最前面多一個 <code>&lt;bos&gt;</code>，id 2。所以是「句子本身的 token 數 + 1」，第一個是 2（本機用預設句子實測：18 → 19 個，開頭 <code>[2, 235285]</code>）。<code>"I love you"</code> 依本章的例子會切成 <code>I</code>、<code>▁love</code>、<code>▁you</code> 三個，加上 <code>&lt;bos&gt;</code> 共 4 個：本機實測是 <code>['&lt;bos&gt;', 'I', '▁love', '▁you']</code>（<code>logs/review_ch03.txt</code>）。Q3 問的是句子被切成哪些 token，<code>&lt;bos&gt;</code> 不屬於句子，加了會讓每一行和投影片的表錯開。</p>
 </details>
 
 <details class="quiz"><summary>2. <code>"you and you"</code> 裡兩個 you 的 id 為什麼不同？<code>" you and you"</code>（前面多一個空白）會怎樣？</summary>
-<p>第一個 you 在句首、前面沒有空白，是 <code>you</code> 4747；第二個前面有空白，空白併進它的開頭，是 <code>▁you</code> 692。前面多一個空白時，第一個 you 前面也有空白了，依同樣的規則會是 <code>▁you</code>，兩個 id 相同（推論，本機測的是 <code>' I love'</code> 變成 <code>▁I</code> 的同類情況，沒有測這一句）。</p>
+<p>第一個 you 在句首、前面沒有空白，是 <code>you</code> 4747；第二個前面有空白，空白併進它的開頭，是 <code>▁you</code> 692。前面多一個空白時，第一個 you 前面也有空白了，依同樣的規則會是 <code>▁you</code>，兩個 id 相同：本機實測 <code>' you and you'</code> 切成 <code>▁you</code> 692、<code>▁and</code> 578、<code>▁you</code> 692（<code>logs/review_ch03.txt</code>）。</p>
 </details>
 
 <details class="quiz"><summary>3. <code>convert_ids_to_tokens([692])</code> 和 <code>decode([692])</code> 分別得到什麼？Q3 為什麼用前者？</summary>
@@ -1053,7 +1053,7 @@ Token: ., token index: 235265</pre>
 <h2 id="further">延伸閱讀</h2>
 <ul>
 <li>Kudo &amp; Richardson, <i>SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing</i>, 2018, <a href="https://arxiv.org/abs/1808.06226">arXiv:1808.06226</a>：<code>▁</code> 記號與「把空白當一般字元」的做法。</li>
-<li>Gemma Team, <i>Gemma: Open Models Based on Gemini Research and Technology</i>, 2024, <a href="https://arxiv.org/abs/2403.08295">arXiv:2403.08295</a>：第一代 Gemma 的技術報告，有一段描述 tokenizer 的設計（拆數字、保留空白、byte fallback）；本書沒有逐字核對原文。</li>
+<li>Gemma Team, <i>Gemma: Open Models Based on Gemini Research and Technology</i>, 2024, <a href="https://arxiv.org/abs/2403.08295">arXiv:2403.08295</a>：第一代 Gemma 的技術報告。描述 tokenizer 的原文是「We use a subset of the SentencePiece tokenizer … of Gemini for compatibility. It splits digits, does not remove extra whitespace, and relies on byte-level encodings for unknown tokens … The vocabulary size is 256k tokens.」</li>
 <li>Hugging Face LLM Course 的 <a href="https://huggingface.co/learn/nlp-course/en/chapter2/4?fw=pt">Tokenizers</a> 一節：原版 Colab 第 21 格的註解推薦的入門資料，<code>encode</code>、<code>convert_ids_to_tokens</code>、<code>decode</code> 的用法。</li>
 <li>Sennrich et al., <i>Neural Machine Translation of Rare Words with Subword Units</i>, 2016, <a href="https://arxiv.org/abs/1508.07909">arXiv:1508.07909</a>：subword tokenization（BPE）的經典論文。</li>
 <li><a href="https://www.unicode.org/charts/PDF/U2580.pdf">Unicode Block Elements 表</a>：U+2581 LOWER ONE EIGHTH BLOCK，也就是 <code>▁</code>。</li>

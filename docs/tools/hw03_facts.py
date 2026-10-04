@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -951,6 +951,34 @@ def pre_ch03_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch03 review: convert_tokens_to_ids, leading space, digits in the vocabulary, embedding rows
+def review_ch03_facts(tokenizer, model):
+    import re
+
+    section("review_ch03")
+    for t in ["_love", "▁love", "love", "_Machine"]:
+        print(f"convert_tokens_to_ids({t!r}) -> {tokenizer.convert_tokens_to_ids(t)}")
+    for s in [" you and you", "you and you"]:
+        e = tokenizer.encode(s, add_special_tokens=False)
+        print(f"{s!r} -> {list(zip(tokenizer.convert_ids_to_tokens(e), e))}")
+    e = tokenizer.encode("I love you")
+    print(f"'I love you' with <bos>: {len(e)} tokens {tokenizer.convert_ids_to_tokens(e)}")
+    vocab = tokenizer.get_vocab()
+    digit = [t for t in vocab if re.search(r"[0-9]", t)]
+    print(f"tokens containing an ASCII digit: {len(digit)}; examples {sorted(digit, key=len)[:12]}")
+    print(f"'▁' + digit tokens: {[t for t in vocab if re.fullmatch(r'▁[0-9]+', t)]}; multi-digit tokens: {len([t for t in vocab if re.fullmatch(r'▁?[0-9]{2,}', t)])}")
+    W = model.get_input_embeddings().weight.float()
+    cos = lambda a, b: torch.nn.functional.cosine_similarity(W[a], W[b], dim=0).item()
+    pairs = [("you", "▁you"), ("Machine", "▁Machine"), ("machine", "▁machine"), ("Machine", "machine"), ("Orange", "▁Orange"), ("you", "▁Machine")]
+    for a, b in pairs:
+        print(f"embedding cosine {a!r} vs {b!r}: {cos(tokenizer.convert_tokens_to_ids(a), tokenizer.convert_tokens_to_ids(b)):.4f}")
+    g = torch.Generator().manual_seed(0)
+    idx = torch.randint(0, W.shape[0], (2, 10000), generator=g).to(W.device)
+    rc = torch.nn.functional.cosine_similarity(W[idx[0]], W[idx[1]], dim=1)
+    print(f"10000 random id pairs (seed 0): cosine mean {rc.mean():.4f}, std {rc.std():.4f}, 99th pct {rc.quantile(0.99):.4f}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -967,7 +995,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()
