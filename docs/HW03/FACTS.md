@@ -1093,6 +1093,19 @@
   - 兩個都修：a 71.27471160888672、b 0.0。
   - 與事實腳本的數字一致（logs/facts_q4_q7.txt 的 q7 段）。
 
+## ch09 前置補測（本機，2026-10-04；`hw03_facts.py pre_ch09` → logs/facts_pre_ch09.txt；logs/run_q7_bad_flags.txt）
+
+- **同一個 SAE（block 20 輸出上訓練）拿去重建每一個 hidden_states 索引**（FVU、L0 都排除 `<bos>`；FVU > 1 代表重建比「直接用平均值」還差）：
+  - prompt c：FVU [0] 1.616、[5] 2.235、[10] 1.372、[12] **4.988**、[15] 2.050、[17] 0.863、[18] 0.714、[19] 0.564、[20] 0.458、**[21] 0.290（最低）**、[22] 0.439、[23] 0.609、[24] 0.918、[25] 2.623、[26] 3.555。FVU < 1 只有索引 17–24。
+  - prompt a：[20] 0.463、[21] 0.279（最低）、[24] 1.057、[25] 2.927、[26] 3.527；FVU < 1 只有索引 17–23。
+  - L0（prompt c）：[0]–[10] 約 18–42；[12]、[13] 約 214；[21] 88.2；[24] 417.4；**[25] 981.2**；[26] 31.5。
+  - feature 10004 在 prompt c（不含 `<bos>`）的最大值幾乎每個索引都落在 ▁travel：[1] 7.70、[5] 15.30、[10] 20.53、[17] 27.32、[19] 44.30、[20] 58.06、[21] 71.23、[24] 74.17、[25] 78.85、[26] 11.76。[0] 與 [3] 全是 0。
+  - 結論：SAE 的重建品質在它訓練的 [21] 最好，往兩邊都變差，形成 U 形；Q7.4 預設的 [24] 已經在 FVU ≈ 1 的邊緣，Q7.7–7.9 的 27 個索引大多 FVU > 1。這是「SAE 只在一層校正過」的逐層證據（S4）。
+- **旗標超出範圍**（logs/run_q7_bad_flags.txt）：
+  - `--sae-layer-idx 27` → hw3.py:416 `IndexError: tuple index out of range`，結束碼 1。
+  - `--token-idx 13`（prompt c 只有 13 個 token，0–12）→ hw3.py:442 `IndexError: index 13 is out of bounds for dimension 0 with size 13`，結束碼 1。
+  - 兩者都在 Q7.1–7.3 跑完、印出、存圖之後才出錯；`--token-idx 13` 還會先跑完 Q7.4–7.6。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1136,6 +1149,8 @@
 - review_ch07.txt：ch07 審稿補測（捲動後的 cache 內容、空格權重、R7 修法、(22, 23) 畫圖、超出範圍的旗標）。
 - facts_pre_ch08.txt：`hw03_facts.py pre_ch08` 的輸出（JumpReLU 手算、`<bos>` 在 a、b 相同、W_dec[10004] 投影到詞表）。
 - review_ch08.txt：ch08 審稿補測（照 8.9 節改 hw3.py 複本跑 `--q 7` 的三種組合）。
+- facts_pre_ch09.txt：`hw03_facts.py pre_ch09` 的輸出（SAE 在每一個 hidden_states 索引上的 FVU、L0、feature 10004 最大值）。
+- run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。

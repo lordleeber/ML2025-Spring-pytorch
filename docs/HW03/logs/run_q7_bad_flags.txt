@@ -1,0 +1,22 @@
+$ .venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 27
+    plot_token_activations(model, tokenizer, sae, prompt, feature_idx, args.sae_layer_idx)
+  File ".venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "HW03/hw3.py", line 416, in plot_token_activations
+    feature_acts = sae.encode(outputs.hidden_states[layer_idx]).squeeze()
+                              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+IndexError: tuple index out of range
+exit=1
+
+$ .venv/bin/python HW03/hw3.py --q 7 --token-idx 13
+    plot_layer_activations(model, tokenizer, sae, prompt, token_idx, feature_idx)
+  File ".venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "HW03/hw3.py", line 442, in plot_layer_activations
+    activations.append(feature_acts[token_idx, feature_idx].item())
+                       ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: index 13 is out of bounds for dimension 0 with size 13
+exit=1
+

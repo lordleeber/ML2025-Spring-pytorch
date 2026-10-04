@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07 review_ch07 pre_ch08]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07 review_ch07 pre_ch08 pre_ch09]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1368,6 +1368,18 @@ def pre_ch08_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch09 prep: how well the block-20 SAE reconstructs every hidden_states index
+def pre_ch09_facts(tokenizer, model):
+    section("pre_ch09")
+    sae = _sae()
+    for key in ("c", "a"):
+        print(f"--- prompt {key}: FVU / L0 (both excluding <bos>) / feature 10004 max over tokens excl <bos>, per hidden_states index")
+        for idx in range(27):
+            toks, v, fvu, l0 = _sae_stats(sae, tokenizer, model, Q7_PROMPTS[key], idx)
+            print(f"  [{idx:2d}] FVU {fvu:7.3f}  L0 {l0:7.1f}  10004 max {v[1:].max():7.2f} at {toks[1 + int(v[1:].argmax())]!r}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1384,7 +1396,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts, "review_ch07": review_ch07_facts, "pre_ch08": pre_ch08_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts, "review_ch07": review_ch07_facts, "pre_ch08": pre_ch08_facts, "pre_ch09": pre_ch09_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()
