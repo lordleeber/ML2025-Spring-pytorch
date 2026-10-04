@@ -623,17 +623,17 @@ Consider using lower n-gram order or use SmoothingFunction()</pre>
 
 <p>另外，載入模型時會看到 <code>Loading checkpoint shards: 100%|██████████| 2/2</code> 這樣的進度條（<code>logs/facts_review1_perq.txt</code> 第 1 行）：gemma-2-2b-it 的權重分成 2 個檔案，進度條跑完就是載入完成。</p>
 
-<p>再說真的出錯的情況。下表是本機紀錄裡<b>有根據</b>的幾種狀況；「你會看到什麼」那一欄，本機還沒有刻意製造錯誤去抓逐字訊息，所以先空著，等本機補量後填入。</p>
+<p>再說真的出錯的情況。下表「你會看到什麼」那一欄是本機刻意製造錯誤抓到的訊息最後幾行（完整 traceback 在 <code>logs/review_ch00_errors.txt</code>）；沒有實測的會寫明。</p>
 
 <div class="tablewrap"><table>
 <thead><tr><th>情況</th><th>你會看到什麼</th><th>原因與處理</th></tr></thead>
 <tbody>
-<tr><td>沒有在 Gemma-2-2b-it 的模型頁接受授權，或沒有登入</td><td>（待本機補量）<!-- TODO(本機實測): 未接受 Gemma 授權、或未登入（無 HF_TOKEN 且無 hf auth login 快取）時，hw3.py 在 load_model 報的逐字錯誤訊息 --></td><td><code>google/gemma-2-2b-it</code> 是 gated 模型：要先在 HF 網頁接受授權，再用 read token 登入（投影片 p.5–11）。登入方式二選一：<code>.venv/bin/hf auth login</code>，或設 <code>HF_TOKEN</code>，見 <a href="#skeleton">0.2 節</a>。</td></tr>
-<tr><td>在 WSL 裡跑，但只在 Windows 那邊登入過</td><td>（待本機補量）<!-- TODO(本機實測): WSL 內沒有 token、只有 Windows 端登入時的逐字錯誤訊息（應與上一列相同，需確認） --></td><td>token 存在 <b>WSL 自己的</b> <code>~/.cache/huggingface/token</code>，Windows 那邊的登入不算。在 WSL 裡再執行一次 <code>.venv/bin/hf auth login</code>。</td></tr>
-<tr><td>機器上沒有 NVIDIA GPU</td><td>（待本機補量）<!-- TODO(本機實測): 沒有 CUDA 時 load_model（device_map="cuda"）的逐字錯誤訊息；雲端或 CPU 機器上 import 到 load_model 會停在哪一行 --></td><td>hw3.py 把 <code>DEVICE = "cuda"</code> 寫死（hw3.py:36），沒有退回 CPU 的路徑。這份作業需要 NVIDIA GPU。</td></tr>
-<tr><td>Blackwell 世代的 GPU（例如本機的 RTX PRO 4000 Blackwell，sm_120）</td><td>（待本機補量）<!-- TODO(本機實測): 在 sm_120 上用非 cu128 的 torch wheel 時的逐字錯誤或警告 --></td><td>Blackwell 需要 CUDA 12.8 的 PyTorch wheel。repo 的 <code>pyproject.toml</code> 已經把 torch 指到 PyTorch 的 cu128 index，照 <code>uv sync</code> 裝就不會碰到；自己另外 <code>pip install torch</code> 才可能裝錯版本。</td></tr>
-<tr><td>sae-lens 被升到 6.x</td><td>（待本機補量）<!-- TODO(本機實測): sae-lens 6.x 下 Q7 load_sae 的逐字錯誤訊息 --></td><td>sae-lens 是 Q7 用來載入 SAE（稀疏自編碼器，見<a href="index.html#what-kept">目錄頁 2.2 節</a>）的套件。sae-lens 6 改了 <code>SAE.from_pretrained</code> 的回傳值與 <code>cfg.hook_layer</code>，所以 <code>pyproject.toml</code> 釘在 <code>sae-lens&lt;6</code>。照 <code>uv sync</code> 裝就是 5.x（本機 5.11.0）。</td></tr>
-<tr><td>第一次執行</td><td>終端機停在下載進度條一段時間</td><td>每樣東西在第一次用到時下載到 HF 快取：gemma-2-2b-it 5.251 GB 在載入模型時；Q1 的評分模型 0.092 GB 要到第一次跑 Q1；Q7 的 SAE 0.302 GB 要到第一次跑 Q7（都是快取實際大小）。下載要多久取決於網路，本機沒有量。<!-- TODO(本機實測): 清空 HF 快取後第一次執行的下載時間（選做） --></td></tr>
+<tr><td>沒有在 Gemma-2-2b-it 的模型頁接受授權，或沒有登入</td><td>停在 hw3.py:50 載入 tokenizer：<code>OSError: You are trying to access a gated repo.</code>，接著是 <code>401 Client Error.</code> 與 <code>Access to model google/gemma-2-2b-it is restricted. You must have access to it and be authenticated to access it. Please log in.</code>（實測的是「沒有登入、快取裡也沒有模型」；「有登入但沒接受授權」的訊息本機沒有測）</td><td><code>google/gemma-2-2b-it</code> 是 gated 模型：要先在 HF 網頁接受授權，再用 read token 登入（投影片 p.5–11）。登入方式二選一：<code>.venv/bin/hf auth login</code>，或設 <code>HF_TOKEN</code>，見 <a href="#skeleton">0.2 節</a>。</td></tr>
+<tr><td>在 WSL 裡跑，但只在 Windows 那邊登入過</td><td>和上一列相同：對 WSL 裡的程式來說，這就是「沒有登入」</td><td>token 存在 <b>WSL 自己的</b> <code>~/.cache/huggingface/token</code>，Windows 那邊的登入不算。在 WSL 裡再執行一次 <code>.venv/bin/hf auth login</code>。</td></tr>
+<tr><td>機器上沒有 NVIDIA GPU</td><td>tokenizer 照常載入，停在 hw3.py:51 載入模型權重時：<code>RuntimeError: No CUDA GPUs are available</code>（本機用 <code>CUDA_VISIBLE_DEVICES=''</code> 模擬）</td><td>hw3.py 把 <code>DEVICE = "cuda"</code> 寫死（hw3.py:36），沒有退回 CPU 的路徑。這份作業需要 NVIDIA GPU。</td></tr>
+<tr><td>Blackwell 世代的 GPU（例如本機的 RTX PRO 4000 Blackwell，sm_120）</td><td>本機沒有測（要另外下載一套不同版本的 torch）</td><td>Blackwell 需要 CUDA 12.8 的 PyTorch wheel。repo 的 <code>pyproject.toml</code> 已經把 torch 指到 PyTorch 的 cu128 index，照 <code>uv sync</code> 裝就不會碰到；自己另外 <code>pip install torch</code> 才可能裝錯版本。</td></tr>
+<tr><td>sae-lens 被升到 6.x</td><td>本機用 6.53.0 測：<code>load_sae</code> 只印一條 <code>DeprecationWarning: Unpacking SAE objects is deprecated.</code> 還能過，真正停下來的是 hw3.py:393：<code>AttributeError: 'JumpReLUSAEConfig' object has no attribute 'hook_layer'</code></td><td>sae-lens 是 Q7 用來載入 SAE（稀疏自編碼器，見<a href="index.html#what-kept">目錄頁 2.2 節</a>）的套件。sae-lens 6 的 <code>SAE.from_pretrained</code> 改成只回傳 SAE 物件（舊的三個值拆法暫時還能用），而且 config 裡沒有 <code>hook_layer</code> 了，所以 <code>pyproject.toml</code> 釘在 <code>sae-lens&lt;6</code>。照 <code>uv sync</code> 裝就是 5.x（本機 5.11.0）。</td></tr>
+<tr><td>第一次執行</td><td>終端機停在下載進度條一段時間</td><td>每樣東西在第一次用到時下載到 HF 快取：gemma-2-2b-it 5.251 GB 在載入模型時；Q1 的評分模型 0.092 GB 要到第一次跑 Q1；Q7 的 SAE 0.302 GB 要到第一次跑 Q7（都是快取實際大小）。下載要多久取決於網路，本機沒有量。</td></tr>
 </tbody>
 </table></div>
 
@@ -641,7 +641,7 @@ Consider using lower n-gram order or use SmoothingFunction()</pre>
 
 <pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3</pre>
 
-<p>終端機印出 <code>############################## Q3 ##############################</code> 這條分隔線，接著是一串 token 與 id，就表示主模型的下載、授權、GPU 都沒問題。分隔線是在載入模型<b>之後</b>才印的（hw3.py:514–516），所以沒看到它、程式就以錯誤結束，問題一定出在載入模型之前；把錯誤訊息的最後幾行對照上表的「情況」欄。這個檢查不會用到 Q1 的評分模型與 Q7 的 SAE，它們第一次跑 Q1、Q7 時才下載。Q3 印的內容第 3 章再講。</p>
+<p>終端機印出 <code>############################## Q3 ##############################</code> 這條分隔線，接著是一串 token 與 id，就表示主模型的下載、授權、GPU 都沒問題。分隔線是在載入模型<b>之後</b>才印的（hw3.py:514–516），所以沒看到它、程式就以錯誤結束，問題一定出在載入模型時或更早；把錯誤訊息的最後幾行對照上表的「情況」欄。這個檢查不會用到 Q1 的評分模型與 Q7 的 SAE，它們第一次跑 Q1、Q7 時才下載。Q3 印的內容第 3 章再講。</p>
 
 <h2 id="skeleton">0.2　這支腳本長什麼樣</h2>
 
@@ -733,7 +733,7 @@ def main():
 <li>執行順序是你寫的順序，不是由小到大：<code>for q in args.q</code> 直接照 list 走。</li>
 <li>七題共用同一個 <code>model</code> 物件。這省下了重複載入的時間，代價是前一題留在模型物件上的狀態會被下一題看到。最明顯的是 KV cache：模型逐字生成時，把前面每個 token 在每一層算過的 key、value 存起來，下一步就不必重算（Gemma 2 用的類別叫 <code>HybridCache</code>）。Q1 跑完後，<code>model.generate</code> 會在 <code>model._cache</code> 留下一個 0.054 GiB 的 HybridCache（<a href="#time-mem">0.10 節</a>），後面的題目會沿用它。這件事會讓 Q4 的取樣結果跟「只跑 Q4」不同，第 5 章專門處理。</li>
 <li><code>--seed</code> 只做一件事：在載入模型<b>之前</b>呼叫一次 <code>torch.manual_seed</code>。沒給就完全不設（原版 Colab 也沒設，見 :487 的 help）。只有 Q4 有隨機取樣，所以 seed 實際上只影響 Q4。</li>
-<li><code>ArgumentParser(description=__doc__)</code> 把整段 docstring 當成 <code>--help</code> 的說明文字。<code>--help</code> 在 argparse 解析時就結束程式，不會載入模型。<!-- TODO(本機實測): .venv/bin/python HW03/hw3.py --help 的逐字輸出，確認開頭是 docstring、不載入模型 --></li>
+<li><code>ArgumentParser(description=__doc__)</code> 把整段 docstring 當成 <code>--help</code> 的說明文字。<code>--help</code> 在 argparse 解析時就結束程式，不會載入模型：本機實測先印 <code>usage: hw3.py [-h] [--q {1,2,3,4,5,6,7} ...</code>，接著是整段 docstring 與旗標說明，整條指令 2.2 秒，時間花在 import torch、transformers 這些套件（<code>logs/review_ch00_errors.txt</code> 第 3 段）。</li>
 </ul>
 
 <h3 id="outputs">0.2.3　圖存到 HW03/outputs/</h3>
@@ -1220,7 +1220,7 @@ weights in fp16: 4.87 GiB; cuda allocated after load 4.87 GiB «4»</pre>
 <li><b>GQA 省下的</b>：如果 k、v 也和 q 一樣有 8 個 head，<code>k_proj</code>、<code>v_proj</code> 各是 2048 × 2304 = 4,718,592，每層多 2 × 2,359,296 = 4,718,592 個參數，26 層共多 122,683,392 個（計算值）。</li>
 </ul>
 
-<p>記憶體：2,614,341,888 × 2 bytes = 5,228,683,776 bytes，除以 2<sup>30</sup> 就是 4.87 GiB。HF 快取裡的 5.251 GB 是以 10<sup>9</sup> 為單位的 GB，和 5,228,683,776 bytes（約 5.23 GB）同一個數量級；多出來的部分是權重以外的檔案還是存檔格式的差異，本機沒有拆開看。<!-- TODO(本機實測): HF 快取裡 gemma-2-2b-it 各檔案的大小（safetensors 兩個 shard、tokenizer 等），說明 5.251 GB 與 5.23 GB 的差 --></p>
+<p>記憶體：2,614,341,888 × 2 bytes = 5,228,683,776 bytes，除以 2<sup>30</sup> 就是 4.87 GiB。HF 快取裡的 5.251 GB 是以 10<sup>9</sup> 為單位的 GB，拆開來看（<code>logs/review_ch00_errors.txt</code> 第 5 段）：兩個 safetensors 權重檔共 5,228,717,488 bytes，比 5,228,683,776 只多 33,712 bytes，是 safetensors 檔頭（記錄每個 tensor 名稱與形狀的 JSON）；其餘約 0.022 GB 是 <code>tokenizer.json</code>（17,525,357 bytes）、<code>tokenizer.model</code>（4,241,003 bytes）、README 與設定檔。</p>
 
 <h2 id="hidden-states">0.9　hidden_states 的 27 個索引</h2>
 

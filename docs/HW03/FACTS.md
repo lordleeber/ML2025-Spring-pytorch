@@ -57,7 +57,7 @@
   - Blackwell 需要 cu128 的 wheel，所以 pyproject 指定 PyTorch 的 cu128 index。
 - **依賴管理**：用 uv。
   - `pyproject.toml` 與 `uv.lock` 在 repo 根目錄，`uv sync` 會建立 `.venv`。
-  - `sae-lens<6`：v6 改了 `SAE.from_pretrained` 的回傳值與 `cfg.hook_layer`，所以釘在 5.x。原版 Colab 只寫 `!pip install sae-lens`，沒有指定版本。
+  - `sae-lens<6`：v6 的 `SAE.from_pretrained` 改成只回傳 SAE 物件（6.53.0 實測：舊的三值拆法還能用，只發 DeprecationWarning），而且 config 沒有 `hook_layer`，Q7 會在 hw3.py:393 以 AttributeError 停下（見「ch00 審稿補測」）。所以釘在 5.x。原版 Colab 只寫 `!pip install sae-lens`，沒有指定版本。
 - **HF 模型與授權**：
   - `google/gemma-2-2b-it` 是 gated 模型：要先在 HF 網頁接受授權，再用 read token 登入（投影片 p.5–11）。
   - 登入方式：`.venv/bin/hf auth login`，或設環境變數 `HF_TOKEN`。hw3.py:509–512 有 `HF_TOKEN` 就呼叫 `login()`。
@@ -678,6 +678,27 @@
 - `Gemma2ForCausalLM`：`_tied_weights_keys = ["lm_head.weight"]`（:887）；final soft-cap 30 在 :993–996。
 - **原版 Colab 的格子編號**：ch00 與 index.html 一律「把 markdown 格也算進去、從 1 起算」：第 3 格 `!nvidia-smi`、第 5 格 `!pip install transformers==4.47.0`、第 7 格 `login("your_hf_token")`、第 10 格載入模型。上面「環境」一節寫的「Colab 第 4 格」是 0 起算的編號，指的是同一格（第 5 格）。
 
+## ch00 審稿補測（本機，2026-10-04；logs/review_ch00_errors.txt）
+
+- **雲端從 GitHub v4.47.0 讀的 modeling_gemma2.py 行號**：本機 .venv 的檔案（1282 行）逐行核對，全部正確。
+- **沒有登入、快取裡也沒有模型**（`env -u HF_TOKEN HF_HOME=<空目錄> .venv/bin/python HW03/hw3.py --q 3`）：
+  - 停在 hw3.py:50 `AutoTokenizer.from_pretrained`，exit 1。
+  - 最後幾行：`OSError: You are trying to access a gated repo.`／`Make sure to have access to it at https://huggingface.co/google/gemma-2-2b-it.`／`401 Client Error. (Request ID: ...)`／`Cannot access gated repo for url https://huggingface.co/google/gemma-2-2b-it/resolve/main/config.json.`／`Access to model google/gemma-2-2b-it is restricted. You must have access to it and be authenticated to access it. Please log in.`
+  - 「有登入、但沒在模型頁接受授權」的訊息**沒有測**（需要另一個沒授權的帳號），教材不要寫它的逐字內容。
+  - WSL 裡只有 Windows 端登入過：WSL 的程式讀不到 Windows 的 token 檔，對它來說就是上面這種「沒有登入」。
+- **沒有 CUDA**（`CUDA_VISIBLE_DEVICES='' .venv/bin/python HW03/hw3.py --q 3`）：tokenizer 照常載入，停在 hw3.py:51 `AutoModelForCausalLM.from_pretrained`，搬權重到 cuda 時 `RuntimeError: No CUDA GPUs are available`，exit 1。
+- **`--help`**：先印 usage，再印整段 docstring（hw3.py:1–13）與旗標說明，不載入模型；整條指令 real 2.2 s（import torch、transformers 等）。
+- **sae-lens 6.x**（6.53.0，`uv pip install --target <暫存目錄> --no-deps`，用 PYTHONPATH 蓋過；其他套件維持 .venv 的版本）：
+  - hw3.py:375 發 `DeprecationWarning: Unpacking SAE objects is deprecated. SAE.from_pretrained() now returns only the SAE object. Use SAE.from_pretrained_with_cfg_and_sparsity() to get the config dict and sparsity as well.`，但 `load_sae` 照常完成。
+  - 停在 hw3.py:393 `outputs.hidden_states[sae.cfg.hook_layer]`：`AttributeError: 'JumpReLUSAEConfig' object has no attribute 'hook_layer'`，exit 1。
+  - 只測了 6.53.0；更早的 6.x 是否也保留三值拆法沒有測。
+- **HF 快取 5.251 GB 的組成**（snapshot 目錄，bytes）：
+  - model-00001-of-00002.safetensors 4,988,025,760、model-00002-of-00002.safetensors 240,691,728，合計 5,228,717,488。
+  - 其中 tensor 資料 5,228,683,776（= 2,614,341,888 × 2 bytes），兩個檔頭（8 bytes 長度 + JSON）31,648 + 2,064 = 33,712。
+  - 其餘：tokenizer.json 17,525,357、tokenizer.model 4,241,003、tokenizer_config.json 46,996、README.md 29,091、model.safetensors.index.json 24,223、config.json 838、special_tokens_map.json 636、generation_config.json 187。
+  - 總計 5,250,585,819 bytes = 5.251 GB。
+- **沒有量、教材改寫成「本機沒有測」的**：sm_120 上用非 cu128 torch wheel 的錯誤訊息；清空快取後第一次的下載時間。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -698,6 +719,7 @@
 - facts_env_model_tok.txt、facts_q1_q2.txt、facts_q4_q7.txt：`docs/tools/hw03_facts.py` 的輸出。
 - neuronpedia_feature_10004.json：Neuronpedia API 的原始回應。
 - facts_review1_shapes_q4steps_rescale26.txt、facts_review1_perq.txt、facts_review1_ptit.txt：`docs/tools/hw03_facts.py shapes q4steps rescale26`、`perq`、`ptit` 的輸出（大綱審稿補測第 1 輪）。
+- review_ch00_errors.txt：ch00 審稿補測（未登入、沒有 CUDA、`--help`、sae-lens 6.53.0、快取檔案大小）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
