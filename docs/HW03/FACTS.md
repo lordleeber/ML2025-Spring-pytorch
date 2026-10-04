@@ -813,6 +813,21 @@
 - **seaborn 0.13.2**：`sns.barplot(x, y, palette="coolwarm")`（原版 Colab）發出 `FutureWarning: Passing palette without assigning hue is deprecated and will be removed in v0.14.0...`；hw3.py 的 `hue=y, legend=False` 沒有警告，三條的顏色逐一相同。
 - **ch02 2.7 的 printf 指令**照字面重跑：輸出與 logs/review_ch02_q2.txt 第 5–84 行忽略空行後逐字相同，結束碼 0。
 
+## ch03 前置補測（本機，2026-10-04；logs/review_ch03_q3.txt、logs/facts_pre_ch03.txt）
+
+- **hw3.py 格式的逐字輸出**（`--q 3 --sentence ...`，logs/review_ch03_q3.txt）：
+  - `我喜歡上李宏毅老師的機器學習課，你呢？` → 15 個 token：我 235509、喜歡 44480、上 235502、李 236454、宏 238805、毅 239597、老師 85722、的 235370、機器 100697、學習 88900、課 237958、，235365、你 235608、呢 236512、？235544。中文沒有 `▁`（句子裡沒有空白）。
+  - `you and you` → you 4747、▁and 578、▁you 692（同一個字，句首沒空白與前面有空白是不同 id）。
+  - `Google ` → Google 12583、▁ 235248。
+  - `In 2025, GPT-4o costs $2.50.` → In、▁ 235248、2、0、2、5、`,`、▁GPT 162174、-、4、o、▁costs、▁$ 697、2、.、5、0、.（18 個）。數字前的空白單獨成一個 `▁`，每個數字一個 token。
+- **default sentence**：81 個字元、18 個 token；`add_special_tokens=True`（`encode` 的預設）會多一個 `<bos>`（id 2）在最前面，共 19 個。
+- `tokenizer.tokenize(s)` 與 `convert_ids_to_tokens(encode(s, add_special_tokens=False))` 相同；`decode(encode(s))` 與 `convert_tokens_to_string` 都還原原句（default sentence）。
+- **id 對照**：692 `▁you`（decode `' you'`）、4747 `you`、23533 `▁Operation`、235336 `?`、235248 `▁`（decode `' '`）、18809 `▁Hung`、42599 `Hung`。
+- **大小寫與空白**：Machine 24911、machine 26504、▁machine 6479、▁Machine 13403（四個不同 id）。`'I love'` → I 235285；`' I love'` → ▁I 590。`'a  b'` → a、▁▁ 139、b；`'a   b'` → a、▁▁▁ 140、b（連續空白合成一個 token，後面的字不再帶 `▁`）。`'Lee,'` → Lee 22504、`,`；`'Lee ,'` → Lee、▁, 1688。
+- **其他字元**：`\n` 108、`\t` 226；🙂 237760、龘 250883 都是單一 token；👍🏽 → 👍 237019、🏽 239518；naïve → na、ï、ve；ChatGPT → Chat、GPT；unbelievable → un、believable；transformers 140247 與 Transformers 158434 都是單一 token。
+- **byte fallback**：詞表裡找不到的字元拆成 UTF-8 位元組 token。`𠀀`（U+20000，f0 a0 80 80）→ `<0xF0>` 457、`<0xA0>` 377、`<0x80>` 345、`<0x80>` 345；`𓀀` 同理。上面所有字串都沒有出現 `<unk>`（id 3），decode 都還原。
+- **詞表統計**：256000 個；以 `▁` 開頭的 125,261 個；位元組 token `<0x00>`–`<0xFF>` 共 255 個，缺 `<0x09>`（id 226 是 `\t` 本身）；單字的 CJK 統一漢字（U+4E00–U+9FFF）token 9,772 個。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -840,6 +855,8 @@
 - facts_kvcache_overflow.txt：`docs/tools/hw03_cache_overflow.py` 的輸出。
 - review_ch02_q2.txt：Q2 的 `--interactive` 兩種跑法（正常 exit、EOF）與「Q2 不受 cache 沿用影響」的比對結論。
 - review_ch02.txt：`hw03_facts.py review_ch02` 的輸出（prompt 逐 token 前綴、單 `<bos>`、`Ver`），加上 seaborn 警告對照與 ch02 printf 指令的重跑紀錄。
+- review_ch03_q3.txt：`hw3.py --q 3 --sentence ...` 四句的逐字輸出（中文、you and you、Google 加空白、數字）。
+- facts_pre_ch03.txt：`hw03_facts.py pre_ch03` 的輸出與 byte fallback 的補充。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

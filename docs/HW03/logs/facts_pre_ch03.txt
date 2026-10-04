@@ -1,0 +1,48 @@
+load_model 5.7s
+
+==================== pre_ch03 ====================
+default sentence: 81 chars, 18 tokens; with add_special_tokens=True 19 tokens, first [2, 235285] ['<bos>', 'I']
+tokenize() == convert_ids_to_tokens(encode()): True
+decode(encode(s)) == s: True; convert_tokens_to_string == s: True
+  id 692: token '▁you', decode ' you'
+  id 4747: token 'you', decode 'you'
+  id 23533: token '▁Operation', decode ' Operation'
+  id 235336: token '?', decode '?'
+  id 235248: token '▁', decode ' '
+  id 18809: token '▁Hung', decode ' Hung'
+  id 42599: token 'Hung', decode 'Hung'
+         'Machine' -> [('Machine', 24911)]; roundtrip True
+         'machine' -> [('machine', 26504)]; roundtrip True
+        ' machine' -> [('▁machine', 6479)]; roundtrip True
+        ' Machine' -> [('▁Machine', 13403)]; roundtrip True
+          'I love' -> [('I', 235285), ('▁love', 2182)]; roundtrip True
+         ' I love' -> [('▁I', 590), ('▁love', 2182)]; roundtrip True
+            'a  b' -> [('a', 235250), ('▁▁', 139), ('b', 235268)]; roundtrip True
+           'a   b' -> [('a', 235250), ('▁▁▁', 140), ('b', 235268)]; roundtrip True
+    'Hello\nworld' -> [('Hello', 4521), ('\n', 108), ('world', 9097)]; roundtrip True
+             '\tx' -> [('\t', 226), ('x', 235297)]; roundtrip True
+               '🙂' -> [('🙂', 237760)]; roundtrip True
+              '👍🏽' -> [('👍', 237019), ('🏽', 239518)]; roundtrip True
+               '龘' -> [('龘', 250883)]; roundtrip True
+               'é' -> [('é', 235335)]; roundtrip True
+           'naïve' -> [('na', 556), ('ï', 236370), ('ve', 524)]; roundtrip True
+         'ChatGPT' -> [('Chat', 15180), ('GPT', 98502)]; roundtrip True
+    'transformers' -> [('transformers', 140247)]; roundtrip True
+    'Transformers' -> [('Transformers', 158434)]; roundtrip True
+    'unbelievable' -> [('un', 549), ('believable', 145340)]; roundtrip True
+            'Lee,' -> [('Lee', 22504), (',', 235269)]; roundtrip True
+           'Lee ,' -> [('Lee', 22504), ('▁,', 1688)]; roundtrip True
+vocab 256000; tokens starting with '▁': 125261; byte tokens <0x..>: 255
+single-char CJK tokens (U+4E00..U+9FFF): 9772
+unk id 3; any <unk> in the strings above: False
+[pre_ch03 took 0.1s]
+
+==================== pre_ch03: byte fallback (tokenizer only) ====================
+         '𠀀' U+20000 utf-8 f0 a0 80 80 -> [('<0xF0>', 457), ('<0xA0>', 377), ('<0x80>', 345), ('<0x80>', 345)]; decode roundtrip True
+         '𓀀' U+13000 utf-8 f0 93 80 80 -> [('<0xF0>', 457), ('<0x93>', 364), ('<0x80>', 345), ('<0x80>', 345)]; decode roundtrip True
+         '฿' U+0E3F utf-8 e0 b8 bf -> [('฿', 243043)]; decode roundtrip True
+         'ᚠ' U+16A0 utf-8 e1 9a a0 -> [('ᚠ', 252704)]; decode roundtrip True
+         '🫠' U+1FAE0 utf-8 f0 9f ab a0 -> [('🫠', 244497)]; decode roundtrip True
+      '\x07' U+0007 utf-8 07 -> [('\x07', 249340)]; decode roundtrip True
+byte tokens 255 ['<0x00>', '<0x01>'] ['<0xFE>', '<0xFF>'] ids 217 472
+missing byte tokens: ['<0x09>'] ; id 226..228 -> ['\t', '<0x0A>', '<0x0B>'] ; id 218..220 -> ['<0x01>', '<0x02>', '<0x03>']

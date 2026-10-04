@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -928,6 +928,29 @@ def review_ch02_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch03 prep: special tokens, round trips, byte fallback, spaces and case
+def pre_ch03_facts(tokenizer, model):
+    section("pre_ch03")
+    sent = hw3.build_parser().get_default("sentence") if hasattr(hw3, "build_parser") else None
+    sent = sent or "I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?"
+    ids = tokenizer.encode(sent, add_special_tokens=False)
+    ids_bos = tokenizer.encode(sent)
+    print(f"default sentence: {len(sent)} chars, {len(ids)} tokens; with add_special_tokens=True {len(ids_bos)} tokens, first {ids_bos[:2]} {tokenizer.convert_ids_to_tokens(ids_bos[:2])}")
+    print(f"tokenize() == convert_ids_to_tokens(encode()): {tokenizer.tokenize(sent) == tokenizer.convert_ids_to_tokens(ids)}")
+    print(f"decode(encode(s)) == s: {tokenizer.decode(ids) == sent}; convert_tokens_to_string == s: {tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(ids)) == sent}")
+    for i in [692, 4747, 23533, 235336, 235248, 18809, 42599]:
+        print(f"  id {i}: token {tokenizer.convert_ids_to_tokens(i)!r}, decode {tokenizer.decode([i])!r}")
+    for s in ["Machine", "machine", " machine", " Machine", "I love", " I love", "a  b", "a   b", "Hello\nworld", "\tx",
+              "🙂", "👍🏽", "龘", "é", "naïve", "ChatGPT", "transformers", "Transformers", "unbelievable", "Lee,", "Lee ,"]:
+        e = tokenizer.encode(s, add_special_tokens=False)
+        print(f"  {s!r:>16} -> {list(zip(tokenizer.convert_ids_to_tokens(e), e))}; roundtrip {tokenizer.decode(e) == s}")
+    vocab = tokenizer.get_vocab()
+    print(f"vocab {len(vocab)}; tokens starting with '▁': {sum(t.startswith('▁') for t in vocab)}; byte tokens <0x..>: {sum(t.startswith('<0x') and t.endswith('>') and len(t) == 6 for t in vocab)}")
+    print(f"single-char CJK tokens (U+4E00..U+9FFF): {sum(len(t) == 1 and 0x4E00 <= ord(t) <= 0x9FFF for t in vocab)}")
+    print(f"unk id {tokenizer.unk_token_id}; any <unk> in the strings above: {any(3 in tokenizer.encode(s, add_special_tokens=False) for s in ['🙂', '龘', '𠀀'])}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -944,7 +967,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

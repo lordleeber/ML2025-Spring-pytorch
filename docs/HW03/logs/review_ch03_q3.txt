@@ -1,0 +1,54 @@
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence "我喜歡上李宏毅老師的機器學習課，你呢？"
+
+############################## Q3 ##############################
+Token: 我, token index: 235509
+Token: 喜歡, token index: 44480
+Token: 上, token index: 235502
+Token: 李, token index: 236454
+Token: 宏, token index: 238805
+Token: 毅, token index: 239597
+Token: 老師, token index: 85722
+Token: 的, token index: 235370
+Token: 機器, token index: 100697
+Token: 學習, token index: 88900
+Token: 課, token index: 237958
+Token: ，, token index: 235365
+Token: 你, token index: 235608
+Token: 呢, token index: 236512
+Token: ？, token index: 235544
+
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence "you and you"
+
+############################## Q3 ##############################
+Token: you, token index: 4747
+Token: ▁and, token index: 578
+Token: ▁you, token index: 692
+
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence "Google "
+
+############################## Q3 ##############################
+Token: Google, token index: 12583
+Token: ▁, token index: 235248
+
+$ .venv/bin/python HW03/hw3.py --q 3 --sentence "In 2025, GPT-4o costs $2.50."
+
+############################## Q3 ##############################
+Token: In, token index: 886
+Token: ▁, token index: 235248
+Token: 2, token index: 235284
+Token: 0, token index: 235276
+Token: 2, token index: 235284
+Token: 5, token index: 235308
+Token: ,, token index: 235269
+Token: ▁GPT, token index: 162174
+Token: -, token index: 235290
+Token: 4, token index: 235310
+Token: o, token index: 235253
+Token: ▁costs, token index: 6331
+Token: ▁$, token index: 697
+Token: 2, token index: 235284
+Token: ., token index: 235265
+Token: 5, token index: 235308
+Token: 0, token index: 235276
+Token: ., token index: 235265
+
