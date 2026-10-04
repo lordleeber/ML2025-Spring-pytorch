@@ -686,7 +686,7 @@ while True:
 
 <p>每一輪的開頭都是兩個 <code>&lt;bos&gt;</code>：<a href="ch01.html#r1">第 1 章 1.7 節</a>的 R1 在這裡原樣重現，因為 :139 用的是同一種寫法（template 字串已經有一個，<code>tokenizer(...)</code> 又加一個）。印出來的 prompt 一樣只看得到一個。</p>
 
-<p>第 1 輪的 27 個可以拆成：兩個 <code>&lt;bos&gt;</code>、<code>&lt;start_of_turn&gt;</code> <code>user</code> <code>\n</code> 3 個、第一句話 17 個（事實腳本 <code>tok</code> 段的輸出 <code>logs/facts_env_model_tok.txt</code>，第 1 章用過的同一份，把這句話單獨切成 17 個 token）、結尾的 <code>&lt;end_of_turn&gt;</code> <code>\n</code> <code>&lt;start_of_turn&gt;</code> <code>model</code> <code>\n</code> 5 個，合計 2 + 3 + 17 + 5 = 27（和<a href="ch01.html#prompt-string">第 1 章</a>拆 32 個的方法相同）。第 2、3 輪多出來的 32 與 23 個 token，是「上一輪模型的回答」加上「這一輪使用者的話與包裝它的特殊 token」；下面這張圖照比例畫出來，其中回答佔 3 個 token 是推算的（見圖說）。</p>
+<p>第 1 輪的 27 個可以拆成：兩個 <code>&lt;bos&gt;</code>、<code>&lt;start_of_turn&gt;</code> <code>user</code> <code>\n</code> 3 個、第一句話 17 個（事實腳本 <code>tok</code> 段的輸出 <code>logs/facts_env_model_tok.txt</code>，第 1 章用過的同一份，把這句話單獨切成 17 個 token）、結尾的 <code>&lt;end_of_turn&gt;</code> <code>\n</code> <code>&lt;start_of_turn&gt;</code> <code>model</code> <code>\n</code> 5 個，合計 2 + 3 + 17 + 5 = 27（和<a href="ch01.html#prompt-string">第 1 章</a>拆 32 個的方法相同）。第 2、3 輪多出來的 32 與 23 個 token，是「上一輪模型的回答」加上「這一輪使用者的話與包裝它的特殊 token」；本機把第 2、3 輪多出來的 token 逐一列了出來（<code>logs/review_ch02.txt</code>）：第 2 輪多的 32 個是 <code>['Indigo', '&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'user', '\n', 'That', "'", 's', '▁great', …, '?', '&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'model', '\n']</code>，也就是回答 3 個加上新的 user 段 29 個；第 3 輪多的 23 個是 <code>Orange</code>、<code>&lt;end_of_turn&gt;</code>、<code>\n</code> 3 個加上 20 個。下面這張圖照比例畫出來。</p>
 
 <figure class="fig">
 <svg viewBox="0 0 900 290" role="img" aria-label="三輪 prompt 的 token 數照比例畫成三條：第 1 輪 27 個；第 2 輪是第 1 輪的 27 個、回填的 Indigo 3 個、新的 user 那一段 29 個，共 59 個；第 3 輪再加上回填的 Orange 3 個與新的 user 那一段 20 個，共 82 個">
@@ -715,7 +715,7 @@ while True:
   <text class="s-sm" x="654" y="252" text-anchor="middle" style="fill: var(--accent-warm)">Orange 回填</text>
   <text class="s-sm" x="20" y="280" text-anchor="start">藍：使用者那一段（含 template 的特殊 token）；黃：上一輪模型的回答，以 Indigo／Orange、&lt;end_of_turn&gt;、\n 的形式回到 prompt 裡</text>
 </svg>
-<figcaption>圖 2.1 — 三輪 prompt 一層一層長大。總長 27、59、82 是本機實測；每一段的長度是推算：回填的回答算 3 個 token（顏色名 1 個 + <code>&lt;end_of_turn&gt;</code> + <code>\n</code>，Indigo、Orange 在 top-10 表裡都是單一 token），剩下的歸給新的 user 那一段（29、20 個）。上一輪的 prompt 一個字都不改，原封不動成為下一輪的前綴。</figcaption>
+<figcaption>圖 2.1 — 三輪 prompt 一層一層長大。總長 27、59、82 是本機實測；每一段的長度也是實測（<code>logs/review_ch02.txt</code>）：回填的回答 3 個 token（顏色名 1 個 + <code>&lt;end_of_turn&gt;</code> + <code>\n</code>），新的 user 那一段 29、20 個。上一輪 prompt 的 token 序列逐一相同，原封不動成為下一輪的前綴（本機逐 token 比對過）。</figcaption>
 </figure>
 
 <p>圖上最值得注意的是：<b>上一輪的整個 prompt，原封不動地成為下一輪 prompt 的開頭</b>。prompt 只會往後長，不會改寫前面的部分。第 0 章與補充章講的 KV cache 原則上可以利用這一點，把前綴算過的 k、v 留著，下一輪只算新增的 token；但 hw3.py 沒有這樣做，每一輪都從第一個 token 重新算起（<a href="#forward">2.4 節</a>）。對三句話的對話來說，這點重複不值得處理；對話很長時，「每一輪重算整段」的成本會隨著輪數累積（推論，本機沒有量多輪對話的時間）。</p>
@@ -843,7 +843,7 @@ Could you continue and name yet another color from the rainbow?&lt;end_of_turn&g
 
 <p>為什麼講過的顏色會掉下去？最直接的解釋是：模型從對話裡讀到「another color」「yet another color」，又看到自己前面說過 Indigo、Orange，所以避開它們。這是<b>推論</b>。本機只量到「已經講過的顏色機率下降」這個現象，沒有做實驗把原因分開，例如把第 2 輪的使用者句子改成不含「another」、或把回填的 Indigo 換成別的顏色，看機率怎麼變。</p>
 
-<p>還有一點：第 3 輪第 9 名的 <code>Ver</code> 不是一個完整的顏色名稱，看起來像某個較長的字（例如 Vermilion）的開頭，被切成好幾個 token 的第一塊（推論，本機沒有看它後面會接什麼）。這也說明 top-10 列的是 <b>token</b>，不是「字」。</p>
+<p>還有一點：第 3 輪第 9 名的 <code>Ver</code> 不是一個完整的顏色名稱，而是 Vermilion（朱紅色）的開頭：tokenizer 把 <code>Vermilion</code> 切成 <code>['Ver', 'm', 'ilion']</code> 三塊；本機把 <code>Ver</code>（id 3016）接在第 3 輪 prompt 後面再算一次，下一個 token 第 1 名是 <code>m</code>（0.7436），greedy 接下去正是 <code>m</code>、<code>ilion</code>（<code>logs/review_ch02.txt</code>）。這也說明 top-10 列的是 <b>token</b>，不是「字」。</p>
 
 <p>hw3.py 每一輪也把這張表畫成一張橫條圖，存到 <code>HW03/outputs/</code>：</p>
 
@@ -922,7 +922,7 @@ Could you continue and name yet another color from the rainbow?&lt;end_of_turn&g
 
 <pre class="shell cmd">printf '%s\n' "Name a color in a rainbow, please just answer in a word without any emoji." "That's great! Now, could you tell me another color that I can find in a rainbow?" "Could you continue and name yet another color from the rainbow?" exit | .venv/bin/python HW03/hw3.py --q 2 --interactive; echo "exit=$?"</pre>
 
-<p>log 第 1 行記的指令把三句話縮寫成 <code>&lt;Q2_TURNS 的三句話，各一行&gt;</code>，上面是展開後的寫法（這一行本書沒有照字面重跑過）。錄下的輸出如下（<code>logs/review_ch02_q2.txt</code> 第 5–30 行與第 79–84 行，中間第 2、3 輪省略；本機路徑已改成相對路徑；«N» 是本書加的標記）：</p>
+<p>log 第 1 行記的指令把三句話縮寫成 <code>&lt;Q2_TURNS 的三句話，各一行&gt;</code>，上面是展開後的寫法；本機照字面重跑過這一行，輸出與下面的錄製逐字相同（空行除外），結束碼同樣是 0。錄下的輸出如下（<code>logs/review_ch02_q2.txt</code> 第 5–30 行與第 79–84 行，中間第 2、3 輪省略；本機路徑已改成相對路徑；«N» 是本書加的標記）：</p>
 
 <pre class="shell">############################## Q2 ##############################
 Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)  «1»
@@ -1007,7 +1007,17 @@ exit=1</pre>
 <li>它對執行環境敏感。greedy 在同一台機器、同一套版本、同樣的呼叫順序下可以重現（<a href="ch01.html#greedy">第 1 章 1.3.1 節</a>）；換了 GPU 或版本，只要某一輪前兩名的分數被 fp16 的誤差翻過去，那一輪就會回別的顏色，第 3 輪的 prompt 跟著不同（推論，本機只有一張 GPU）。本機第 1 輪前兩名 Indigo 與 Green 的 logit 是 24.125 與 23.969（<code>logs/facts_q1_q2.txt</code>），差 0.156，約 10 格 fp16 精度（fp16 相鄰兩個可表示的數之間的間距，在 16 到 32 之間是 0.0156，見<a href="ch00b.html#numerics">補充章 K.8.1 節</a>；計算值），不算非常接近。</li>
 <li>回答也決定 top-10 的內容：第 2、3 輪的機率表是在「模型已經回了 Indigo（和 Orange）」的前提下算的。</li>
 </ul>
-<p><b>順帶回指 R1</b>：三輪的 prompt 開頭都是兩個 <code>&lt;bos&gt;</code>，印出來卻只看得到一個（<a href="#history">2.2 節</a>），成因與正確寫法都和 Q1 相同，見<a href="ch01.html#r1">第 1 章 1.7 節</a>。和 Q1 一樣，hw3.py 為了和助教的參考答案一致而保留。Q2 每輪的 prompt 改成單 <code>&lt;bos&gt;</code> 之後 top-10 會變成多少，本機沒有量。<!-- TODO(本機實測): Q2 三輪的 prompt 改成單 <bos>（tokenizer(..., add_special_tokens=False)）後，top-10 的 token 與機率、生成的回答 --></p>
+<p><b>順帶回指 R1</b>：三輪的 prompt 開頭都是兩個 <code>&lt;bos&gt;</code>，印出來卻只看得到一個（<a href="#history">2.2 節</a>），成因與正確寫法都和 Q1 相同，見<a href="ch01.html#r1">第 1 章 1.7 節</a>。和 Q1 一樣，hw3.py 為了和助教的參考答案一致而保留。</p>
+<p>改成單 <code>&lt;bos&gt;</code>（<code>tokenizer(..., add_special_tokens=False)</code>，三輪的 prompt 變成 26、58、81 個 token）會怎樣？本機實測（<code>logs/review_ch02.txt</code>，每輪的 <code>generate</code> 都從新的 cache 開始），<b>三輪的回答整個不同</b>：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>輪</th><th>雙 <code>&lt;bos&gt;</code>（hw3.py）第 1、2 名</th><th>單 <code>&lt;bos&gt;</code> 第 1、2 名</th><th>回答（雙 → 單）</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Indigo 0.3068、Green 0.2624</td><td>Red 0.2591、Green 0.2434（Indigo 0.2182 第 3）</td><td>Indigo → <b>Red</b></td></tr>
+<tr><td>2</td><td>Orange 0.4887、Green 0.2168</td><td>Orange 0.8286、Green 0.0887</td><td>Orange → Orange</td></tr>
+<tr><td>3</td><td>Green 0.5125、Yellow 0.2659</td><td>Yellow 0.8378、Green 0.1479</td><td>Green → <b>Yellow</b></td></tr>
+</tbody>
+</table></div>
+<p>第 1 輪多一個 <code>&lt;bos&gt;</code> 就讓前三名換了順序，回答從 Indigo 變成 Red；第 2、3 輪的 prompt 裡回填的是 Red，後面跟著改變。這正好是上面 S5 的例子：第 3 輪的 prompt 取決於前兩輪的回答，前面一個 token 不同，Q2.1 要填的 prompt 就不同。單 <code>&lt;bos&gt;</code> 版本第 2 輪的前 10 名裡已經沒有 Red，和雙 <code>&lt;bos&gt;</code> 版本裡 Indigo 掉出前 10 是同一個現象。</p>
 </div>
 
 <h2 id="lab">2.9　動手做：自己跑 Q2</h2>
@@ -1094,7 +1104,7 @@ exit=1</pre>
 <h2 id="quiz">自我測驗</h2>
 
 <details class="quiz"><summary>1. 第 2 輪的 prompt 是 59 個 token，比第 1 輪多 32 個。這 32 個裡有哪些部分？哪些是第 1 輪生成的時候才知道的？</summary>
-<p>多出來的是：第 1 輪模型的回答（經過 <code>trim</code> 的 <code>Indigo</code>，加上 <code>&lt;end_of_turn&gt;</code> 與換行），以及第 2 輪使用者那一段（<code>&lt;start_of_turn&gt;user\n</code>、那句話、<code>&lt;end_of_turn&gt;\n</code>、補上的 <code>&lt;start_of_turn&gt;model\n</code>）。第 1 輪的 <code>&lt;start_of_turn&gt;model\n</code> 已經在第 1 輪的 27 個裡。只有 <code>Indigo</code> 是生成之後才知道的；本章的圖 2.1 把它算成 3 個 token（推算）。</p>
+<p>多出來的是：第 1 輪模型的回答（經過 <code>trim</code> 的 <code>Indigo</code>，加上 <code>&lt;end_of_turn&gt;</code> 與換行），以及第 2 輪使用者那一段（<code>&lt;start_of_turn&gt;user\n</code>、那句話、<code>&lt;end_of_turn&gt;\n</code>、補上的 <code>&lt;start_of_turn&gt;model\n</code>）。第 1 輪的 <code>&lt;start_of_turn&gt;model\n</code> 已經在第 1 輪的 27 個裡。只有 <code>Indigo</code> 是生成之後才知道的；本機逐 token 列出這 32 個：回答 3 個（<code>Indigo</code>、<code>&lt;end_of_turn&gt;</code>、<code>\n</code>）加上使用者那一段 29 個（圖 2.1）。</p>
 </details>
 
 <details class="quiz"><summary>2. 模型第 1 輪生成的是 <code>'Indigo \n'</code>，為什麼第 2 輪 prompt 裡寫的是 <code>Indigo&lt;end_of_turn&gt;</code>？</summary>

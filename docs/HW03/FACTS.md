@@ -792,13 +792,26 @@
 
 - **投影片 p.14–15（Q2，1 分）**：p.14 題目要觀察「the possibility of the model response and the format of the prompt」，對話範本模型回答寫 xxxx（S5）。p.15 三小題：(1) 第三輪完整 prompt（0.4，填空）；(2) 第一輪機率最高的第一個 token（0.2，填空）；(3) 選出錯誤的敘述（0.4，選擇，選項不在投影片裡）。
 - **原版 Colab**：第 18 格是「## Q2: Multi-turn conversations」標題，第 19 格是整個互動迴圈（`user_input.lower() == "exit"` 不分大小寫，結束印 `Chatbot: Goodbye!`；hw3.py 的 `iter(..., "exit")` 完全比對、不印）。
-- **prompt 長度拆解（計算值）**：第 1 輪 27 = 2（雙 `<bos>`）+ 3 + 17（第一句話，facts_env_model_tok.txt）+ 5。第 2、3 輪多 32、23 個；把回填的回答算成 3 個 token（顏色名 + `<end_of_turn>` + `\n`），新的 user 段是 29、20 個。這個拆法沒有直接量，ch02 圖 2.1 標為推算。
+- **prompt 長度拆解（計算值）**：第 1 輪 27 = 2（雙 `<bos>`）+ 3 + 17（第一句話，facts_env_model_tok.txt）+ 5。第 2、3 輪多 32、23 個；把回填的回答算成 3 個 token（顏色名 + `<end_of_turn>` + `\n`），新的 user 段是 29、20 個。本機審稿已實測，見「ch02 審稿補測」。
 - **top-10 的 forward 與 generate 是兩次計算**：:141 不傳 cache，forward 自建 prompt 長度的 HybridCache（補充章 K.4）；:162 的 generate 照 K.8 準備 cache。三輪 top-10 第 1 名與生成的第一個 token 都一致（Indigo、Orange、Green）。
 - **第 1 輪前兩名 logit**：Indigo 24.125、Green 23.969，差 0.156，約 10 格 fp16 間距（0.0156，計算值）。
 - **圖**：q2_round*_top_tokens.png 的 x 軸範圍每張不同（第 1 輪約到 0.3，第 2、3 輪約到 0.5）；顏色依名次（coolwarm），不是依 token；第 2 輪有兩條都標「Orange」（`'Orange'` 與 `' Orange'`），圖上分不出空白。
-- **review_ch02_q2.txt 的 `exit=0`／`exit=1`** 是錄製時另外印的結束碼，不是 hw3.py 的輸出。log 第 1 行的指令把三句話縮寫成 `<Q2_TURNS 的三句話，各一行>`；ch02 給了展開後的 `printf '%s\n' ... exit | ...; echo "exit=$?"`，沒有照字面重跑。
+- **review_ch02_q2.txt 的 `exit=0`／`exit=1`** 是錄製時另外印的結束碼，不是 hw3.py 的輸出。log 第 1 行的指令把三句話縮寫成 `<Q2_TURNS 的三句話，各一行>`；ch02 給了展開後的 `printf '%s\n' ... exit | ...; echo "exit=$?"`，本機審稿已照字面重跑（見「ch02 審稿補測」）。
 - **check_book.py 圖號**：ch02 有 1 張 SVG 與 3 張 `<img>` 結果圖，圖號 2.1–2.4 都寫在 figcaption，check_book 只數 SVG，會報「1 張 svg 但有 4 個圖號」，屬已知、不用修。
 - **ch02 第一次交代的名詞**：兩參數 `iter(callable, sentinel)`、哨兵值、EOF／EOFError、stderr、管線不回顯、seaborn `hue`、causal LM「位置 i 預測第 i+1 個」、`attention_mask`。
+
+## ch02 審稿補測（本機，2026-10-04；`hw03_facts.py review_ch02`，logs/review_ch02.txt）
+
+- **prompt 逐 token 前綴**：第 1 輪的 27 個 token 逐一等於第 2 輪的前 27 個，第 2 輪的 59 個逐一等於第 3 輪的前 59 個。第 2 輪多 32 個 = `Indigo` `<end_of_turn>` `\n`（3）+ `<start_of_turn>` `user` `\n` + 第二句話 21 個 + `<end_of_turn>` `\n` `<start_of_turn>` `model` `\n`（29）。第 3 輪多 23 個 = `Orange` `<end_of_turn>` `\n`（3）+ 20。
+- **不傳 cache 的 forward**：`model(**inputs)` 回傳的 `past_key_values` 是 `HybridCache`，`max_cache_len` 27 = prompt 長度（第 1 輪）。
+- **單 `<bos>`**（`tokenizer(..., add_special_tokens=False)`，26／58／81 個 token；每輪 generate 前 `model._cache = None`）：
+  - 第 1 輪 top：Red 0.2591、Green 0.2434、Indigo 0.2182、Orange 0.1896；回答 `'Red \n'`。
+  - 第 2 輪 top：Orange 0.8286、Green 0.0887、Indigo 0.0228；回答 `'Orange \n'`。前 10 名沒有 Red。
+  - 第 3 輪 top：Yellow 0.8378、Green 0.1479；回答 `'Yellow \n'`。
+  - 同一程序裡雙 `<bos>` 對照組的三輪 top-10 與回答和 logs/run_seed0.txt 逐字相同（Indigo、Orange、Green）。
+- **`Ver`**：id 3016；`Vermilion` 切成 `['Ver', 'm', 'ilion']`。第 3 輪 prompt 接上 `Ver` 後，下一個 token：m 0.7436、million 0.1195、idian 0.1105；greedy 接 `m` `ilion` `▁` `\n` `<end_of_turn>`。
+- **seaborn 0.13.2**：`sns.barplot(x, y, palette="coolwarm")`（原版 Colab）發出 `FutureWarning: Passing palette without assigning hue is deprecated and will be removed in v0.14.0...`；hw3.py 的 `hue=y, legend=False` 沒有警告，三條的顏色逐一相同。
+- **ch02 2.7 的 printf 指令**照字面重跑：輸出與 logs/review_ch02_q2.txt 第 5–84 行忽略空行後逐字相同，結束碼 0。
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -826,6 +839,7 @@
 - facts_kvcache.txt：`hw03_facts.py kvcache` 的輸出（KV cache 補充章）。
 - facts_kvcache_overflow.txt：`docs/tools/hw03_cache_overflow.py` 的輸出。
 - review_ch02_q2.txt：Q2 的 `--interactive` 兩種跑法（正常 exit、EOF）與「Q2 不受 cache 沿用影響」的比對結論。
+- review_ch02.txt：`hw03_facts.py review_ch02` 的輸出（prompt 逐 token 前綴、單 `<bos>`、`Ver`），加上 seaborn 警告對照與 ch02 printf 指令的重跑紀錄。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
