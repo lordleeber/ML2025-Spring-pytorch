@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 8 章　Q7（上）Gemma Scope SAE 與 feature 10004 — HW03 Understanding Transformers 教材</title>
+<!-- INLINE-ASSETS -->
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  figure.fig img { display: block; max-width: 100%; margin: 0 auto; border-radius: 6px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch07.html">← 第 7 章</a><span class="disabled">第 9 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 8 章　Q7（上）Gemma Scope SAE 與 feature 10004</h1>
+  <p class="chap-lead">Q7 換一種方式看模型內部：不看 attention，而是把某一層的 hidden state（2304 維的向量）交給一個另外訓練好的小模型，稀疏自編碼器（SAE），拆成 16384 個「feature」，每次只有幾十個是亮的。這一章先講 SAE 是什麼、Gemma Scope 用的 JumpReLU 怎麼決定 feature 亮不亮，以及 Q7 載入的這一個 SAE 的設定；再做 Q7.1–7.3：到 Neuronpedia 查 10004 號 feature 的意思，比較它在兩句話上的最大值。比較之前要先處理兩件事：程式餵給 SAE 的那一層差了一層（R5），以及第二句的最大值其實來自 <code>&lt;bos&gt;</code>，和句子內容無關（R6）。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">SAE 把 2304 維的 hidden state 乘上編碼矩陣，得到 16384 個預激活值，再用 JumpReLU 過濾：<b>每個 feature 有自己的門檻</b>（中位數 7.100，10004 號是 7.1234），沒超過門檻的一律輸出 0，所以 feature 的值不是 0 就是大於約 7。Q7.2–7.3 印出 prompt a 58.10、prompt b 31.74，但 b 的 31.74 來自 <code>&lt;bos&gt;</code> 那一格，b 的 21 個真正的 token 全是 0；而且 <code>&lt;bos&gt;</code> 的 hidden state 在兩句裡逐元素相同，這個數字和句子內容無關（R6）。另外，這個 SAE 是在 block 20 的輸出上訓練的，程式拿的卻是 <code>hidden_states[20]</code>，也就是 block 19 的輸出；換到正確的 <code>[21]</code>，重建誤差從 0.463 降到 0.279（R5）。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:372–380（<code>load_sae</code>）、:383–385（<code>get_dashboard_html</code>）、:388–406（<code>get_max_activation</code>）、:456–470（<code>q7</code> 的前半，Q7.1–7.3）。sae-lens 5.11.0 的 <code>sae.py</code>（<code>encode_jumprelu</code>、<code>process_sae_in</code>，雲端從 GitHub 的 <code>v5.11.0</code> tag 逐字核對）。</li>
+    <li>本章的實測來自 hw3.py 的輸出（<code>logs/run_seed0.txt</code> 的 Q7 段，與兩張圖 <code>img/q7_max_activation_a.png</code>、<code>img/q7_max_activation_b.png</code>），事實腳本 <code>docs/tools/hw03_facts.py</code> 的 <code>q7</code>、<code>ptit</code>、<code>pre_ch08</code> 段（<code>logs/facts_q4_q7.txt</code>、<code>logs/facts_review1_ptit.txt</code>、<code>logs/facts_pre_ch08.txt</code>），以及 Neuronpedia API 的原始回應 <code>logs/neuronpedia_feature_10004.json</code>。log 在 <code>docs/HW03/logs/</code>，圖在 <code>docs/HW03/img/</code>。</li>
+    <li>FACTS 指本機的事實清單 <code>docs/HW03/FACTS.md</code>；本章引的是「Q7 實測」「ch08 前置補測」與「ch08 pt 版 SAE 用在 it 模型上」三節。</li>
+    <li>hidden_states 的 27 個索引與 block 編號的關係、<code>&lt;bos&gt;</code> 的範數表在<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>；Gemma Scope 的來歷、pt 與 it 的差別在<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>；attention sink 在<a href="ch07.html#sink">第 7 章 7.6 節</a>。這一章只回指。R5、R6 是<a href="outline.html#issues">全書大綱的問題對照表</a>的編號。</li>
+    <li>Q7.4–7.9（逐 token、逐層）是<b>第 9 章</b>的範圍，這一章不講。</li>
+  </ul>
+</div>
+
+<h2 id="task">8.1　這一題要做什麼</h2>
+
+<p>投影片 p.24–27 是 Q7，分成九小題，這一章做前三題：</p>
+
+<ul>
+<li><b>Problem 7-1（p.24，0.5 分）</b>：「Based on the Gemma Scope with Neuronpedia, What does feature 10004 mean? What does activations density mean? (You should choose EXACT 3 answers)」。要到 Neuronpedia 網站看 10004 號 feature 的說明，從選項裡選剛好 3 個。</li>
+<li><b>Problem 7-2、7-3（p.25，0.6 分）</b>：兩句 prompt，a 是講時光旅行的「Time travel offers me the opportunity to correct past errors, but it comes with its own set of risks.」，b 是講接受自己的決定、和時光旅行無關的「I accept that my decisions shape my future, and though mistakes are inevitable, they define who I become.」。第 1 小題（0.2 分）問 SAE 在兩句上的最大 activation 哪個大，第 2 小題（0.4 分）問原因；提示是「You can use the activation distributions for each prompt to explain the result」，也就是看直方圖。</li>
+</ul>
+
+<p>三題都是 Gradescope 上的選擇題，選項不在投影片與 Colab 裡。本書不編選項，也不把任何敘述寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）；這一章講清楚每個數字從哪裡來、哪裡會誤導，並列出本機量到的數字。</p>
+
+<p>hw3.py 的 Q7 前半對應原版 Colab 第 29–35 格（第 29 格是「## Q7: Observe the Activation Scores」標題，第 30 格註明程式改編自 Gemma 官方教學與 SAELens 的教學 notebook，第 31 格是 <code>!pip install sae-lens</code>）。和原版的差別：</p>
+
+<ul>
+<li><b>安裝</b>：<code>!pip install sae-lens</code> 拿掉了，套件由根目錄的 <code>pyproject.toml</code> 管理，而且釘在 <code>sae-lens&lt;6</code>（本機 5.11.0）。升到 6.x 時 Q7 會在 hw3.py:393 停下，見<a href="ch00.html#env">第 0 章 0.1 節</a>。</li>
+<li><b>Q7.1</b>：原版用 <code>IPython.display.IFrame</code> 把 Neuronpedia 的網頁嵌進 notebook；hw3.py 是一般的 Python 腳本，沒有地方嵌網頁，改成印出網址（<a href="#neuronpedia">8.5 節</a>）。</li>
+<li><b>SAE 搬到 GPU</b>：原版每個函式開頭各自 <code>sae.to(device)</code>；hw3.py 由 <code>load_sae</code> 回傳前一次搬好（:380）。</li>
+<li><b>不算梯度</b>：hw3.py 在 <code>get_max_activation</code> 上加了 <code>@torch.no_grad()</code>（:388）；原版沒有，所以轉 numpy 前要 <code>.detach()</code>。hw3.py 轉 numpy 前另外多一個 <code>.float()</code>。</li>
+<li><b>畫圖</b>：<code>plt.show()</code> 改成存檔，多一個 <code>tag</code> 參數讓兩張圖分別存成 <code>q7_max_activation_a.png</code>、<code>q7_max_activation_b.png</code>；標題加 <code>wrap=True</code> 讓長句換行。原版求最大值先設 <code>-float("inf")</code> 再取 <code>max</code>，hw3.py 直接取 <code>.max()</code>，結果相同。</li>
+</ul>
+
+<h2 id="sae">8.2　稀疏自編碼器（SAE）是什麼</h2>
+
+<p>第 6 章看過，hidden state 是一個 2304 維的向量，模型在這一層「想到的所有東西」都疊加在這 2304 個數字裡。一個維度通常不對應一個人看得懂的概念。稀疏自編碼器（sparse autoencoder，SAE）想做的事是：找一組比 2304 多得多的方向（這裡是 16384 個，每個叫一個 <b>feature</b>），讓每個 hidden state 都能寫成「其中少數幾個方向的加權和」。理想上每個 feature 對應一個概念，例如 10004 號和時光旅行有關。</p>
+
+<p>SAE 本身是兩個矩陣加一個門檻，和 Gemma 分開訓練。訓練目標大致是「重建得像，同時亮的 feature 要少」；Gemma Scope 的訓練細節本書沒有查證，這裡只講推論時怎麼用。對一個位置的 hidden state <b>x</b>（2304 維）：</p>
+
+<ul>
+<li><b>編碼（encode）</b>：pre = x · W_enc + b_enc，得到 16384 個預激活值；再經過 JumpReLU（<a href="#jumprelu">8.4 節</a>），大部分變成 0，剩下的就是 feature activation <b>f</b>（16384 維，大部分是 0）。</li>
+<li><b>解碼（decode）</b>：x̂ = f · W_dec + b_dec，用亮著的那幾個 feature 的方向（W_dec 的列）加權相加，重建回 2304 維。sae-lens 的 <code>decode</code>（<code>sae.py:453–</code>）就是這個式子。</li>
+</ul>
+
+<figure class="fig">
+<svg viewBox="0 0 900 300" role="img" aria-label="SAE 的編碼與解碼：2304 維的 hidden state 乘 W_enc 加 b_enc 得到 16384 個預激活值，經過 JumpReLU 只留下幾十個非零的 feature，再乘 W_dec 加 b_dec 重建回 2304 維">
+  <text class="s-sm" x="20" y="22" text-anchor="start">一個位置的 hidden state 進 SAE：寬 2304 → 16384 → 2304，中間大部分是 0</text>
+  <rect x="30" y="100" width="110" height="80" rx="4" class="s-box"/>
+  <text class="s-lbl" x="85" y="132" text-anchor="middle" font-weight="700">x</text>
+  <text class="s-sm" x="85" y="152" text-anchor="middle">hidden state</text>
+  <text class="s-sm" x="85" y="170" text-anchor="middle">2304 維</text>
+  <line x1="140" y1="140" x2="245" y2="140" stroke="var(--accent)" stroke-width="2"/>
+  <polygon points="245,134 255,140 245,146" style="fill: var(--accent)"/>
+  <text class="s-mono" x="197" y="128" text-anchor="middle">·W_enc</text>
+  <text class="s-mono" x="197" y="162" text-anchor="middle">+ b_enc</text>
+  <rect x="258" y="50" width="120" height="180" rx="4" class="s-box"/>
+  <text class="s-lbl" x="318" y="120" text-anchor="middle" font-weight="700">pre</text>
+  <text class="s-sm" x="318" y="140" text-anchor="middle">預激活</text>
+  <text class="s-sm" x="318" y="158" text-anchor="middle">16384 個</text>
+  <text class="s-sm" x="318" y="176" text-anchor="middle">正負都有</text>
+  <line x1="378" y1="140" x2="463" y2="140" stroke="var(--accent-warm)" stroke-width="2"/>
+  <polygon points="463,134 473,140 463,146" style="fill: var(--accent-warm)"/>
+  <text class="s-lbl" x="421" y="128" text-anchor="middle" font-weight="700">JumpReLU</text>
+  <text class="s-sm" x="421" y="162" text-anchor="middle">pre &gt; θ 才留</text>
+  <rect x="476" y="50" width="120" height="180" rx="4" class="s-box"/>
+  <rect x="476" y="72" width="120" height="6" style="fill: var(--accent-warm); fill-opacity: 0.8"/>
+  <rect x="476" y="118" width="120" height="6" style="fill: var(--accent-warm); fill-opacity: 0.8"/>
+  <rect x="476" y="196" width="120" height="6" style="fill: var(--accent-warm); fill-opacity: 0.8"/>
+  <text class="s-lbl" x="536" y="146" text-anchor="middle" font-weight="700">f</text>
+  <text class="s-sm" x="536" y="166" text-anchor="middle">feature 的值</text>
+  <text class="s-sm" x="536" y="184" text-anchor="middle">幾十個非零</text>
+  <line x1="596" y1="140" x2="701" y2="140" stroke="var(--accent)" stroke-width="2"/>
+  <polygon points="701,134 711,140 701,146" style="fill: var(--accent)"/>
+  <text class="s-mono" x="653" y="128" text-anchor="middle">·W_dec</text>
+  <text class="s-mono" x="653" y="162" text-anchor="middle">+ b_dec</text>
+  <rect x="714" y="100" width="110" height="80" rx="4" class="s-box"/>
+  <text class="s-lbl" x="769" y="132" text-anchor="middle" font-weight="700">x̂</text>
+  <text class="s-sm" x="769" y="152" text-anchor="middle">重建</text>
+  <text class="s-sm" x="769" y="170" text-anchor="middle">2304 維</text>
+  <text class="s-sm" x="536" y="250" text-anchor="middle">Q7 只看 f 的第 10004 格</text>
+  <text class="s-sm" x="450" y="282" text-anchor="middle">x̂ 和 x 差多少 → 重建誤差 FVU；f 有幾個非零 → L0（8.8 節）</text>
+</svg>
+<figcaption>圖 8.1 — SAE 的編碼與解碼。橘色橫條代表 f 裡少數非零的 feature；在 SAE 本來的位置上，每個 token 平均約 88–91 個非零（L0），佔 16384 個的不到 1%。Q7 只用到編碼的那一半，再取第 10004 格。</figcaption>
+</figure>
+
+<p>Q7 的 SAE 有這些參數（<code>logs/facts_q4_q7.txt</code> 的 q7 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>參數</th><th>形狀</th><th class="num">個數</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>W_enc</code></td><td>(2304, 16384)</td><td class="num">37,748,736</td><td>編碼：每一行是一個 feature 的「偵測方向」</td></tr>
+<tr><td><code>b_enc</code></td><td>(16384,)</td><td class="num">16,384</td><td>編碼的偏差，每個 feature 一個</td></tr>
+<tr><td><code>threshold</code></td><td>(16384,)</td><td class="num">16,384</td><td>JumpReLU 的門檻，每個 feature 一個</td></tr>
+<tr><td><code>W_dec</code></td><td>(16384, 2304)</td><td class="num">37,748,736</td><td>解碼：每一列是一個 feature 寫回 hidden state 的方向</td></tr>
+<tr><td><code>b_dec</code></td><td>(2304,)</td><td class="num">2,304</td><td>解碼的偏差</td></tr>
+<tr><td><b>合計</b></td><td></td><td class="num"><b>75,532,544</b></td><td>全部 float32</td></tr>
+</tbody>
+</table></div>
+
+<p>75,532,544 個 float32，每個 4 bytes，是 302,130,176 bytes ≈ 0.28 GiB（計算值）。<a href="ch00.html#time-mem">第 0 章 0.10 節</a>量到跑完 Q7 後 GPU 記憶體多了約 0.29 GiB，就是這個 SAE。和 Gemma 本身的 26 億個參數比起來它很小，但寬度是 hidden state 的 16384 / 2304 ≈ 7.1 倍。</p>
+
+<p>feature 10004 自己的參數（<code>logs/facts_pre_ch08.txt</code>）：門檻 7.1234、<code>b_enc</code> −2.2931、<code>W_enc[:, 10004]</code> 的長度 1.0315、<code>W_dec[10004]</code> 的長度 1.0000。解碼方向的長度剛好是 1，所以 feature 的值就是「沿這個方向加了多少」。</p>
+
+<h2 id="cfg">8.3　Q7 載入的這一個 SAE</h2>
+
+<figure class="listing"><figcaption>hw3.py:372–380 — load_sae：從 Gemma Scope 載入第 20 層、16k 寬的 SAE</figcaption>
+<pre class="py" data-hot="375,376,377,379,380"><code>def load_sae():
+    from sae_lens import SAE
+
+    sae, cfg_dict, sparsity = SAE.from_pretrained(
+        release="gemma-scope-2b-pt-res-canonical",
+        sae_id="layer_20/width_16k/canonical",
+    )
+    print(sae, cfg_dict, sparsity)
+    return sae.to(DEVICE)</code></pre>
+</figure>
+
+<p><code>release</code> 與 <code>sae_id</code> 的命名（<code>2b-pt-res</code> 是「2B、pt、residual stream」，<code>width_16k</code> 是約 16k 個 feature）在<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>講過。sae-lens 5.x 的 <code>SAE.from_pretrained</code> 回傳三個值，:379 把三個一起印出來。hw3.py 印出的是（<code>logs/run_seed0.txt</code> 第 227–235 行，逐字）：</p>
+
+<pre class="shell">SAE(
+  (activation_fn): ReLU()
+  (hook_sae_input): HookPoint()
+  (hook_sae_acts_pre): HookPoint()
+  (hook_sae_acts_post): HookPoint()
+  (hook_sae_output): HookPoint()
+  (hook_sae_recons): HookPoint()
+  (hook_sae_error): HookPoint()
+) {'architecture': 'jumprelu', 'd_in': 2304, 'd_sae': 16384, 'dtype': 'float32', 'model_name': 'gemma-2-2b', 'hook_name': 'blocks.20.hook_resid_post', 'hook_layer': 20, 'hook_head_index': None, 'activation_fn_str': 'relu', 'finetuning_scaling_factor': False, 'sae_lens_training_version': None, 'prepend_bos': True, 'dataset_path': 'monology/pile-uncopyrighted', 'context_size': 1024, 'dataset_trust_remote_code': True, 'apply_b_dec_to_input': False, 'normalize_activations': None, 'device': 'cpu', 'neuronpedia_id': 'gemma-2-2b/20-gemmascope-res-16k'} None</pre>
+
+<p>第一段是 SAE 模組本身：只有一個 <code>ReLU()</code> 和一排 <code>HookPoint</code>（sae-lens 留給使用者掛鉤子、攔截中間值的位置，Q7 沒用到）。參數不會印在這裡。第二段是 <code>cfg_dict</code>，最後的 <code>None</code> 是 <code>sparsity</code>（這個 release 沒有附 feature 的稀疏度統計）。<code>cfg_dict</code> 的重點：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>欄位</th><th>值</th><th>意思</th></tr></thead>
+<tbody>
+<tr><td><code>architecture</code></td><td><code>'jumprelu'</code></td><td>用 JumpReLU 決定 feature 亮不亮（8.4 節）</td></tr>
+<tr><td><code>d_in</code>、<code>d_sae</code></td><td>2304、16384</td><td>輸入維度與 feature 數</td></tr>
+<tr><td><code>dtype</code></td><td><code>'float32'</code></td><td>SAE 的參數是 float32；Gemma 是 fp16，進 SAE 時會先轉型</td></tr>
+<tr><td><code>model_name</code></td><td><code>'gemma-2-2b'</code></td><td>訓練 SAE 時用的是<b>預訓練（pt）版</b>，不是本作業的 <code>gemma-2-2b-it</code></td></tr>
+<tr><td><code>hook_name</code>、<code>hook_layer</code></td><td><code>'blocks.20.hook_resid_post'</code>、20</td><td>SAE 在 block 20（0 起算）<b>之後</b>的 residual stream 上訓練，也就是 block 20 的輸出</td></tr>
+<tr><td><code>dataset_path</code></td><td><code>'monology/pile-uncopyrighted'</code></td><td>訓練 SAE 用的文字資料集（Hugging Face 上的資料集名稱）</td></tr>
+<tr><td><code>context_size</code>、<code>prepend_bos</code></td><td>1024、True</td><td>依欄位名稱解讀：訓練時每段 1024 個 token，前面加 <code>&lt;bos&gt;</code></td></tr>
+<tr><td><code>apply_b_dec_to_input</code></td><td>False</td><td>編碼前<b>不</b>先減 <code>b_dec</code>（8.4 節的 <code>process_sae_in</code>）</td></tr>
+<tr><td><code>normalize_activations</code></td><td>None</td><td>不對輸入做額外的縮放</td></tr>
+<tr><td><code>device</code></td><td><code>'cpu'</code></td><td>載入時在 CPU；:380 的 <code>sae.to(DEVICE)</code> 才搬到 GPU，cfg 裡的這一欄沒有跟著變</td></tr>
+<tr><td><code>neuronpedia_id</code></td><td><code>'gemma-2-2b/20-gemmascope-res-16k'</code></td><td>Neuronpedia 上這個 SAE 的代號，Q7.1 的網址用的就是它</td></tr>
+</tbody>
+</table></div>
+
+<p>兩個欄位要特別記住，它們分別是本章兩個問題的伏筆：</p>
+
+<ul>
+<li><code>model_name = 'gemma-2-2b'</code>：SAE 是在 pt 模型上訓練的，這裡套在 it 模型上。本書實測過三句話在兩個模型上的差別，結論是<b>數值會變、結論不變</b>，細節與數字在<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>，這裡不重複。</li>
+<li><code>hook_layer = 20</code>：sae-lens 的意思是「block 20」。hw3.py 卻把它直接拿去當 <code>hidden_states</code> 的索引，差了一層（<a href="#r5">8.8 節</a>）。</li>
+</ul>
+
+<h2 id="jumprelu">8.4　JumpReLU：每個 feature 有自己的門檻</h2>
+
+<p>架構是 <code>jumprelu</code> 時，sae-lens 把 <code>sae.encode</code> 指到 <code>encode_jumprelu</code>（<code>sae.py:172–174</code>）。它的全文（sae-lens 5.11.0，<code>sae_lens/sae.py:417–430</code>，逐字）：</p>
+
+<pre class="py">    def encode_jumprelu(
+        self, x: Float[torch.Tensor, "... d_in"]
+    ) -&gt; Float[torch.Tensor, "... d_sae"]:
+        """
+        Calculate SAE features from inputs
+        """
+        sae_in = self.process_sae_in(x)
+
+        # "... d_in, d_in d_sae -&gt; ... d_sae",
+        hidden_pre = self.hook_sae_acts_pre(sae_in @ self.W_enc + self.b_enc)
+
+        return self.hook_sae_acts_post(
+            self.activation_fn(hidden_pre) * (hidden_pre &gt; self.threshold)
+        )</pre>
+
+<p>第一步 <code>process_sae_in</code>（同一個檔案 <code>sae.py:444–451</code>，逐字）：</p>
+
+<pre class="py">    def process_sae_in(
+        self, sae_in: Float[torch.Tensor, "... d_in"]
+    ) -&gt; Float[torch.Tensor, "... d_sae"]:
+        sae_in = sae_in.to(self.dtype)
+        sae_in = self.reshape_fn_in(sae_in)
+        sae_in = self.hook_sae_input(sae_in)
+        sae_in = self.run_time_activation_norm_fn_in(sae_in)
+        return sae_in - (self.b_dec * self.cfg.apply_b_dec_to_input)</pre>
+
+<p>逐行對照這個 SAE 的設定：</p>
+
+<ul>
+<li><code>sae_in.to(self.dtype)</code>：fp16 的 hidden state 在這裡轉成 float32，所以輸出的 feature activation 也是 float32。</li>
+<li><code>reshape_fn_in</code>、<code>hook_sae_input</code>、<code>run_time_activation_norm_fn_in</code>：對 residual stream 的 SAE、<code>normalize_activations</code> 是 None 的情況，這三步不改變數值（本機手算與 <code>sae.encode</code> 的結果一致，見下文）。</li>
+<li>最後一行減 <code>b_dec × apply_b_dec_to_input</code>。<code>apply_b_dec_to_input</code> 是 False，乘起來是 0，等於沒減。</li>
+<li><code>hidden_pre = sae_in @ W_enc + b_enc</code>：16384 個預激活值。對 feature 10004 來說，就是 x 和 <code>W_enc[:, 10004]</code> 的內積加 −2.2931。</li>
+<li>最後一行：<code>activation_fn</code> 是印出來看到的那個 <code>ReLU()</code>，再乘上 <code>(hidden_pre &gt; threshold)</code>，一個 True／False 的遮罩。<b>這個遮罩才是 JumpReLU 的關鍵</b>：預激活沒超過門檻的 feature，乘上 False 變成 0。</li>
+</ul>
+
+<p>所以模組印出來是 <code>ReLU()</code>，實際的函數卻是 ReLU 再乘門檻遮罩。整理成三種情況：</p>
+
+<ul>
+<li><b>pre ≤ 0</b>：ReLU 就是 0。</li>
+<li><b>0 &lt; pre ≤ 門檻</b>：一般的 ReLU 會保留，<b>JumpReLU 輸出 0</b>。這一條是 JumpReLU 的定義，不是 ReLU 的行為。</li>
+<li><b>pre &gt; 門檻</b>：原樣輸出 pre。</li>
+</ul>
+
+<p>值從 0「跳」到門檻以上，中間沒有過渡，這就是名字裡的 jump。結果是：一個 feature 的值不是 0，就是大於它的門檻。這個 SAE 16384 個門檻最小 4.516、中位數 7.100、最大 30.226，10004 號是 7.1234（<code>logs/facts_q4_q7.txt</code>）。所以 Q7 的表裡看不到 0 到 7.1 之間的值：<a href="#max">8.6 節</a> prompt a 最小的非零值是 7.47。門檻全部大於 0，所以通過遮罩的 pre 一定是正的，ReLU 在這裡其實不會再改變任何值（由這些數字推出）。</p>
+
+<p>本機用 prompt c（「Time travel will become a reality as technology continues to advance.」，Q7.4 以後用的句子）手算 feature 10004 的預激活，再和 <code>sae.encode</code> 比對，兩者一致（<code>logs/facts_pre_ch08.txt</code>，<code>by hand == sae.encode: True</code>）。<code>hidden_states[20]</code>（hw3.py 用的位置）上 13 個 token 的結果：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>token</th><th class="num">預激活 pre</th><th class="num">輸出</th><th>情況</th></tr></thead>
+<tbody>
+<tr><td><code>&lt;bos&gt;</code></td><td class="num">31.742</td><td class="num">31.7425</td><td>保留</td></tr>
+<tr><td><code>Time</code></td><td class="num">2.637</td><td class="num">0</td><td>&gt; 0 但低於門檻</td></tr>
+<tr><td><code>▁travel</code></td><td class="num">58.063</td><td class="num">58.0631</td><td>保留</td></tr>
+<tr><td><code>▁will</code></td><td class="num">11.329</td><td class="num">11.3290</td><td>保留</td></tr>
+<tr><td><code>▁become</code></td><td class="num">9.600</td><td class="num">9.5996</td><td>保留</td></tr>
+<tr><td><code>▁a</code></td><td class="num">13.457</td><td class="num">13.4574</td><td>保留</td></tr>
+<tr><td><code>▁reality</code></td><td class="num">−0.681</td><td class="num">0</td><td>≤ 0</td></tr>
+<tr><td><code>▁as</code></td><td class="num">3.201</td><td class="num">0</td><td>&gt; 0 但低於門檻</td></tr>
+<tr><td><code>▁technology</code></td><td class="num">−4.915</td><td class="num">0</td><td>≤ 0</td></tr>
+<tr><td><code>▁continues</code></td><td class="num">−10.540</td><td class="num">0</td><td>≤ 0</td></tr>
+<tr><td><code>▁to</code></td><td class="num">0.051</td><td class="num">0</td><td>&gt; 0 但低於門檻</td></tr>
+<tr><td><code>▁advance</code></td><td class="num">−6.890</td><td class="num">0</td><td>≤ 0</td></tr>
+<tr><td><code>.</code></td><td class="num">11.205</td><td class="num">11.2049</td><td>保留</td></tr>
+</tbody>
+</table></div>
+
+<figure class="fig">
+<svg viewBox="0 0 900 270" role="img" aria-label="feature 10004 在 prompt c 上的預激活值畫在數線上：小於等於 0 的四個 token 輸出 0，介於 0 和門檻 7.1234 之間的 Time、as、to 也輸出 0，超過門檻的 become、句號、will、a、travel 原樣保留">
+  <text class="s-sm" x="20" y="22" text-anchor="start">feature 10004 的預激活（prompt c、hidden_states[20]），門檻 θ = 7.1234</text>
+  <rect x="80" y="70" width="300" height="70" style="fill: var(--muted); fill-opacity: 0.15"/>
+  <rect x="380" y="70" width="178" height="70" style="fill: var(--accent-warm); fill-opacity: 0.25"/>
+  <rect x="558" y="70" width="222" height="70" style="fill: var(--accent); fill-opacity: 0.2"/>
+  <rect x="800" y="70" width="80" height="70" style="fill: var(--accent); fill-opacity: 0.2"/>
+  <line x1="80" y1="120" x2="780" y2="120" stroke="var(--fg)" stroke-width="1.5"/>
+  <line x1="800" y1="120" x2="880" y2="120" stroke="var(--fg)" stroke-width="1.5"/>
+  <text class="s-sm" x="790" y="124" text-anchor="middle">//</text>
+  <line x1="380" y1="62" x2="380" y2="146" stroke="var(--fg)" stroke-width="1"/>
+  <line x1="558" y1="62" x2="558" y2="146" stroke="var(--bad)" stroke-width="2" stroke-dasharray="5 3"/>
+  <text class="s-sm" x="80" y="162" text-anchor="middle">−12</text>
+  <text class="s-sm" x="380" y="162" text-anchor="middle">0</text>
+  <text class="s-sm" x="558" y="162" text-anchor="middle" style="fill: var(--bad)">θ 7.12</text>
+  <text class="s-sm" x="780" y="162" text-anchor="middle">16</text>
+  <circle cx="116" cy="120" r="5" style="fill: var(--muted)"/>
+  <circle cx="208" cy="120" r="5" style="fill: var(--muted)"/>
+  <circle cx="257" cy="120" r="5" style="fill: var(--muted)"/>
+  <circle cx="363" cy="120" r="5" style="fill: var(--muted)"/>
+  <circle cx="381" cy="120" r="5" style="fill: var(--accent-warm)"/>
+  <circle cx="446" cy="120" r="5" style="fill: var(--accent-warm)"/>
+  <circle cx="460" cy="120" r="5" style="fill: var(--accent-warm)"/>
+  <circle cx="620" cy="120" r="5" style="fill: var(--accent)"/>
+  <circle cx="660" cy="120" r="5" style="fill: var(--accent)"/>
+  <circle cx="663" cy="120" r="5" style="fill: var(--accent)"/>
+  <circle cx="716" cy="120" r="5" style="fill: var(--accent)"/>
+  <circle cx="850" cy="120" r="5" style="fill: var(--accent)"/>
+  <text class="s-mono" x="116" y="104" text-anchor="middle">continues</text>
+  <text class="s-mono" x="208" y="92" text-anchor="middle">advance</text>
+  <text class="s-mono" x="257" y="104" text-anchor="middle">technology</text>
+  <text class="s-mono" x="340" y="92" text-anchor="middle">reality</text>
+  <text class="s-mono" x="395" y="104" text-anchor="middle">to</text>
+  <text class="s-mono" x="440" y="92" text-anchor="middle">Time</text>
+  <text class="s-mono" x="468" y="104" text-anchor="middle">as</text>
+  <text class="s-mono" x="612" y="104" text-anchor="middle">become</text>
+  <text class="s-mono" x="652" y="92" text-anchor="middle">.</text>
+  <text class="s-mono" x="676" y="80" text-anchor="middle">will</text>
+  <text class="s-mono" x="724" y="104" text-anchor="middle">a</text>
+  <text class="s-mono" x="850" y="104" text-anchor="middle">travel</text>
+  <text class="s-sm" x="850" y="162" text-anchor="middle">58.06</text>
+  <text class="s-lbl" x="230" y="190" text-anchor="middle" font-weight="700">pre ≤ 0 → 0</text>
+  <text class="s-sm" x="230" y="208" text-anchor="middle">ReLU 也是 0</text>
+  <text class="s-lbl" x="469" y="190" text-anchor="middle" font-weight="700">0 &lt; pre ≤ θ → 0</text>
+  <text class="s-sm" x="469" y="208" text-anchor="middle">ReLU 會留，JumpReLU 歸零</text>
+  <text class="s-lbl" x="700" y="190" text-anchor="middle" font-weight="700">pre &gt; θ → pre</text>
+  <text class="s-sm" x="700" y="208" text-anchor="middle">原樣保留</text>
+  <text class="s-sm" x="450" y="250" text-anchor="middle">全部 16384 個 feature 平均（不含 &lt;bos&gt;）：pre &gt; 0 的有 354.6 個，JumpReLU 只留下 60.9 個</text>
+</svg>
+<figcaption>圖 8.2 — JumpReLU 的三種情況，用 prompt c 在 <code>hidden_states[20]</code> 上的預激活當例子（<code>logs/facts_pre_ch08.txt</code>；token 前面的 ▁ 省略）。<code>▁travel</code> 的 58.06 超出刻度，畫在斷軸之後；<code>&lt;bos&gt;</code> 的 31.74 沒有畫。</figcaption>
+</figure>
+
+<p>門檻的效果有多大？把 16384 個 feature 全部算進來（不含 <code>&lt;bos&gt;</code>，每個 token 平均）：在 <code>hidden_states[20]</code> 上，預激活大於 0、一般 ReLU 會留下的有 354.6 個，JumpReLU 只留下 60.9 個；在 SAE 本來的位置 <code>[21]</code> 上是 603.5 個對 88.2 個（<code>logs/facts_pre_ch08.txt</code>）。差 5–7 倍。「稀疏」主要是門檻做到的。</p>
+
+<h2 id="neuronpedia">8.5　Q7.1：到 Neuronpedia 查 feature 10004</h2>
+
+<p>一個 feature 代表什麼，SAE 本身不會告訴你。<b>Neuronpedia</b> 是公開的 SAE feature 瀏覽網站：對每個 feature 列出讓它最亮的文字片段、它對輸出 token 的影響，以及用語言模型自動產生的解釋。Q7.1 要你去那裡看 10004 號。原版 Colab 第 33 格把網頁嵌進 notebook：</p>
+
+<pre class="py">from IPython.display import IFrame
+html_template = "https://neuronpedia.org/{}/{}/{}?embed=true&amp;embedexplanation=true&amp;embedplots=true&amp;embedtest=true&amp;height=300"
+
+def get_dashboard_html(sae_release = "gemma-2-2b", sae_id="20-gemmascope-res-16k", feature_idx=0):
+    return html_template.format(sae_release, sae_id, feature_idx)
+
+########################## TODO (Q7.1) ############################
+html = get_dashboard_html(sae_release = "gemma-2-2b", sae_id="20-gemmascope-res-16k", feature_idx=10004)
+IFrame(html, width=1200, height=600)
+###################################################################</pre>
+
+<p>hw3.py 保留同一個函式，改成印出網址：</p>
+
+<figure class="listing"><figcaption>hw3.py:383–385 — get_dashboard_html：組出 Neuronpedia 的網址</figcaption>
+<pre class="py" data-hot="384"><code>def get_dashboard_html(sae_release="gemma-2-2b", sae_id="20-gemmascope-res-16k", feature_idx=0):
+    html_template = "https://neuronpedia.org/{}/{}/{}?embed=true&amp;embedexplanation=true&amp;embedplots=true&amp;embedtest=true&amp;height=300"
+    return html_template.format(sae_release, sae_id, feature_idx)</code></pre>
+</figure>
+
+<figure class="listing"><figcaption>hw3.py:456–462 — q7 的開頭：載入 SAE、印出 Q7.1 的網址</figcaption>
+<pre class="py" data-hot="457,458,461"><code>def q7(tokenizer, model, args):
+    sae = load_sae()
+    feature_idx = 10004
+
+    ########################## TODO (Q7.1) ############################
+    print(f"[Q7.1] Open in browser: {get_dashboard_html(feature_idx=feature_idx)}")
+    ###################################################################</code></pre>
+</figure>
+
+<p>網址的三段是模型（<code>gemma-2-2b</code>）、SAE（<code>20-gemmascope-res-16k</code>，和 cfg 的 <code>neuronpedia_id</code> 一致）、feature 編號；後面的 <code>embed=true…</code> 參數原本是給嵌入用的。hw3.py 印出的是（<code>logs/run_seed0.txt</code> 第 236 行，逐字）：</p>
+
+<pre class="shell">[Q7.1] Open in browser: https://neuronpedia.org/gemma-2-2b/20-gemmascope-res-16k/10004?embed=true&amp;embedexplanation=true&amp;embedplots=true&amp;embedtest=true&amp;height=300</pre>
+
+<p>把這個網址貼到瀏覽器裡看。網頁的版面會改版，本書不描述畫面；下面引的是本機在 2026-10-04 從 Neuronpedia 的 API（<code>https://www.neuronpedia.org/api/feature/gemma-2-2b/20-gemmascope-res-16k/10004</code>）抓下來的原始資料，存在 <code>logs/neuronpedia_feature_10004.json</code>，和網頁顯示的是同一份資料（推論：網頁與 API 同源，畫面本書沒有逐項核對）。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>欄位</th><th>內容</th></tr></thead>
+<tbody>
+<tr><td>自動解釋（<code>explanations</code>，5 條）</td><td><code>words related to time travel.</code>、<code>concepts related to time travel and movement across dimensions or timelines.</code>、<code>words related to time travel and its consequences</code>、<code>Time, space, and dimensional travel</code>、<code>travel through dimensions</code>。分別由 gemini-1.5-pro、claude-3-5-sonnet-20240620、gpt-4o-mini、gemini-2.0-flash、gemini-2.5-flash-lite 產生（JSON 的 <code>explanationModelName</code>）</td></tr>
+<tr><td><code>frac_nonzero</code></td><td>0.0035</td></tr>
+<tr><td><code>maxActApprox</code></td><td>125.441；最亮的例子是 <code>…with the power to travel</code> 的 <code>▁travel</code></td></tr>
+<tr><td>正向 logit 最大的 token（<code>pos_str</code>／<code>pos_values</code>）</td><td><code>▁dimension</code> 1.077、<code>▁dimensional</code> 0.983、<code>▁space</code> 0.921、<code>▁dimensions</code> 0.917、<code>▁Dimension</code> 0.917、<code>dimension</code> 0.914、<code>dimensional</code> 0.895、<code>▁portal</code> 0.893、<code>▁tele</code> 0.889、<code>▁Time</code> 0.874</td></tr>
+<tr><td>負向 logit 最大的 token（<code>neg_str</code>）</td><td><code>ReusableCell</code>、<code>ArgsConstructor</code>、<code>BeginContext</code>… 一串程式碼裡的識別字</td></tr>
+<tr><td><code>modelId</code></td><td><code>gemma-2-2b</code>（pt 版）</td></tr>
+</tbody>
+</table></div>
+
+<p>幾個欄位怎麼讀：</p>
+
+<ul>
+<li><b>自動解釋</b>：網站讓語言模型看這個 feature 最亮的那些文字片段，寫一句描述。5 條都和 time travel、穿越維度有關。它們是模型寫的，不是人寫的定義，可以當成參考。</li>
+<li><b>activation density（<code>frac_nonzero</code>）</b>：在 Neuronpedia 取樣的大量 token 裡，有多少比例會讓這個 feature 非零。0.0035 就是 0.35%，平均約 286 個 token 才亮一次（計算值）。這是「一個 feature、很多 token」的比例；不要和 L0（「一個 token、很多 feature」，8.8 節）搞混。</li>
+<li><b>maxActApprox</b>：網站見過的最大值，約 125。這是 pt 模型上的值（<code>modelId</code> 是 <code>gemma-2-2b</code>），Q7 的數字來自 it 模型，而且 hw3.py 還用了另一層（R5），所以兩者的大小不能直接比。</li>
+<li><b>正向 logit</b>：如果這個 feature 亮了、把 <code>W_dec[10004]</code> 加進 hidden state，模型的輸出會偏向哪些 token。本機自己算過一次：把 <code>W_dec[10004]</code> 乘上 it 模型的詞表矩陣（Gemma 的 embedding 與輸出層共用同一個矩陣），不經過最後的 norm 與 soft-cap，前 12 名是 <code>▁dimension</code> 0.315、<code>▁dimensional</code> 0.299、<code>▁dimensions</code> 0.278、<code>▁Dimension</code> 0.271、<code>▁portal</code> 0.269、<code>dimension</code> 0.268、<code>dimensional</code> 0.265、<code>▁multiverse</code> 0.264、<code>▁space</code> 0.264、<code>▁tele</code> 0.262、<code>▁Dimensional</code> 0.256、<code>▁Dimensions</code> 0.255（<code>logs/facts_pre_ch08.txt</code>）。排序和 Neuronpedia 相近，數值尺度不同；Neuronpedia 用哪個模型、有沒有經過 norm 來算，本機沒有查證。</li>
+</ul>
+
+<p>值得注意的是「讀進來」和「寫出去」不完全一樣：讓它亮的是 time travel 這類文字，它推向的輸出卻以 dimension、portal 為主。Q7.1 要選的三個敘述，就要從這些資料裡判斷；選項在 Gradescope，這裡不列。</p>
+
+<h2 id="max">8.6　Q7.2–7.3：兩句話的最大值</h2>
+
+<figure class="listing"><figcaption>hw3.py:388–406 — get_max_activation：一句話、一個 feature 的最大值與直方圖</figcaption>
+<pre class="py" data-hot="388,390,391,393,394,395,397,400"><code>@torch.no_grad()
+def get_max_activation(model, tokenizer, sae, prompt, feature_idx=10004, tag=""):
+    tokens = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
+    outputs = model(tokens, output_hidden_states=True)
+
+    hidden_states = outputs.hidden_states[sae.cfg.hook_layer]
+    feature_acts = sae.encode(hidden_states).squeeze()
+    feature_acts = feature_acts.reshape(-1, feature_acts.shape[-1])
+
+    max_activation = feature_acts[:, feature_idx].max().item()
+
+    plt.figure(figsize=(8, 5))
+    plt.hist(feature_acts[:, feature_idx].float().cpu().numpy(), bins=50, alpha=0.75, color="blue", edgecolor="black")
+    plt.xlabel(f"Activation values (Feature {feature_idx})")
+    plt.ylabel("Frequency")
+    plt.title(f"Activation Distribution for Feature {feature_idx} - Prompt: '{prompt}'", wrap=True)
+    plt.grid(True)
+    save_fig(f"q7_max_activation_{tag}.png")
+    return max_activation</code></pre>
+</figure>
+
+<p>逐段讀：</p>
+
+<ul>
+<li><b>:390</b>：<code>tokenizer.encode</code> 預設會在前面加 <code>&lt;bos&gt;</code>。prompt a 與 b 都切成 22 個 token：<code>&lt;bos&gt;</code> 加上 21 個字詞 token。</li>
+<li><b>:391</b>：一次 forward，<code>output_hidden_states=True</code> 拿到 27 個 hidden state（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>）。</li>
+<li><b>:393</b>：取 <code>hidden_states[sae.cfg.hook_layer]</code>，也就是 <code>[20]</code>，形狀 (1, 22, 2304)。這一行是 R5（<a href="#r5">8.8 節</a>）。</li>
+<li><b>:394–395</b>：<code>sae.encode</code> 得到 (1, 22, 16384)；<code>.squeeze()</code> 拿掉 batch 那一維變成 (22, 16384)；<code>reshape(-1, 16384)</code> 保證是二維（batch 只有一句時不改變形狀）。</li>
+<li><b>:397</b>：<code>feature_acts[:, feature_idx]</code> 取 22 個 token 在 10004 號的值，再取最大。<b>這 22 個裡包括 <code>&lt;bos&gt;</code></b>，這一行是 R6（<a href="#bos">8.7 節</a>）。</li>
+<li><b>:399–405</b>：把同樣 22 個值畫成 50 格的直方圖，存成 <code>q7_max_activation_{tag}.png</code>。</li>
+</ul>
+
+<figure class="listing"><figcaption>hw3.py:464–470 — 兩句 prompt，各算一次，印出最大值</figcaption>
+<pre class="py" data-hot="465,466,469,470"><code>    ######################## (Q7.2 ~ 7.3) ########################
+    prompt_a = "Time travel offers me the opportunity to correct past errors, but it comes with its own set of risks."
+    prompt_b = "I accept that my decisions shape my future, and though mistakes are inevitable, they define who I become."
+    max_activation_a = get_max_activation(model, tokenizer, sae, prompt_a, feature_idx, tag="a")
+    max_activation_b = get_max_activation(model, tokenizer, sae, prompt_b, feature_idx, tag="b")
+    print(f"max_activation for prompt_a: {max_activation_a}")
+    print(f"max_activation for prompt_b: {max_activation_b}")</code></pre>
+</figure>
+
+<p>hw3.py 印出的是（<code>logs/run_seed0.txt</code> 第 237–240 行，逐字；本機的絕對路徑改寫成相對路徑）：</p>
+
+<pre class="shell">[saved] HW03/outputs/q7_max_activation_a.png
+[saved] HW03/outputs/q7_max_activation_b.png
+max_activation for prompt_a: 58.10378646850586
+max_activation for prompt_b: 31.740745544433594</pre>
+
+<p>a 是 58.10，b 是 31.74。光看這兩個數字，「講時光旅行的句子比較大」好像很合理；但 b 不是時光旅行的句子，為什麼還有 31.74？要看每個 token 的值。本機把兩句的 22 個值都印出來（<code>logs/facts_q4_q7.txt</code> 的 q7 段；<code>[21]</code> 那一欄是 8.8 節要用的對照）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>#</th><th>prompt a 的 token</th><th class="num">hw3.py 的 [20]</th><th class="num">[21]</th></tr></thead>
+<tbody>
+<tr><td>0</td><td><code>&lt;bos&gt;</code></td><td class="num">31.74</td><td class="num">30.95</td></tr>
+<tr><td>1</td><td><code>Time</code></td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>2</td><td><code>▁travel</code></td><td class="num"><b>58.10</b></td><td class="num"><b>71.27</b></td></tr>
+<tr><td>3</td><td><code>▁offers</code></td><td class="num">0</td><td class="num">10.34</td></tr>
+<tr><td>4</td><td><code>▁me</code></td><td class="num">0</td><td class="num">7.16</td></tr>
+<tr><td>5</td><td><code>▁the</code></td><td class="num">7.47</td><td class="num">11.08</td></tr>
+<tr><td>6</td><td><code>▁opportunity</code></td><td class="num">0</td><td class="num">11.69</td></tr>
+<tr><td>7</td><td><code>▁to</code></td><td class="num">39.07</td><td class="num">35.91</td></tr>
+<tr><td>8</td><td><code>▁correct</code></td><td class="num">19.93</td><td class="num">18.29</td></tr>
+<tr><td>9</td><td><code>▁past</code></td><td class="num">8.24</td><td class="num">9.70</td></tr>
+<tr><td>10</td><td><code>▁errors</code></td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>11</td><td><code>,</code></td><td class="num">24.10</td><td class="num">23.91</td></tr>
+<tr><td>12</td><td><code>▁but</code></td><td class="num">12.41</td><td class="num">26.05</td></tr>
+<tr><td>13</td><td><code>▁it</code></td><td class="num">17.45</td><td class="num">22.12</td></tr>
+<tr><td>14</td><td><code>▁comes</code></td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>15</td><td><code>▁with</code></td><td class="num">15.28</td><td class="num">23.39</td></tr>
+<tr><td>16</td><td><code>▁its</code></td><td class="num">0</td><td class="num">7.46</td></tr>
+<tr><td>17</td><td><code>▁own</code></td><td class="num">11.78</td><td class="num">20.85</td></tr>
+<tr><td>18</td><td><code>▁set</code></td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>19</td><td><code>▁of</code></td><td class="num">22.55</td><td class="num">36.36</td></tr>
+<tr><td>20</td><td><code>▁risks</code></td><td class="num">9.45</td><td class="num">12.09</td></tr>
+<tr><td>21</td><td><code>.</code></td><td class="num">35.94</td><td class="num">58.44</td></tr>
+</tbody>
+</table></div>
+
+<p>prompt a：22 個 token 裡 14 個非零（含 <code>&lt;bos&gt;</code>），最大的是 <code>▁travel</code> 的 58.10，其次是 <code>▁to</code> 39.07、<code>.</code> 35.94、<code>&lt;bos&gt;</code> 31.74、<code>,</code> 24.10。有趣的是 <code>Time</code> 本身是 0，而 <code>▁to</code>、<code>,</code>、<code>▁of</code> 這些和時光旅行無關的字反而亮。一個解讀是：模型讀到「Time travel」之後，後面的位置都帶著「這句話在講時光旅行」的資訊，所以 feature 在整句的後半持續亮著。這是推論，本機沒有另外驗證。</p>
+
+<p>prompt b 簡單得多：<b>22 個 token 裡只有 <code>&lt;bos&gt;</code> 非零（31.74），其他 21 個全是 0</b>，<code>[20]</code> 和 <code>[21]</code> 都一樣（同一份 log）。所以 b 的最大值 31.74，就是 <code>&lt;bos&gt;</code> 的值。</p>
+
+<p>兩張直方圖就是這 22 個值的分布：</p>
+
+<figure class="fig">
+<img src="img/q7_max_activation_a.png" alt="prompt a 的直方圖：0 那一格高 8，其餘 14 個值散在 7 到 58 之間，每格 1 或 2">
+<figcaption>圖 8.3 — hw3.py 的輸出 <code>q7_max_activation_a.png</code>（prompt a）。0 那一格是 8 個 token；其餘 14 個值散在約 7 到 58 之間，最右邊的一格是 <code>▁travel</code>。0 和約 7 之間是空的，這是 JumpReLU 的門檻造成的（8.4 節）。</figcaption>
+</figure>
+
+<figure class="fig">
+<img src="img/q7_max_activation_b.png" alt="prompt b 的直方圖：0 那一格高 21，最右邊 31 附近有一格高 1">
+<figcaption>圖 8.4 — hw3.py 的輸出 <code>q7_max_activation_b.png</code>（prompt b）。21 個 token 堆在 0；最右邊、約 31.7 的那一格只有 1 個，就是 <code>&lt;bos&gt;</code>。注意兩張圖的 x 軸範圍不同（a 到約 60、b 到約 33），不能直接疊在一起比長條的位置。</figcaption>
+</figure>
+
+<p>投影片的提示要你「用直方圖解釋」，直方圖確實看得出 b 的分布幾乎全是 0、只有一個孤立的值；但圖上不會告訴你那一個值是哪個 token。要知道它是 <code>&lt;bos&gt;</code>，得像上表一樣逐 token 印出來。</p>
+
+<h2 id="bos">8.7　&lt;bos&gt; 有很大的 SAE activation</h2>
+
+<p>prompt b 的 31.74 不只是「來自 <code>&lt;bos&gt;</code>」，而且<b>和 b 的內容完全無關</b>。本機比對了兩句在 <code>hidden_states[20]</code> 第 0 個位置（<code>&lt;bos&gt;</code>）的向量：2304 個數字逐元素完全相同，最大差是 0.0；feature 10004 在兩句的 <code>&lt;bos&gt;</code> 上都是 31.7407（<code>logs/facts_pre_ch08.txt</code>）。</p>
+
+<p>原因是 causal attention：每個位置只能看自己和前面的位置。第 0 個位置前面沒有東西，它在每一層都只看得到自己，不論後面接的是哪一句話，算出來的 hidden state 都一樣。所以 a 與 b 的 <code>&lt;bos&gt;</code> 都是 31.74，任何以 <code>&lt;bos&gt;</code> 開頭的句子在這裡都會得到差不多的值。</p>
+
+<p>「差不多」而不是「完全一樣」：prompt c 只有 13 個 token，它的 <code>&lt;bos&gt;</code> 是 31.7425，和 a、b 差 0.002。數學上第 0 個位置的結果和序列長度無關，差異來自 fp16 運算：序列長度不同，GPU 的運算順序跟著不同，捨入誤差就不同（<a href="ch00b.html#numerics">補充章 K.8.1 節</a>是同一類現象）。a 和 b 剛好都是 22 個 token，才會逐元素相同。不要說成「所有句子的 <code>&lt;bos&gt;</code> 都完全一樣」。</p>
+
+<p>為什麼 <code>&lt;bos&gt;</code> 會讓一個「時光旅行」feature 亮到 31？本機沒有答案。可以和前面量到的兩件事放在一起看：<code>&lt;bos&gt;</code> 的 hidden state 範數在 <code>[20]</code> 約是其他 token 的 9 倍（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>：3731.5 對 397.2）；各層一半以上的注意力流向 <code>&lt;bos&gt;</code>（<a href="ch07.html#sink">第 7 章 7.6 節</a>）。<code>&lt;bos&gt;</code> 的向量很特別，SAE 對它的輸出看起來不代表語意。範數大、被大量注意、SAE activation 大，三者可能是同一個現象的不同面向；這是<b>推論</b>，本機沒有證明它們的因果關係。FVU 與 L0（8.8 節）都排除了 <code>&lt;bos&gt;</code> 再算，也是這個原因。</p>
+
+<h2 id="r5">8.8　SAE 要的是哪一層（R5）</h2>
+
+<p><code>hidden_states</code> 的索引比 block 編號大 1：<code>[0]</code> 是 embedding，<code>[i]</code> 是第 i − 1 個 block（0 起算）的輸出（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>）。SAE 的 <code>hook_name</code> 是 <code>blocks.20.hook_resid_post</code>，block 20 的輸出，對應 <code>hidden_states[21]</code>。hw3.py:393 卻寫 <code>hidden_states[sae.cfg.hook_layer]</code> = <code>hidden_states[20]</code>，拿到的是 <b>block 19 的輸出</b>。這一行不受任何旗標控制：<code>--sae-layer-idx</code> 只影響 Q7.4–7.6（第 9 章）。本機用 <code>--q 7 --sae-layer-idx 21</code> 跑，Q7.2–7.3 印出的仍是 58.10378646850586 與 31.740745544433594（<code>logs/run_q7_layer21_tok123.txt</code> 第 19–20 行）。</p>
+
+<p>差一層有多大影響？先定義兩個量 SAE 好壞的數字（都排除 <code>&lt;bos&gt;</code>，算法在 <code>docs/tools/hw03_facts.py</code>）：</p>
+
+<ul>
+<li><b>FVU</b>（fraction of variance unexplained，未解釋的變異比例）：把一句話每個 token 的 x 和重建出來的 x̂ 相減，誤差的平方和，除以「x 和這句話所有 token 的平均向量」的差的平方和。0 代表完美重建；1 代表重建得和「每個位置都猜平均值」一樣差。</li>
+<li><b>L0</b>：每個 token 平均有幾個 feature 非零。</li>
+</ul>
+
+<p>本機在兩個位置上各算一次（<code>logs/facts_q4_q7.txt</code> 的 q7 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>prompt</th><th>hidden_states 索引</th><th class="num">10004 的最大值（位置）</th><th class="num">FVU</th><th class="num">L0</th></tr></thead>
+<tbody>
+<tr><td>a</td><td><code>[20]</code>（hw3.py，block 19 的輸出）</td><td class="num">58.10（<code>▁travel</code>）</td><td class="num">0.463</td><td class="num">58.4</td></tr>
+<tr><td>a</td><td><code>[21]</code>（SAE 的位置，block 20 的輸出）</td><td class="num">71.27（<code>▁travel</code>）</td><td class="num">0.279</td><td class="num">89.0</td></tr>
+<tr><td>b</td><td><code>[20]</code></td><td class="num">31.74（<code>&lt;bos&gt;</code>）</td><td class="num">0.463</td><td class="num">63.5</td></tr>
+<tr><td>b</td><td><code>[21]</code></td><td class="num">30.95（<code>&lt;bos&gt;</code>）</td><td class="num">0.296</td><td class="num">91.0</td></tr>
+<tr><td>c</td><td><code>[20]</code></td><td class="num">58.06（<code>▁travel</code>）</td><td class="num">0.458</td><td class="num">60.9</td></tr>
+<tr><td>c</td><td><code>[21]</code></td><td class="num">71.23（<code>▁travel</code>）</td><td class="num">0.290</td><td class="num">88.2</td></tr>
+</tbody>
+</table></div>
+
+<p>三句都一樣：換到正確的 <code>[21]</code>，FVU 從約 0.46 降到 0.28–0.30，SAE 重建得好很多；L0 從約 58–64 變成約 88–91。prompt a 的最大值從 58.10 變成 71.27，仍然在 <code>▁travel</code>；8.6 節那張表的 <code>[21]</code> 欄也看得出更多 token 亮起來。</p>
+
+<p>有兩點要注意。第一，<code>[20]</code> 的 FVU 0.46 並沒有爛到不能用，block 19 和 block 20 的輸出本來就很接近（相鄰兩層，residual stream 只多加了一層的東西；推論），所以 hw3.py 的定性結論不變：a 在 <code>▁travel</code> 最亮。第二，<b>修好 R5 不會修好 R6</b>：在 <code>[21]</code> 上，b 的真正 token 仍然全是 0，最大值仍然是 <code>&lt;bos&gt;</code> 的 30.95。兩個問題要分開處理。</p>
+
+<p>SAE 是在 pt 模型上訓練的，這裡的 hidden state 來自 it 模型；這對 FVU 的影響（it 比 pt 高約 0.05）在<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>。至於把 SAE 拿去量其他層（Q7.4–7.9）會怎樣，是<b>第 9 章</b>的主題。</p>
+
+<h2 id="dont-trust">8.9　讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：R5 hidden_states 的索引差一</h4>
+<p><b>程式做的</b>：hw3.py:393 與原版 Colab 第 35 格都寫 <code>outputs.hidden_states[sae.cfg.hook_layer]</code>。<code>hook_layer</code> 是 20，指的是 block 20；但 <code>hidden_states[20]</code> 是 block 19 的輸出，block 20 的輸出在 <code>[21]</code>（<a href="#r5">8.8 節</a>）。</p>
+<p><b>後果</b>：SAE 量的是它沒訓練過的那一層。prompt a 的最大值 58.10（正確的位置是 71.27），重建誤差 FVU 0.463（正確的位置是 0.279），L0 約 60（正確的位置約 89）。定性結論（a 在 <code>▁travel</code> 最亮、b 的字詞全是 0）不變。</p>
+<p><b>正確的寫法</b>（本書的示意，不在 hw3.py 裡）：把 :393 改成 <code>hidden_states = outputs.hidden_states[sae.cfg.hook_layer + 1]</code>。事實腳本在 <code>[21]</code> 上量到的就是上面那些數字；hw3.py 照這樣改完重跑，本機沒有跑過。hw3.py 為了和助教的參考答案一致，保留原版的寫法。<!-- TODO(本機實測): 把 hw3.py:393 改成 hidden_states[sae.cfg.hook_layer + 1] 後跑 --q 7，確認印出 max_activation for prompt_a 約 71.27、prompt_b 約 30.95 --></p>
+<p><b>為什麼文件看不出來</b>：<code>hook_layer</code> 這個名字看起來就是「第幾層」，而 <code>hidden_states</code> 也是一層一個。差別在 <code>hidden_states[0]</code> 是 embedding，不是任何一個 block 的輸出；只有讀 <code>hook_name</code> 的 <code>resid_post</code>，再對照 <code>hidden_states</code> 的定義，才看得出差一。</p>
+</div>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：R6 prompt b 的最大值來自 &lt;bos&gt;</h4>
+<p><b>程式做的</b>：hw3.py:397 與原版 Colab 第 35 格對 22 個位置取最大值，包括第 0 個位置 <code>&lt;bos&gt;</code>。</p>
+<p><b>後果</b>：prompt b 印出 31.74，看起來 b 也有一點「時光旅行」；其實 b 的 21 個字詞 token 全是 0，31.74 是 <code>&lt;bos&gt;</code> 的值。而且 a、b 的 <code>&lt;bos&gt;</code> hidden state 逐元素相同，這個數字和句子內容無關（<a href="#bos">8.7 節</a>）。「比較兩句的最大值」時，b 的數字是假訊號；a 的 58.10 不受影響，因為它在 <code>▁travel</code>，比 <code>&lt;bos&gt;</code> 的 31.74 大。</p>
+<p><b>正確的寫法</b>（本書的示意）：把 :397 改成 <code>max_activation = feature_acts[1:, feature_idx].max().item()</code>，跳過第 0 個位置。本機在 <code>[20]</code> 上量到排除 <code>&lt;bos&gt;</code> 後的最大值：a 58.1038、b 0.0000（<code>logs/facts_q4_q7.txt</code> 的 <code>max excl &lt;bos&gt;</code>）。直方圖也可以同樣排除第 0 個位置。這一行改法和上面的 R5 一樣只是示意，hw3.py 沒有改。</p>
+<p><b>為什麼文件看不出來</b>：投影片的提示叫你看直方圖，直方圖只畫出 b 有一個孤立的值，不會標出它是哪個 token。<code>tokenizer.encode</code> 自動加 <code>&lt;bos&gt;</code> 這件事，也不在 :390 那一行上看得到。</p>
+</div>
+
+<h2 id="lab">8.10　動手做</h2>
+
+<div class="lab">
+<h4>自己跑 Q7.1–7.3</h4>
+<p><b>1. 跑 Q7</b>（在 repo 根目錄；需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>；Q7 沒有隨機性，不需要 <code>--seed</code>）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 7</pre>
+<p>第一次執行時 sae-lens 會從 Hugging Face 下載 SAE；之後從快取載入，Q7 本身約 2.5 秒（<a href="ch00.html#time-mem">第 0 章 0.10 節</a>，含載入 SAE、不含載入 Gemma）。輸出依序是：<code>SAE(...)</code> 與 <code>cfg_dict</code>（8.3 節那一大段）、<code>[Q7.1] Open in browser: …</code>、兩行 <code>[saved] …/HW03/outputs/q7_max_activation_a.png</code> 與 <code>_b.png</code>、兩行 <code>max_activation</code>。中間可能夾著 HybridCache 的 deprecation 訊息，可以忽略（<a href="ch00.html#env">第 0 章 0.1 節</a>）。接著還會跑 Q7.4–7.9 並印出更多數字、存更多圖，那是第 9 章的內容。本機單獨跑 <code>--q 7</code>（加上第 9 章用的旗標）與跑全部題目，兩個 <code>max_activation</code> 都是 58.10378646850586 與 31.740745544433594（<code>logs/run_q7_layer21_tok123.txt</code>、<code>logs/run_seed0.txt</code>）。</p>
+<p><b>2. 看 Neuronpedia 的原始資料</b>（不需要 GPU）：把第 1 步印出的網址貼到瀏覽器。或者直接讀本機存下的 API 回應：</p>
+<pre class="shell cmd">python3 -c "import json; d = json.load(open('docs/HW03/logs/neuronpedia_feature_10004.json')); print(d['frac_nonzero'], d['maxActApprox']); print(d['pos_str'][:5])"</pre>
+<p>應該印出 <code>0.0035 125.441</code> 與 <code>['▁dimension', '▁dimensional', '▁space', '▁dimensions', '▁Dimension']</code>。<code>d['explanations']</code> 是 5 條自動解釋，每條的 <code>description</code> 是文字、<code>explanationModelName</code> 是寫它的模型。</p>
+<p><b>3. JumpReLU 手算與 <code>&lt;bos&gt;</code> 的比對</b>（事實腳本，在 repo 根目錄，會載入模型與 SAE，約 5 秒；結果印在終端機）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch08</pre>
+<p>輸出格式就是 <code>logs/facts_pre_ch08.txt</code>：feature 10004 的參數、prompt c 在 <code>[20]</code> 與 <code>[21]</code> 上每個 token 的預激活與三種情況（<code>kept</code>、<code>pre&gt;0 but below threshold</code>、<code>pre&lt;=0</code>）、ReLU 與 JumpReLU 各留下幾個 feature、a 與 b 的 <code>&lt;bos&gt;</code> 比對（<code>max|a - b| = 0.0</code>），以及 <code>W_dec[10004]</code> 投影到詞表的前 12 名。要看 8.6、8.8 節兩張表的數字，改跑 <code>q7</code> 段（<code>.venv/bin/python docs/tools/hw03_facts.py q7</code>，輸出就是 <code>logs/facts_q4_q7.txt</code> 的 q7 段）。</p>
+<p><b>4. 自己修 R5、R6</b>：照 8.9 節兩個框的示意改 hw3.py:393 與 :397，再跑第 1 步。改完 Q7.4–7.9 不受影響（它們不經過 <code>get_max_activation</code>）。圖會覆蓋 <code>HW03/outputs/</code> 裡同名的檔案，改完記得改回來。</p>
+</div>
+
+<h2 id="pitfalls">8.11　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 b 的 31.74 當成「b 也有一點時光旅行」</h4>
+<dl>
+<dt>症狀</dt><dd>「b 的最大值是 a 的一半多，所以 b 也有點相關」。</dd>
+<dt>後果</dt><dd>那是 <code>&lt;bos&gt;</code> 的值，b 的 21 個字詞 token 全是 0（R6）。</dd>
+<dt>正解</dt><dd class="fix">逐 token 看，或排除第 0 個位置再取最大值：b 是 0。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為所有句子的 &lt;bos&gt; 都完全一樣</h4>
+<dl>
+<dt>症狀</dt><dd>知道 a、b 的 <code>&lt;bos&gt;</code> 逐元素相同後，推廣成「任何句子都一樣」。</dd>
+<dt>後果</dt><dd>prompt c（13 個 token）的 <code>&lt;bos&gt;</code> 是 31.7425，和 a、b 的 31.7407 差 0.002。</dd>
+<dt>正解</dt><dd class="fix">數學上相同，數值上會有 fp16 運算順序造成的微差；a、b 剛好同長度才逐元素相同。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 hook_layer 當成 hidden_states 的索引</h4>
+<dl>
+<dt>症狀</dt><dd>「SAE 是第 20 層的，所以拿 <code>hidden_states[20]</code>」。</dd>
+<dt>後果</dt><dd>拿到 block 19 的輸出，FVU 0.463 而不是 0.279（R5）。</dd>
+<dt>正解</dt><dd class="fix">block k 的輸出是 <code>hidden_states[k + 1]</code>；SAE 要的是 <code>[21]</code>。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 JumpReLU 就是 ReLU</h4>
+<dl>
+<dt>症狀</dt><dd>看到 <code>print(sae)</code> 印出 <code>ReLU()</code>，就以為小的正數會保留。</dd>
+<dt>後果</dt><dd>預料表裡會有 0 到 7 之間的值，卻一個都找不到。</dd>
+<dt>正解</dt><dd class="fix"><code>encode_jumprelu</code> 再乘上 <code>hidden_pre &gt; threshold</code>；低於門檻輸出 0，這是 JumpReLU 的定義。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 activation density 和 L0 混為一談</h4>
+<dl>
+<dt>症狀</dt><dd>「frac_nonzero 0.0035 表示每個 token 只有 0.35% 的 feature 亮」。</dd>
+<dt>後果</dt><dd>搞錯方向。</dd>
+<dt>正解</dt><dd class="fix"><code>frac_nonzero</code> 是「這一個 feature 在多少比例的 token 上非零」；L0 是「這一個 token 有幾個 feature 非零」。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>拿 Neuronpedia 的 125 和 Q7 的 58 直接比</h4>
+<dl>
+<dt>症狀</dt><dd>「我們的句子只有最大值的一半，所以不太像時光旅行」。</dd>
+<dt>後果</dt><dd>Neuronpedia 是 pt 模型、SAE 本來的那一層；Q7 是 it 模型，而且 hw3.py 用了前一層。</dd>
+<dt>正解</dt><dd class="fix">只在同一個設定下比較數值；跨設定只比定性的結論。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>SAE 把 2304 維的 hidden state 編碼成 16384 個 feature，再解碼回 2304 維；Q7 的這一個有 75,532,544 個 float32 參數（約 0.28 GiB），在 pt 模型的 block 20 輸出上訓練。</li>
+<li>JumpReLU = ReLU × (pre &gt; 門檻)。每個 feature 有自己的門檻（中位數 7.100，10004 號 7.1234），低於門檻輸出 0，所以值不是 0 就是大於約 7；ReLU 會留 354.6 個，JumpReLU 只留 60.9 個。</li>
+<li>Q7.1：hw3.py 印出 Neuronpedia 的網址；10004 號的自動解釋都和時光旅行、穿越維度有關，<code>frac_nonzero</code> 是 0.0035。</li>
+<li>Q7.2–7.3：a 58.10（<code>▁travel</code>）、b 31.74。b 的 31.74 來自 <code>&lt;bos&gt;</code>，21 個字詞 token 全是 0；a、b 的 <code>&lt;bos&gt;</code> 逐元素相同，和內容無關（R6）。</li>
+<li>R5：hw3.py 拿 <code>hidden_states[20]</code>（block 19 的輸出），SAE 要的是 <code>[21]</code>；換過去 FVU 0.463 → 0.279、a 的最大值 58.10 → 71.27。修好 R5 不會修好 R6。</li>
+</ul>
+<p>下一章是 Q7 的後半：同一個 SAE、同一個 feature，改成看 prompt c 的每一個 token（Q7.4–7.6），再看同一個 token 在 hidden_states 的 27 個索引上怎麼變化（Q7.7–7.9）。那裡會把這個只在 block 20 校正過的 SAE 拿去量別的層，投影片說的「layer 24」也和程式的意思不一樣（S4）；最後一個索引的值為什麼會掉下去，也在那裡處理。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. feature 10004 的門檻是 7.1234。某個 token 的預激活是 3.2，它的 feature 值是多少？如果是一般的 ReLU 呢？</summary>
+<p>JumpReLU 輸出 0，因為 3.2 沒有超過門檻（prompt c 的 <code>▁as</code> 在 <code>[20]</code> 上就是這樣）。一般的 ReLU 會輸出 3.2。這就是 Q7 的表裡看不到 0 到 7 之間的值的原因。</p>
+</details>
+
+<details class="quiz"><summary>2. hw3.py 印出 prompt b 的最大值 31.74。這個數字來自哪裡？為什麼和 b 的內容無關？</summary>
+<p>來自第 0 個位置 <code>&lt;bos&gt;</code>，b 的其他 21 個 token 全是 0。causal attention 下第 0 個位置只看得到自己，所以它的 hidden state 不受後面句子影響；本機量到 a、b 的 <code>&lt;bos&gt;</code> 向量逐元素相同，10004 號都是 31.7407。</p>
+</details>
+
+<details class="quiz"><summary>3. SAE 的 <code>hook_name</code> 是 <code>blocks.20.hook_resid_post</code>。應該拿 <code>hidden_states</code> 的哪一個索引？hw3.py 拿的是哪一個？</summary>
+<p>應該拿 <code>[21]</code>：<code>hidden_states[0]</code> 是 embedding，<code>[i]</code> 是 block i − 1 的輸出，所以 block 20 的輸出在 <code>[21]</code>。hw3.py 用 <code>hidden_states[sae.cfg.hook_layer]</code>，也就是 <code>[20]</code>，block 19 的輸出（R5）。</p>
+</details>
+
+<details class="quiz"><summary>4. 把 R5 修好（改用 <code>[21]</code>）之後，prompt b 的最大值會變成來自真正的字詞嗎？</summary>
+<p>不會。在 <code>[21]</code> 上 b 的 21 個字詞 token 仍然全是 0，最大值仍然是 <code>&lt;bos&gt;</code> 的 30.95。R5 與 R6 是兩個獨立的問題，要排除 <code>&lt;bos&gt;</code> 才能修好 R6。</p>
+</details>
+
+<details class="quiz"><summary>5. Neuronpedia 說 feature 10004 的 <code>frac_nonzero</code> 是 0.0035，而 Q7 的 SAE 每個 token 平均約 60–90 個 feature 非零。這兩個數字在講同一件事嗎？</summary>
+<p>不是。<code>frac_nonzero</code>（activation density）是「10004 這一個 feature，在多少比例的 token 上非零」，0.35%；L0 是「一個 token 上，16384 個 feature 有幾個非零」。一個是看一個 feature、跨很多 token，一個是看一個 token、跨所有 feature。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Lieberum et al., <i>Gemma Scope: Open Sparse Autoencoders Everywhere All At Once on Gemma 2</i>, 2024, <a href="https://arxiv.org/abs/2408.05147">arXiv:2408.05147</a>：Q7 用的這一套 SAE（摘要見<a href="ch00a.html#scope">Gemma 補充章 G.8 節</a>）。</li>
+<li>Rajamanoharan et al., <i>Jumping Ahead: Improving Reconstruction Fidelity with JumpReLU Sparse Autoencoders</i>, 2024, <a href="https://arxiv.org/abs/2407.14435">arXiv:2407.14435</a>：JumpReLU SAE 的原始論文。</li>
+<li>Bricken et al., <i>Towards Monosemanticity: Decomposing Language Models With Dictionary Learning</i>, 2023, <a href="https://transformer-circuits.pub/2023/monosemantic-features">transformer-circuits.pub</a>：用 SAE 把模型內部拆成可解讀 feature 的代表性研究。</li>
+<li><a href="https://www.neuronpedia.org/gemma-2-2b/20-gemmascope-res-16k/10004">Neuronpedia：gemma-2-2b / 20-gemmascope-res-16k / 10004</a>：Q7.1 要看的頁面（不帶嵌入參數的版本）。</li>
+<li>sae-lens v5.11.0 原始碼 <a href="https://github.com/jbloomAus/SAELens/blob/v5.11.0/sae_lens/sae.py">sae_lens/sae.py</a>：<code>encode_jumprelu</code>、<code>process_sae_in</code>、<code>decode</code>。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch07.html">← 第 7 章</a><span class="disabled">第 9 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+</body>
+</html>

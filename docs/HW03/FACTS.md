@@ -1073,6 +1073,18 @@
 - **R6 的 `<bos>`**：prompt a 與 b 都是 22 個 token，hidden_states[20] 第 0 個位置（`<bos>`）逐元素完全相同（max|a − b| = 0.0），所以 feature 10004 在兩句的 `<bos>` 都是 31.7407。第一個位置在 causal attention 下只看得到自己，和後面接什麼句子無關。prompt c（13 個 token）的 `<bos>` 是 31.7425，差 0.002，是序列長度不同造成的 fp16 運算差異（補充章 K.8.1 同一類現象）。
 - **W_dec[10004] 投影到詞表**（用 it 模型的 embedding，tied，所以等於 lm_head；沒有經過最後的 norm 與 soft-cap）top-12：▁dimension 0.315、▁dimensional 0.299、▁dimensions 0.278、▁Dimension 0.271、▁portal 0.269、dimension 0.268、dimensional 0.265、▁multiverse 0.264、▁space 0.264、▁tele 0.262、▁Dimensional 0.256、▁Dimensions 0.255。和 Neuronpedia 的 positive logits（▁dimension 1.077、▁dimensional 0.983、▁space 0.921…）排序相近、數值尺度不同；Neuronpedia 怎麼算的（用哪個模型、是否經過 norm）本機沒有查證。
 
+## ch08 寫作時查證的事項（雲端，2026-10-04）
+
+- **sae-lens 原始碼逐字核對**：雲端從 GitHub `jbloomAus/SAELens` 的 `v5.11.0` tag 讀 `sae_lens/sae.py`（747 行）：`encode_jumprelu` :417–430、`process_sae_in` :444–451、`decode` :453–（:458–459 `feature_acts @ W_dec + b_dec`，經過 `apply_finetuning_scaling_factor`）、`self.encode = self.encode_jumprelu` :172–174，與 FACTS 一致；ch08 逐字引用前兩段。
+- **投影片 p.24–25**：Problem 7-1（0.5 分）「What does feature 10004 mean? What does activations density mean? (You should choose EXACT 3 answers)」；Problem 7-2、7-3（0.6 分）：(1) 0.2 分「Which is larger?」(2) 0.4 分「Explain the reason」，Hint「You can use the activation distributions for each prompt to explain the result」。都是選擇題，選項不在投影片裡。
+- **原版 Colab**：第 29 格標題「## Q7: Observe the Activation Scores」；第 30 格註明改編自 Gemma 官方教學與 SAELens tutorial_2_0；第 31 格 `!pip install sae-lens`；第 32 格 `SAE.from_pretrained` 與 `print`；第 33 格 `get_dashboard_html` 與 `IFrame`；第 34 格標題「## Q7.2~7.3」；第 35 格 `get_max_activation`（函式內 `sae.to(device)`、沒有 `no_grad`、`.cpu().detach().numpy()`、`max_activation = -float("inf")` 再取 max）與兩句 prompt。
+- **Neuronpedia JSON 裡的其他欄位**（logs/neuronpedia_feature_10004.json）：5 條 explanation 的 `explanationModelName` 依序是 gemini-1.5-pro、claude-3-5-sonnet-20240620、gpt-4o-mini、gemini-2.0-flash、gemini-2.5-flash-lite；`pos_values` 第 6、7 名是 `dimension` 0.914、`dimensional` 0.895；`neg_str` 前幾名是 `ReusableCell`、`ArgsConstructor`、`BeginContext` 等程式碼識別字；`modelId` `gemma-2-2b`；`createdAt` 2024-07-25。
+- **`--sae-layer-idx` 不影響 Q7.2–7.3**：logs/run_q7_layer21_tok123.txt（`--q 7 --sae-layer-idx 21 --token-idx 1 2 3`）第 19–20 行的兩個 max_activation 與 run_seed0.txt 相同（58.10378646850586、31.740745544433594）。那份 log 的 Q7 段也印出 HybridCache 的 deprecation 訊息。
+- **計算值**：SAE 75,532,544 × 4 bytes = 302,130,176 bytes ≈ 0.28 GiB；1 / 0.0035 ≈ 286 個 token 亮一次；16384 / 2304 ≈ 7.1。
+- **FVU 的算法**（`hw03_facts.py` :456、:597）：一句話排除 `<bos>` 後，Σ‖x̂ − x‖² ／ Σ‖x − x̄‖²，x̄ 是這句話各 token（不含 `<bos>`）的平均向量。L0 是每個 token（不含 `<bos>`）非零 feature 數的平均。
+- **ch08 標為推論或沒有跑過的**：prompt a 後半的字詞因為上下文而亮；block 19 與 20 的輸出接近所以 [20] 的定性結論不變；`<bos>` 的大範數、attention sink、大 SAE activation 的關聯；Neuronpedia 網頁與 API 同源；R5 修法（:393 改成 `hook_layer + 1`）與 R6 修法（:397 改成 `feature_acts[1:, feature_idx]`）都沒有照字面改 hw3.py 跑過（ch08 標了 TODO）。
+- **ch08 第一次交代的名詞**：SAE、feature、預激活（hidden_pre）、JumpReLU 與門檻、W_enc／W_dec／b_enc／b_dec、FVU、L0、activation density（frac_nonzero）、Neuronpedia、自動解釋、正向／負向 logit、`hook_resid_post`、HookPoint。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
