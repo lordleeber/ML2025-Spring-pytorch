@@ -618,7 +618,7 @@ how many N-gram overlaps of lower order it contains.
 Consider using lower n-gram order or use SmoothingFunction()</pre>
 <ol class="notes">
 <li><span class="mk">1</span>transformers 4.47 內部的 <code>HybridCache</code>（Gemma 2 用來存 KV cache 的類別，<a href="#dispatch">0.2.2</a> 說明）印的 deprecation 訊息，Q1、Q2 呼叫 <code>model.generate</code> 時出現（另一條是同樣內容的 <code>'batch_size' argument</code> 版本）。它來自 transformers 自己的程式，跟 hw3.py 的寫法無關，可以忽略。</li>
-<li><span class="mk">2</span>Q4 算 self-BLEU 時，nltk 遇到「兩句之間沒有任何 4-gram 重疊」就會警告，那一對的 BLEU 記為 0。這是 self-BLEU 定義的一部分，第 5 章會講。原始 log 裡這一行開頭是本機的絕對路徑，這裡改寫成相對路徑。</li>
+<li><span class="mk">2</span>Q4 算 self-BLEU 時，nltk 遇到「兩句之間沒有任何 4-gram 重疊」就會警告，那一對的 BLEU 等同 0（實際是一個極小的正數，見<a href="ch05.html#zero">第 5 章 5.2.2 節</a>）。這是 self-BLEU 定義的一部分。原始 log 裡這一行開頭是本機的絕對路徑，這裡改寫成相對路徑。</li>
 </ol>
 
 <p>另外，載入模型時會看到 <code>Loading checkpoint shards: 100%|██████████| 2/2</code> 這樣的進度條（<code>logs/facts_review1_perq.txt</code> 第 1 行）：gemma-2-2b-it 的權重分成 2 個檔案，進度條跑完就是載入完成。</p>

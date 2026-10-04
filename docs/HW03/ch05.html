@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 5 章　Q4（下）self-BLEU、seed 與可重現性 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch04.html">← 第 4 章</a><span class="disabled">第 6 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 5 章　Q4（下）self-BLEU、seed 與可重現性</h1>
+  <p class="chap-lead">第 4 章讓模型照機率抽了 20 句。這一章回答兩個問題：怎麼用一個數字說「這 20 句有多像」，以及同樣的指令、同樣的 <code>--seed</code>，為什麼還不一定抽出同樣的 20 句。前者是 self-BLEU，我們會用本機的真實句子手算一遍 BLEU，並看清楚那個「BLEU 等於 0」的警告實際上回傳了什麼；後者是 R10，答案不在亂數，而在模型物件上留著的前一次 <code>generate</code> 的狀態。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">self-BLEU 是每句拿其他 19 句當參考答案算 BLEU、再全部平均：<b>越高代表 20 句越像，多樣性越低</b>，它不是品質分數。單次的分數會隨抽到的句子大幅波動，所以要看趨勢、不要當定值。<code>--seed</code> 只在載入模型前設一次亂數種子，它管得到亂數，管不到模型上留著的 KV cache：本機實測，前面有沒有跑過 Q1，就決定了 Q4 的第 13 句。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:188–197（<code>compute_self_bleu</code>）、:241–250（印出句子與分數）、:506–507（<code>torch.manual_seed</code>）。</li>
+    <li>本章的實測來自 hw3.py 的 log（<code>logs/run_q4_seed0.txt</code>、<code>logs/run_q4_k200_p0999_seed0.txt</code>、<code>logs/run_q4_k1_p0_n2.txt</code>、<code>logs/run_q4_k1_p0_n1_seed0.txt</code>、<code>logs/run_seed0.txt</code>、<code>logs/review_ch05_noseed.txt</code>），以及兩支 repo 附的對照工具的輸出：<code>docs/tools/hw03_selfbleu.py</code>（把 log 裡的句子解析回來重算 self-BLEU、拆解每一對的 BLEU，只用 CPU，輸出 <code>logs/facts_pre_ch05_selfbleu.txt</code>）與 <code>docs/tools/hw03_r10_cache.py</code>（R10 的對照實驗，需要 GPU，輸出在 <code>logs/facts_review1_r10.txt</code> 的後半）。這些 log 都在 repo 的 <code>docs/HW03/logs/</code>。</li>
+    <li>R9、R10 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡 repo 問題的編號；FACTS 指本機的事實清單 <code>docs/HW03/FACTS.md</code>（<a href="ch04.html#task">第 4 章</a>交代過）。top-k／top-p 的規則、四種設定抽出的句子，見<a href="ch04.html">第 4 章</a>。</li>
+  </ul>
+</div>
+
+<h2 id="task">5.1　Q4 的另一半</h2>
+
+<p>投影片 p.18 要你把同一句話生成 20 次，「Calculate the self-BLEU score for the 20 sentences」，再比較 k=2 vs k=200、p=0.6 vs p=0.999。p.19 和本章有關的小題是：(1) 關於 self-BLEU 的正確敘述（選 2 個）；(5) k=2 與 k=200 的 self-BLEU 哪個高、為什麼；(6) p=0.6 與 p=0.999 哪個高、為什麼。選擇題的敘述不在投影片與 Colab 裡，本書不編；本章講清楚 self-BLEU 在量什麼，並列出本機實測的分數，但不把任何敘述寫成「正確選項」（理由見<a href="index.html#hw">目錄頁第 1 節</a>）。</p>
+
+<p>hw3.py 在抽完兩組句子之後印出它們，再算分數：</p>
+
+<figure class="listing"><figcaption>hw3.py:241–250 — 印出 40 句與兩個 self-BLEU</figcaption>
+<pre class="py" data-hot="249,250"><code>    print("===== Top-K Sampling Output =====\n")
+    for idx, sentence in enumerate(generated_sentences_top_k):
+        print(f"{idx}. {sentence}")
+    print("\n===== Top-P Sampling Output =====\n")
+    for idx, sentence in enumerate(generated_sentences_top_p):
+        print(f"{idx}. {sentence}")
+    print()
+
+    print(f"self-BLEU Score for top_k (k={top_k}): {compute_self_bleu(generated_sentences_top_k):.4f}")
+    print(f"self-BLEU Score for top_p (p={top_p}): {compute_self_bleu(generated_sentences_top_p):.4f}")</code></pre>
+</figure>
+
+<p>原版 Colab 把 <code>compute_self_bleu</code> 與這兩行 print 放在第 24 格，緊接在第 23 格的取樣之後；hw3.py 把函式移到 <code>q4</code> 前面（:188–197），內容逐字相同，只是把 <code>from nltk.translate.bleu_score import sentence_bleu</code> 搬進函式裡。nltk（Natural Language Toolkit）是一套 Python 的自然語言處理套件，本機的版本是 3.10.3（<a href="ch00.html#env">第 0 章 0.1 節</a>的環境）。</p>
+
+<h2 id="bleu">5.2　BLEU 在量什麼</h2>
+
+<p>BLEU 原本是機器翻譯的評分方法：拿模型翻出來的句子（<b>hypothesis</b>，待評的句子）去和人翻的句子（<b>reference</b>，參考答案）比，看兩者有多少連續的字串相同。self-BLEU 借用它來量「一組生成的句子彼此有多像」。先看一對句子的 BLEU 怎麼算。</p>
+
+<p>hw3.py:195 的 <code>sentence_bleu([ref.split()], hypothesis.split())</code> 先把兩句都用 <code>split()</code> 依空白切成詞的 list（reference 外面多包一層 list 的原因見 <a href="#selfbleu">5.3 節</a>），再計算：</p>
+
+<ol>
+<li><b>n-gram 精確度 p<sub>n</sub></b>，n = 1, 2, 3, 4。n-gram 是連續 n 個詞的片段。p<sub>n</sub> = 「hypothesis 的 n-gram 裡，有出現在 reference 裡的個數」÷「hypothesis 的 n-gram 總數」。同一個 n-gram 在 hypothesis 出現的次數若比 reference 多，多出來的不算（這叫「修正」精確度，防止一直重複同一個字騙分數）。</li>
+<li><b>幾何平均</b>：四個 p<sub>n</sub> 取 log、等權（各 1/4）平均、再取 exp。也就是 (p<sub>1</sub> × p<sub>2</sub> × p<sub>3</sub> × p<sub>4</sub>)<sup>1/4</sup>。</li>
+<li><b>brevity penalty（BP，簡短懲罰）</b>：hypothesis 比 reference 短時，精確度很容易灌高（說得越少越不會錯），所以乘上一個懲罰。hypothesis 長度 c、reference 長度 r：c &lt; r 時 BP = exp(1 − r/c)，否則 BP = 1。</li>
+<li><b>BLEU = BP × 幾何平均</b>，介於 0 與 1 之間。</li>
+</ol>
+
+<div class="eq">BLEU = BP × (p<sub>1</sub> · p<sub>2</sub> · p<sub>3</sub> · p<sub>4</sub>)<sup>1/4</sup>，　BP = exp(1 − r/c)（c &lt; r 時），否則 1</div>
+
+<p>這是 BLEU 的標準定義（Papineni et al. 2002，見延伸閱讀）。nltk 的 <code>sentence_bleu</code> 不給 <code>weights</code> 時就是 4 階等權，hw3.py 沒有給。對應的 nltk 3.10.3 原始碼（<code>.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py</code>，本機查的行號）：<code>sentence_bleu</code> 定義在 :45，預設 <code>weights=(0.25, 0.25, 0.25, 0.25)</code> 在 :48，它只是把一句包成一個 corpus 交給 <code>corpus_bleu</code>（:132）；<code>modified_precision</code> 在 :285，分子是每個 n-gram 的次數不超過它在 reference 裡出現的次數（clip，:384–388），分母是 hypothesis 的 n-gram 總數（:391）；<code>brevity_penalty</code> 在 :416，hypothesis 比 reference 長就是 1（:499），否則 <code>exp(1 - r/c)</code>（:505）；最後 :279–280 把各階取 log、乘權重、加總、取 exp，再乘上 BP。</p>
+
+<h3 id="by-hand">5.2.1　用真實的句子手算一次</h3>
+
+<p>拿 <code>hw3.py --q 4 --seed 0</code> top-k 組的第 0 句當 hypothesis、第 2 句當 reference（<code>logs/run_q4_seed0.txt</code> 第 10、12 行）：</p>
+
+<pre class="shell">0. He is highly regarded as a top expert in machine learning education.
+2. He is highly regarded as a leading expert in machine learning education and instruction.</pre>
+
+<p><code>split()</code> 之後，第 0 句是 12 個詞、第 2 句是 14 個詞。注意 <code>split()</code> 只看空白，<b>不拆標點</b>：第 0 句最後一個詞是 <code>education.</code>（帶句號），第 2 句裡的是 <code>education</code>（不帶），兩者在 BLEU 裡是不同的詞（<code>logs/facts_pre_ch05_selfbleu.txt</code> 第 46 行：<code>split() keeps punctuation attached: ['learning', 'education.']</code>）。<code>hw03_selfbleu.py</code> 拆出來的數字（同一份 log 第 33–35 行，逐字）：</p>
+
+<pre class="shell">hyp 0 'He is highly regarded as a top expert in machine learning education.'
+ref 2 'He is highly regarded as a leading expert in machine learning education and instruction.'
+  lengths 12/14; p1..p4 10/12, 8/11, 6/10, 4/9; BP 0.8465; BLEU 0.5367</pre>
+
+<p>逐項對回公式（計算值）：</p>
+
+<ul>
+<li><b>p<sub>1</sub> = 10/12</b>：第 0 句的 12 個詞裡，<code>top</code> 不在第 2 句、<code>education.</code>（帶句號）也不在，其餘 10 個都在。</li>
+<li><b>p<sub>2</sub> = 8/11</b>：12 個詞有 11 個相鄰的二元組。含 <code>top</code> 的兩個（<code>a top</code>、<code>top expert</code>）與 <code>learning education.</code> 不在第 2 句，其餘 8 個在。</li>
+<li><b>p<sub>3</sub> = 6/10、p<sub>4</sub> = 4/9</b>：同理，<code>top</code> 與句尾的 <code>education.</code> 切斷了越來越多的長片段。</li>
+<li><b>幾何平均</b>：(0.8333 × 0.7273 × 0.6000 × 0.4444)<sup>1/4</sup> ≈ 0.634。</li>
+<li><b>BP</b>：c = 12 &lt; r = 14，exp(1 − 14/12) = exp(−0.1667) ≈ 0.8465。</li>
+<li><b>BLEU</b> ≈ 0.8465 × 0.634 ≈ 0.5367，和工具算出來的一致。</li>
+</ul>
+
+<p>同一份 log 還拆了另外兩對（第 36–44 行）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>hypothesis → reference</th><th class="num">長度</th><th>p<sub>1</sub>..p<sub>4</sub></th><th class="num">BP</th><th class="num">BLEU</th></tr></thead>
+<tbody>
+<tr><td>第 0 句 → 第 2 句</td><td class="num">12／14</td><td>10/12、8/11、6/10、4/9</td><td class="num">0.8465</td><td class="num">0.5367</td></tr>
+<tr><td>第 2 句 → 第 0 句（反過來）</td><td class="num">14／12</td><td>10/14、8/13、6/12、4/11</td><td class="num">1.0000</td><td class="num">0.5317</td></tr>
+<tr><td>第 0 句 → 第 1 句</td><td class="num">12／20</td><td>8/12、5/11、2/10、1/9</td><td class="num">0.5134</td><td class="num">0.1471</td></tr>
+<tr><td>第 0 句 → 第 0 句（自己）</td><td class="num">12／12</td><td>12/12、11/11、10/10、9/9</td><td class="num">1.0000</td><td class="num">1.0000</td></tr>
+</tbody>
+</table></div>
+
+<p>第 1 句是 <code>Professor Lee is widely recognized as a leading expert in machine learning and is highly esteemed for his teaching skills.</code>（20 個詞）：和第 0 句共用的長片段少，4-gram 只剩 1 個，又比第 0 句長很多，BP 也罰得重，BLEU 只有 0.1471。</p>
+
+<p>第二列是同一對反過來算，BLEU 不同（0.5367 vs 0.5317）：<b>BLEU 不對稱</b>。精確度的分母是 hypothesis 的 n-gram 數，BP 只罰 hypothesis 比 reference 短的那一邊，所以誰當 hypothesis 會影響結果。<code>run_q4_seed0</code> 的 top-k 組 190 個無序句對裡，有 110 對的兩個方向 BLEU 不同（<code>logs/facts_pre_ch05_selfbleu.txt</code> 第 4 行）。190 是「20 句裡任選兩句、不管順序」的組數，20 × 19 ÷ 2；self-BLEU 每一對兩個方向都要算，<a href="#selfbleu">5.3 節</a>會變成 380 個有序句對。</p>
+
+<h3 id="zero">5.2.2　「BLEU 等於 0」其實是極小值</h3>
+
+<p>幾何平均是連乘：只要四個 p<sub>n</sub> 裡有一個是 0，整個乘積就是 0。兩句話沒有任何共同的 4 個連續詞，這在短句之間很常見。這時 nltk 會發出警告，<code>hw3.py --q 4 --seed 0</code> 的 stderr 印出了三則（<code>logs/run_q4_seed0.txt</code> 第 54–71 行；本機路徑改成相對路徑；三則格式相同，這裡只貼第一則）：</p>
+
+<pre class="shell">.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning:
+The hypothesis contains 0 counts of 4-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()
+  warnings.warn(_msg)</pre>
+
+<p>另外兩則是 <code>3-gram</code> 與 <code>2-gram</code> 的版本。警告說「BLEU evaluates to 0」，<a href="ch00.html#env">第 0 章 0.1 節</a>也說「那一對的 BLEU 記為 0」。但本機實際拿一對 4-gram 完全沒有重疊的句子去算（<code>logs/facts_pre_ch05_selfbleu.txt</code> 第 49–51 行，逐字）：</p>
+
+<pre class="shell">hyp: He is highly regarded as a top expert in machine learning education.
+ref: Professor Lee is a renowned machine learning educator.
+sentence_bleu = 6.223629500679345e-155 ; sys.float_info.min = 2.2250738585072014e-308</pre>
+
+<p>回傳的是 <b>6.22 × 10<sup>−155</sup></b>，不是 0。沒有指定平滑時，nltk 用 <code>SmoothingFunction().method0</code>（bleu_score.py:261–262）：某一階的分子是 0，就發出那則警告，並把這一階的精確度換成 <code>sys.float_info.min</code>（:583），也就是 Python 一般浮點數能表示的最小正數，約 2.2 × 10<sup>−308</sup>，好讓後面的 log 不會變成 log(0)。這一對的精確度是 4/12、1/11、0/10、0/9，BP = 1（hypothesis 12 個詞，比 reference 的 8 個長），所以 BLEU = (4/12 × 1/11 × 2.2×10<sup>−308</sup> × 2.2×10<sup>−308</sup>)<sup>1/4</sup>，正好是 6.22 × 10<sup>−155</sup>：兩個最小正數各開四次方根，乘起來約 10<sup>−154</sup>（本機重算，<code>logs/review_ch05.txt</code>）。真的回傳 0 只有一種情況：連 1-gram 都沒有任何重疊（:257–258）。對 self-BLEU 的平均來說，10<sup>−155</sup> 和 0 沒有差別，所以「等同 0」的說法在數值上成立；只是嚴格說它不是 0。<code>hw03_selfbleu.py</code> 用「小於 10<sup>−10</sup>」來判斷一對「實際為 0」。</p>
+
+<p>那 log 裡只有三則警告，是不是只有三對？不是。<code>hw03_selfbleu.py</code> 把警告設成每次都記錄，（在 <code>warnings.catch_warnings(record=True)</code> 裡呼叫 <code>warnings.simplefilter("always")</code>，見 <code>docs/tools/hw03_selfbleu.py</code> 第 65–66 行），數出 <code>run_q4_seed0</code> 的 top-k 組實際觸發了 <b>4-gram 146 次、3-gram 36 次、2-gram 2 次</b>（第 5 行）。log 只印各一次，是因為 Python 的 <code>warnings</code> 預設<b>同一個程式位置、同一則訊息只顯示一次</b>，後面的都被默默略過。top-p 組（p=0.6）一次都沒觸發，原因下一節會看到。</p>
+
+<p>警告最後建議「use SmoothingFunction()」：nltk 提供幾種平滑方法，讓沒有重疊的那一階不會把整個分數壓到接近 0。<code>method1</code>（bleu_score.py:586–597）把分子為 0 的那一階換成 <code>(0 + epsilon) / 分母</code>，epsilon 預設 0.1（:517），其他階不動。hw3.py 與原版都沒有用。本機用 <code>SmoothingFunction().method1</code> 重算同樣的句子（<code>logs/facts_pre_ch05_selfbleu.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>log、組</th><th class="num">hw3.py 的 self-BLEU</th><th class="num">加 method1</th><th class="num">實際為 0 的對數（共 380）</th></tr></thead>
+<tbody>
+<tr><td><code>run_q4_seed0</code> k=2</td><td class="num">0.2029</td><td class="num">0.2270</td><td class="num">146</td></tr>
+<tr><td><code>run_q4_seed0</code> p=0.6</td><td class="num">0.5542</td><td class="num">0.5542</td><td class="num">0</td></tr>
+<tr><td><code>run_q4_k200_p0999_seed0</code> k=200</td><td class="num">0.1343</td><td class="num">0.1616</td><td class="num">184</td></tr>
+<tr><td><code>run_q4_k200_p0999_seed0</code> p=0.999</td><td class="num">0.0625</td><td class="num">0.0972</td><td class="num">290</td></tr>
+<tr><td><code>run_seed0</code> k=2</td><td class="num">0.2020</td><td class="num">0.2265</td><td class="num">150</td></tr>
+</tbody>
+</table></div>
+
+<p>平滑只會改變「有某一階完全沒重疊」的那些對，所以 p=0.6（一對都沒有）完全不變；其他組都往上調，但排序不變（k=2 &gt; k=200、p=0.6 &gt; p=0.999）。p=0.999 有 290 對、超過四分之三實際為 0，它的低分有很大一部分來自「大部分句對被算成 0」。換一種平滑方法，數字就不同，所以 self-BLEU 的絕對值只在<b>同一種算法之內</b>比較才有意義。</p>
+
+<h2 id="selfbleu">5.3　self-BLEU：每一句拿其他 19 句當參考答案</h2>
+
+<figure class="listing"><figcaption>hw3.py:188–197 — compute_self_bleu</figcaption>
+<pre class="py" data-hot="194,195,196,197"><code>def compute_self_bleu(generated_sentences):
+    from nltk.translate.bleu_score import sentence_bleu
+
+    total_bleu_score = 0
+    num_sentences = len(generated_sentences)
+    for i, hypothesis in enumerate(generated_sentences):
+        references = [generated_sentences[j] for j in range(num_sentences) if j != i]
+        bleu_scores = [sentence_bleu([ref.split()], hypothesis.split()) for ref in references]
+        total_bleu_score += sum(bleu_scores) / len(bleu_scores)
+    return total_bleu_score / num_sentences</code></pre>
+</figure>
+
+<p>逐行：</p>
+
+<ul>
+<li><b>:194</b>：第 i 句當 hypothesis，其他所有句子（<code>j != i</code>）當 references。</li>
+<li><b>:195</b>：對每一個 reference <b>各自</b>算一次 BLEU。注意 <code>[ref.split()]</code> 外面那層 list：<code>sentence_bleu</code> 的第一個參數是「多個參考答案」的 list，這裡每次只放一個。（BLEU 本來可以一次給多個 reference，取最好的匹配；hw3.py 沒有這樣用，而是一對一對分開算。）</li>
+<li><b>:196</b>：這 19 個 BLEU 取平均，加進總分。</li>
+<li><b>:197</b>：再對 20 句平均。</li>
+</ul>
+
+<figure class="fig">
+<svg viewBox="0 0 900 300" role="img" aria-label="self-BLEU 的計算：20 句排成 20 乘 20 的格子，對角線（自己對自己）不算；每一列是第 i 句當 hypothesis、其他 19 句當 reference 的 19 個 BLEU，先對列平均，再對 20 列平均">
+  <text class="s-sm" x="20" y="22" text-anchor="start">列：hypothesis（第 i 句）；欄：reference（第 j 句）。每一格是一個 sentence_bleu。</text>
+  <g>
+    <rect x="60" y="40" width="200" height="200" rx="4" class="s-box"/>
+    <line x1="60" y1="40" x2="260" y2="240" stroke="var(--accent-warm)" stroke-width="2" stroke-dasharray="5 4"/>
+    <rect x="60" y="80" width="200" height="10" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <text class="s-sm" x="50" y="89" text-anchor="end">i</text>
+    <text class="s-sm" x="160" y="258" text-anchor="middle">20 × 20，對角線不算 = 380 格</text>
+    <text class="s-sm" x="160" y="280" text-anchor="middle" style="fill: var(--accent-warm)">虛線對角線：自己對自己（不算）</text>
+  </g>
+  <line x1="262" y1="85" x2="330" y2="85" stroke="var(--accent)" stroke-width="2"/>
+  <rect x="330" y="60" width="210" height="52" rx="8" class="s-box"/>
+  <text class="s-lbl" x="435" y="82" text-anchor="middle" font-weight="700">第 i 列的 19 格取平均</text>
+  <text class="s-sm" x="435" y="102" text-anchor="middle">:196，sum / len</text>
+  <line x1="541" y1="85" x2="610" y2="85" stroke="var(--accent)" stroke-width="2"/>
+  <rect x="610" y="60" width="270" height="52" rx="8" class="s-box"/>
+  <text class="s-lbl" x="745" y="82" text-anchor="middle" font-weight="700">20 列的平均再平均</text>
+  <text class="s-sm" x="745" y="102" text-anchor="middle">:197 → self-BLEU</text>
+  <text class="s-sm" x="330" y="150" text-anchor="start">格子 (i, j) 與 (j, i) 一般不相等：BLEU 不對稱</text>
+  <text class="s-sm" x="330" y="172" text-anchor="start">兩句完全相同，那一格就是 1；沒有共同的 n 連續詞，就幾乎是 0</text>
+  <text class="s-sm" x="330" y="194" text-anchor="start">只有 1 句時，第 i 列一格都沒有：len = 0，:196 除以零（R9）</text>
+  <text class="s-key" x="330" y="230" text-anchor="start" style="fill: var(--accent)">越高 = 20 句越像 = 多樣性越低</text>
+</svg>
+<figcaption>圖 5.1 — self-BLEU 就是一個 20 × 20 的 BLEU 表，去掉對角線後的平均（每列先平均再平均；每列都是 19 格，所以等於 380 格直接平均）。</figcaption>
+</figure>
+
+<p>所以 20 句的 self-BLEU 一共算了 <b>20 × 19 = 380</b> 個有序句對的 BLEU。因為 BLEU 不對稱，(i, j) 與 (j, i) 兩格都要各算一次。</p>
+
+<p>讀這個數字的方向：</p>
+
+<ul>
+<li><b>越高代表 20 句越像，也就是多樣性越低</b>。兩句完全相同時那一格是 1（上一節自己對自己的那一列）；所有句子完全相同，self-BLEU 就是 1.0000。本機 k=1、p=0 用 <code>--num-samples 2</code> 抽的 2 句完全相同，分數就是 1.0000（<a href="#scores">5.4 節</a>的表、<a href="ch04.html#greedy-limit">第 4 章 4.7.2 節</a>）。</li>
+<li><b>越低代表句子彼此越不像</b>。這是「多樣」，但不保證是「好的多樣」：<a href="ch04.html#four">第 4 章</a>看過 k=200、p=0.999 會寫出偏離指令、被截斷的句子，它們和其他句子當然不像，也會把 self-BLEU 拉低。</li>
+<li><b>它不是品質分數</b>。self-BLEU 完全不看句子通不通順、有沒有照指令改寫，只看彼此重疊多少。投影片要你「Observe fluency, coherence, and diversity」，self-BLEU 只量得到最後一項。</li>
+</ul>
+
+<p>本機各組的句對統計（<code>logs/facts_pre_ch05_selfbleu.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>log、組</th><th class="num">不同句子數</th><th class="num">BLEU = 1 的對數</th><th class="num">實際為 0 的對數</th><th class="num">self-BLEU</th></tr></thead>
+<tbody>
+<tr><td><code>run_q4_seed0</code> k=2</td><td class="num">20</td><td class="num">0</td><td class="num">146</td><td class="num">0.2029</td></tr>
+<tr><td><code>run_q4_seed0</code> p=0.6</td><td class="num">8</td><td class="num">98</td><td class="num">0</td><td class="num">0.5542</td></tr>
+<tr><td><code>run_q4_k200_p0999_seed0</code> k=200</td><td class="num">19</td><td class="num">2</td><td class="num">184</td><td class="num">0.1343</td></tr>
+<tr><td><code>run_q4_k200_p0999_seed0</code> p=0.999</td><td class="num">20</td><td class="num">0</td><td class="num">290</td><td class="num">0.0625</td></tr>
+</tbody>
+</table></div>
+
+<p>p=0.6 那組只有 8 種句子，其中 <code>Professor Lee is highly regarded as a leading expert in machine learning education.</code> 出現 10 次（<a href="ch04.html#walk">第 4 章 4.6 節</a>數過）。這 10 句兩兩之間的有序句對是 10 × 9 = 90 個，每個都是 1；其他重複的句子再貢獻 8 對，合計 98 對 BLEU = 1（計算值，98 這個總數是工具量的）。380 格裡有 98 格是 1、沒有一格是 0，平均自然高。k=2 的 20 句都不一樣，而且有 146 格實際為 0，平均就低。這就是第 4 章用「幾種不同的句子」看到的同一件事，換成一個數字。</p>
+
+<h2 id="scores">5.4　hw3.py 跑出來的分數</h2>
+
+<p>本機每一條指令最後印的兩行（在 repo 根目錄執行；log 見各列）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>指令（都是 <code>.venv/bin/python HW03/hw3.py</code> 加上）</th><th class="num">top-k</th><th class="num">top-p</th><th>log</th></tr></thead>
+<tbody>
+<tr><td><code>--q 4 --seed 0</code>（k=2、p=0.6）</td><td class="num">0.2029</td><td class="num">0.5542</td><td><code>run_q4_seed0.txt</code></td></tr>
+<tr><td><code>--seed 0</code>（全部 7 題，k=2、p=0.6）</td><td class="num"><b>0.2020</b></td><td class="num">0.5542</td><td><code>run_seed0.txt</code></td></tr>
+<tr><td><code>--q 4 --seed 0 --top-k 200 --top-p 0.999</code></td><td class="num">0.1343</td><td class="num">0.0625</td><td><code>run_q4_k200_p0999_seed0.txt</code></td></tr>
+<tr><td><code>--q 4 --top-k 1 --top-p 0 --num-samples 2</code></td><td class="num">1.0000</td><td class="num">1.0000</td><td><code>run_q4_k1_p0_n2.txt</code></td></tr>
+<tr><td><code>--q 4 --seed 0 --top-k 1 --top-p 0 --num-samples 1</code></td><td colspan="2">ZeroDivisionError（R9，<a href="#r9">5.7 節</a>）</td><td><code>run_q4_k1_p0_n1_seed0.txt</code></td></tr>
+</tbody>
+</table></div>
+
+<p><code>hw03_selfbleu.py</code> 把前三份 log 裡的句子解析回來，用 hw3.py 自己的 <code>compute_self_bleu</code> 重算，6 個分數全部和 log 印的相同（<code>logs/facts_pre_ch05_selfbleu.txt</code> 第 3、7、13、17、23、27 行的 <code>recomputed self-BLEU … (log …)</code>）。所以分數就是這些句子算出來的，沒有別的因素。</p>
+
+<p>從這張表能讀出的，正是 p.19 第 (5)、(6) 小題在問的方向：</p>
+
+<ul>
+<li><b>k=2（0.2029）高於 k=200（0.1343）</b>：k=2 每一步只在前兩名之間抽，句子的骨架都差不多；k=200 每一步有 200 個候選，用字分散得多（第 4 章 4.6、4.7 節）。</li>
+<li><b>p=0.6（0.5542）高於 p=0.999（0.0625）</b>：p=0.6 在這個 prompt 上約 8 成的步數只剩 1 個候選，等於 greedy，20 句裡只有 8 種；p=0.999 每步平均留 20 個（第 4 章 4.6 節）。</li>
+</ul>
+
+<p>這是本機這幾次執行的數字與它們的成因；兩組的高低方向在 5 個 seed 下都成立（下一節），但它們不是 Gradescope 的答案，選項請自己判斷。</p>
+
+<p>還有一個容易混淆的地方。<a href="ch04.html#r2">第 4 章 4.5.1 節</a>引用過 p=0.999 的 self-BLEU 0.1257，這裡 hw3.py 的 p=0.999 卻是 0.0625。<b>它們不是同一個量</b>：hw3.py 在同一次執行裡先抽 20 句 top-k、再接著抽 20 句 top-p，top-p 用的是亂數流接下來的那一段；0.1257 是事實腳本讓 p=0.999 自己從 <code>torch.manual_seed(0)</code> 起算抽的 20 句。兩批句子不同，分數當然不同。</p>
+
+<h2 id="variance">5.5　單次的數字不是定值</h2>
+
+<p>self-BLEU 是從 20 句隨機抽出來的句子算的，換一批句子，數字就變。FACTS「Q4 實測」用事實腳本把每個設定各自從 5 個 seed 起算（括號是 20 句裡不同句子的數量，<a href="ch04.html#walk">第 4 章</a>用過）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>seed</th><th class="num">k=2</th><th class="num">k=200</th><th class="num">p=0.6</th><th class="num">p=0.999</th></tr></thead>
+<tbody>
+<tr><td>0</td><td class="num">0.2029 (20)</td><td class="num">0.1343 (19)</td><td class="num">0.5013 (9)</td><td class="num">0.1257 (20)</td></tr>
+<tr><td>1</td><td class="num">0.2552 (19)</td><td class="num">0.1403 (20)</td><td class="num">0.5349 (10)</td><td class="num">0.1403 (20)</td></tr>
+<tr><td>2</td><td class="num">0.2740 (18)</td><td class="num">0.0423 (20)</td><td class="num">0.4284 (13)</td><td class="num">0.0662 (20)</td></tr>
+<tr><td>3</td><td class="num">0.2529 (17)</td><td class="num">0.1329 (20)</td><td class="num">0.7719 (5)</td><td class="num">0.1371 (20)</td></tr>
+<tr><td>4</td><td class="num">0.2037 (19)</td><td class="num">0.0859 (20)</td><td class="num">0.5104 (9)</td><td class="num">0.0859 (20)</td></tr>
+</tbody>
+</table></div>
+
+<ul>
+<li><b>方向穩定</b>：5 個 seed 都是 k=2 &gt; k=200、p=0.6 &gt; p=0.999。</li>
+<li><b>數值波動大</b>：p=0.6 在 0.4284 到 0.7719 之間，k=200 在 0.0423 到 0.1403 之間。所以「k=2 的 self-BLEU 是 0.2029」只是一次執行的結果，不是這個設定的固定值。</li>
+<li>k=2 與 k=200 的 seed 0 欄和 hw3.py <code>--q 4 --seed 0</code>（0.2029）、<code>--top-k 200</code>（0.1343）相同，因為 top-k 是 hw3.py 先抽的那一組，起點一樣；p 的兩欄就和 hw3.py 不同（上一節）。</li>
+<li>這張表事實腳本還多量了 <code>top_k=0</code> 的兩欄（R2 的對照），在 FACTS 原表裡，第 4 章用過。</li>
+</ul>
+
+<p>如果不給 <code>--seed</code>，每次執行就是不同的一批。本機連跑兩次 <code>.venv/bin/python HW03/hw3.py --q 4</code>（<code>logs/review_ch05_noseed.txt</code>，這份紀錄只留了每組前 3 句與分數，完整輸出沒有存）：</p>
+
+<pre class="shell">$ .venv/bin/python HW03/hw3.py --q 4   # 第 1 次，不給 --seed
+0. Professor Lee is highly regarded for his expertise and contributions to the field of machine learning.
+1. Professor Lee is highly regarded for his exceptional expertise in machine learning education.
+2. He is widely recognized as an outstanding teacher in the field of machine learning.
+0. Professor Lee is highly regarded for his expertise in machine learning, making him a top teacher in the field.
+1. Professor Lee is highly regarded for his expertise in machine learning, making him a top-notch teacher in the field.
+2. Professor Lee is highly regarded for his expertise in machine learning, making him one of the leading educators in the field.
+self-BLEU Score for top_k (k=2): 0.2128
+self-BLEU Score for top_p (p=0.6): 0.4758
+
+$ .venv/bin/python HW03/hw3.py --q 4   # 第 2 次，不給 --seed
+0. He is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded for his expertise in machine learning education.
+0. He is highly regarded as a leading expert in machine learning education.
+1. Professor Lee is highly regarded as a leading expert in machine learning education.
+2. Professor Lee is highly regarded for his expertise in machine learning and is considered a top teacher in the field.
+self-BLEU Score for top_k (k=2): 0.2857
+self-BLEU Score for top_p (p=0.6): 0.5076</pre>
+
+<p>每組的前 3 行是 top-k、後 3 行是 top-p（<code>#</code> 後面的註解是紀錄時加的）。兩次的句子不同，分數也不同：k=2 從 0.2128 變成 0.2857。原版 Colab 完全不設 seed，所以學生每次執行 Colab 都會得到不同的分數；這也是投影片的選擇題問「哪個比較高、為什麼」而不是問具體數字的合理原因（推論）。</p>
+
+<h2 id="seed">5.6　seed 管得到什麼、管不到什麼</h2>
+
+<figure class="listing"><figcaption>hw3.py:506–507 — 唯一設定 seed 的地方</figcaption>
+<pre class="py" data-hot="507"><code>    if args.seed is not None:
+        torch.manual_seed(args.seed)</code></pre>
+</figure>
+
+<p><a href="ch00.html#dispatch">第 0 章 0.2.2 節</a>說過：<code>--seed</code> 只做這一件事，在載入模型<b>之前</b>呼叫一次 <code>torch.manual_seed</code>，設定 PyTorch 的 CPU 與 CUDA 亂數產生器。之後 <code>torch.multinomial</code> 每抽一個 token 就從這條亂數流取一段（<a href="ch04.html#one-step">第 4 章 4.2 節</a>）。所以 seed 決定的是「抽籤用的亂數序列」：同樣的 seed、同樣的抽籤次數、同樣的機率分布，就會抽出同樣的 token。</p>
+
+<p>問題在最後一個條件：<b>機率分布本身也要一樣</b>。本機發現，它會被前面跑過的題目改變。這是 R10。</p>
+
+<h3 id="r10-symptom">5.6.1　R10 的現象：同一個 seed，第 13 句不同</h3>
+
+<p><a href="#scores">5.4 節</a>的表裡，<code>--q 4 --seed 0</code> 的 top-k 是 0.2029，<code>--seed 0</code>（全部 7 題一起跑）卻是 0.2020。兩次的 40 句逐句比對，<b>只有 top-k 的第 13 句不同</b>，其他 19 句與 top-p 的 20 句完全一樣（本書用 diff 比對兩份 log）：</p>
+
+<pre class="shell">13. He is highly regarded as an expert in machine learning and is considered to be among the top educators in the field.
+13. He is highly regarded as a leading expert in the field of machine learning, renowned for his exceptional teaching abilities.</pre>
+
+<p>第一行來自 <code>logs/run_q4_seed0.txt</code> 第 23 行（只跑 Q4），第二行來自 <code>logs/run_seed0.txt</code> 第 165 行（全部題目）。兩句前 5 個詞相同，第 6 個詞（an 與 a）起分岔。</p>
+
+<h3 id="r10-experiment">5.6.2　找出是誰造成的</h3>
+
+<p>本機分兩步追（<code>logs/facts_review1_r10.txt</code>）。第一步：分開跑，前面只放一題，看是哪一題讓 Q4 變了（每一列都是一條獨立的 <code>hw3.py ... --seed 0</code> 指令）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>指令</th><th class="num">top-k（k=2）</th><th class="num">top-p（p=0.6）</th></tr></thead>
+<tbody>
+<tr><td><code>--q 4 --seed 0</code></td><td class="num">0.2029</td><td class="num">0.5542</td></tr>
+<tr><td><code>--q 3 4 --seed 0</code></td><td class="num">0.2029</td><td class="num">0.5542</td></tr>
+<tr><td><code>--q 2 4 --seed 0</code></td><td class="num">0.2029</td><td class="num">0.5542</td></tr>
+<tr><td><code>--q 1 4 --seed 0</code></td><td class="num"><b>0.2020</b></td><td class="num">0.5542</td></tr>
+</tbody>
+</table></div>
+
+<p>只有 Q1 放在前面時會變。最直覺的猜測是「Q1 用掉了一些亂數」，但 Q1 是 greedy，理論上不抽籤。第二步在同一個 process 裡直接檢查（<code>docs/tools/hw03_r10_cache.py</code> 的輸出，同一份 log 第 8–13 行）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>做法</th><th>Q1 前後亂數狀態有沒有變</th><th class="num">Q4 用的 cache 長度</th><th class="num">top-k</th></tr></thead>
+<tbody>
+<tr><td>先跑 Q1，再跑 Q4（和 hw3.py 一樣）</td><td>沒變（CUDA、CPU 都沒變）</td><td class="num">544</td><td class="num">0.2020</td></tr>
+<tr><td>先跑 Q1，跑 Q4 前把 <code>model._cache = None</code></td><td>沒變</td><td class="num">62</td><td class="num">0.2029</td></tr>
+<tr><td>不跑 Q1，直接放一個 544 格的 HybridCache，再從 seed 0 跑 Q4</td><td></td><td class="num">544</td><td class="num">0.2020</td></tr>
+<tr><td>不跑 Q1，放一個 282 格的 HybridCache</td><td></td><td class="num">282</td><td class="num">0.2029</td></tr>
+</tbody>
+</table></div>
+
+<p>四列 top-p 都是 0.5542。結論是：</p>
+
+<ul>
+<li><b>不是亂數</b>：Q1 前後，CUDA 與 CPU 的亂數狀態完全沒變。</li>
+<li><b>是 KV cache</b>：Q1 的第一次 <code>generate</code> 在模型物件上留下一份 544 格的 cache（<code>model._cache</code>，Q1 的 32 個 prompt token + <code>max_new_tokens</code> 512）；Q4 的 <code>generate</code> 只需要 30 + 32 = 62 格（最多 30 個新 token 加上 prompt 的 32 個 token，<a href="ch04.html#params">第 4 章 4.4 節</a>的 <code>max_length</code>），發現舊的夠長，就清空沿用，於是 Q4 實際上是用 544 格的 cache 在算。把 cache 清掉，Q4 自己配 62 格，結果就回到 0.2029；不跑 Q1、只人工放一個 544 格的 cache，結果就變成 0.2020。cache 長度決定了結果，和 Q1 有沒有跑無關。</li>
+<li><b>為什麼 cache 長度會改變抽到的 token</b>：沒寫入的格子在 attention 裡被 mask 掉，數學上不影響答案，但運算的形狀不同，fp16 的最後幾位會有極小的差異；機率差一點點，剛好讓第 13 句某一步的抽籤落到相鄰的 token 上。這個機制與 <code>_get_cache</code> 的原始碼在<a href="ch00b.html#reuse">補充章 K.8 節</a>，這裡不重講。</li>
+<li>282 格的那一列（282 是 Q2 單獨跑時最後一輪留下的長度：prompt 82 + <code>max_new_tokens</code> 200，計算值；第一步 <code>--q 2 4</code> 也是 0.2029）和 62 格一樣是 0.2029：<b>cache 長度不同只是「可能」改變結果</b>，不是一定。為什麼 544 格會翻、282 格不會，本機沒有追。</li>
+</ul>
+
+<figure class="fig">
+<svg viewBox="0 0 900 260" role="img" aria-label="R10 的兩條路：只跑 Q4 時，Q4 的 generate 自己配置 62 格的 cache，第 13 句是 A，top-k 0.2029；先跑 Q1 時，Q1 留下 544 格的 cache，Q4 沿用它，亂數狀態相同，但第 13 句是 B，top-k 0.2020">
+  <defs>
+    <marker id="a5" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="a5w" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent-warm)"/>
+    </marker>
+  </defs>
+  <text class="s-lbl" x="20" y="34" text-anchor="start" font-weight="700">--q 4 --seed 0</text>
+  <rect x="200" y="14" width="150" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="275" y="39" text-anchor="middle">seed 0、載入模型</text>
+  <rect x="430" y="14" width="200" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="530" y="39" text-anchor="middle">Q4：自己配置 62 格 cache</text>
+  <rect x="710" y="14" width="170" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="795" y="39" text-anchor="middle">第 13 句 A；0.2029</text>
+  <line x1="351" y1="34" x2="427" y2="34" stroke="var(--accent)" stroke-width="2" marker-end="url(#a5)"/>
+  <line x1="631" y1="34" x2="707" y2="34" stroke="var(--accent)" stroke-width="2" marker-end="url(#a5)"/>
+
+  <text class="s-lbl" x="20" y="134" text-anchor="start" font-weight="700">--q 1 4 --seed 0</text>
+  <rect x="200" y="114" width="150" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="275" y="139" text-anchor="middle">seed 0、載入模型</text>
+  <rect x="380" y="114" width="150" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="455" y="139" text-anchor="middle">Q1（greedy）</text>
+  <rect x="560" y="114" width="150" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="635" y="139" text-anchor="middle">Q4：沿用 544 格</text>
+  <rect x="740" y="114" width="140" height="40" rx="7" class="s-box"/>
+  <text class="s-sm" x="810" y="139" text-anchor="middle">第 13 句 B；0.2020</text>
+  <line x1="351" y1="134" x2="377" y2="134" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a5w)"/>
+  <line x1="531" y1="134" x2="557" y2="134" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a5w)"/>
+  <line x1="711" y1="134" x2="737" y2="134" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a5w)"/>
+  <path d="M455,155 C455,200 635,200 635,158" fill="none" stroke="var(--accent-warm)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a5w)"/>
+  <text class="s-sm" x="545" y="214" text-anchor="middle" style="fill: var(--accent-warm)">model._cache（544 格）留在模型物件上</text>
+  <text class="s-sm" x="20" y="246" text-anchor="start">兩條路的亂數狀態在 Q4 開始時完全相同（實測）；不同的只有 Q4 用的 cache 長度。</text>
+</svg>
+<figcaption>圖 5.2 — R10：同樣的 seed，差別在模型物件上留著的 cache。A、B 兩句見 5.6.1 節；數字與 cache 長度來自 <code>logs/facts_review1_r10.txt</code>。</figcaption>
+</figure>
+
+<p>所以 R10 的定論是：<b>「設了 seed 還不一定一樣」的原因不是亂數，而是同一個模型物件上留著前一次 <code>generate</code> 的狀態</b>。換句話說，<code>--seed</code> 能保證的是「<b>同一條指令</b>在同一台機器、同一套版本上重跑會一樣」，不保證「Q4 的結果和前面有沒有跑別的題目無關」。本機的 hw3.py <code>--q 4 --seed 0 --top-k 200 --top-p 0.999</code> 連跑兩次，輸出逐字相同（FACTS「ch04 審稿補測」），就是前一種保證。</p>
+
+<p>幾個由此推出的情況：</p>
+
+<ul>
+<li><code>--q 4 1 --seed 0</code>：Q4 先跑，這時模型上還沒有 cache，Q4 自己配 62 格，結果和 <code>--q 4 --seed 0</code> 相同：本機實測 0.2029／0.5542，Q4 的 40 句與 <code>logs/run_q4_seed0.txt</code> 逐字相同（<code>logs/review_ch05.txt</code>）。<a href="ch00.html#pitfalls">第 0 章常見錯誤</a>那條「<code>--q 4 1</code>」說的「順序不同，Q4 的結果可能跟著變」，指的是和 <code>--q 1 4</code> 比。</li>
+<li>在 Colab 或 notebook 裡：同一個 kernel 先跑過哪些格子、跑過幾次 <code>generate</code>，都會留下 cache。即使自己加了 seed，重新執行 Q4 的格子也不一定得到上一次的結果（推論，本機沒有在 notebook 裡試）。</li>
+<li>換 GPU 或套件版本，fp16 的運算本來就可能不同，同一條指令也不保證和本書的句子一樣（<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。</li>
+</ul>
+
+<p>想讓 Q4 不受前面題目影響，可以在 Q4 的 <code>generate</code> 之前把 <code>model._cache</code> 設成 <code>None</code>（上表第二列就是這樣做的，本機實測回到 0.2029）。hw3.py 為了和原版一致，沒有這樣做。</p>
+
+<h2 id="dont-trust">5.7　讀 code 不盡信文件</h2>
+
+<div class="warn" id="r9">
+<h4>讀 code 不盡信文件：R9 --num-samples 1 會除以零</h4>
+<p><b>現象</b>：只抽 1 句時，程式在算分數時當掉（<code>logs/run_q4_k1_p0_n1_seed0.txt</code> 第 16–27 行，逐字；本機路徑改成相對路徑）：</p>
+<pre class="shell">Traceback (most recent call last):
+  File "HW03/hw3.py", line 521, in &lt;module&gt;
+    main()
+  File "HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "HW03/hw3.py", line 249, in q4
+    print(f"self-BLEU Score for top_k (k={top_k}): {compute_self_bleu(generated_sentences_top_k):.4f}")
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "HW03/hw3.py", line 196, in compute_self_bleu
+    total_bleu_score += sum(bleu_scores) / len(bleu_scores)
+                        ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+ZeroDivisionError: division by zero</pre>
+<p>這條指令是 <code>.venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-k 1 --top-p 0 --num-samples 1</code>，結束碼 1。兩組的 1 句都印出來了（<code>Professor Lee is highly regarded as a leading expert in machine learning education.</code>），當掉的是算 top-k 分數那一行。</p>
+<p><b>原因</b>：只有 1 句時，:194 的「其他句」是空的 list，:195 的 <code>bleu_scores</code> 也是空的，:196 的 <code>sum([]) / len([])</code> 就是 0 / 0（圖 5.1 的最後一句）。self-BLEU 的定義本來就需要至少兩句才有意義：一句話沒有東西可以和它比。</p>
+<p><b>為什麼原版沒事</b>：原版 Colab 第 23 格寫死 <code>trange(20)</code>，永遠有 20 句，碰不到這個情況。hw3.py 把次數改成 <code>--num-samples</code>，這個邊界才露出來。<code>compute_self_bleu</code> 本身和原版逐字相同，沒有改。</p>
+<p><b>現在的做法</b>：repo 的 <code>HW03/README.md</code> 寫明「<code>--num-samples</code> must be at least 2: self-BLEU compares each sentence against the others, so with 1 sample <code>compute_self_bleu</code> divides by zero」，範例指令用 <code>--num-samples 2</code>（第 4 章 4.7.1 節那一條）；hw3.py 本身沒有加檢查。要問 p.19 第 (3)(4) 小題「k=1、p=0 生成什麼句子」，用 <code>--num-samples 2</code> 就夠了。</p>
+</div>
+
+<div class="warn" id="r10">
+<h4>讀 code 不盡信文件：R10 --seed 只能讓「同一條指令」重現</h4>
+<p><b>文件說的</b>：hw3.py 的 <code>--seed</code> 說明是「random seed (Colab does not set one)」（:487），很容易讀成「給了 seed 就能重現」。</p>
+<p><b>實際上</b>：<code>--q 4 --seed 0</code> 與 <code>--seed 0</code>（全部題目）的 Q4 top-k 第 13 句不同，0.2029 對 0.2020。原因已經實測確認：不是亂數，而是 Q1 留在 <code>model._cache</code> 的 544 格 KV cache 被 Q4 沿用（<a href="#r10-experiment">5.6.2 節</a>，機制見<a href="ch00b.html#reuse">補充章 K.8 節</a>）。同一個效應也讓 Q1 自己沒有 template 的那條路得到不同的 greedy 結果（<a href="ch01.html#greedy">第 1 章 1.3.1 節</a>）。</p>
+<p><b>為什麼保留</b>：hw3.py 照原版的做法，七題共用同一個模型物件、不清 cache，和助教的參考流程一致。</p>
+<p><b>這對你的意義</b>：拿 self-BLEU 和別人或本書對數字時，先確認跑的是<b>完全相同的指令</b>（同樣的 <code>--q</code> 組合與順序、同樣的旗標與 seed）、同樣的 GPU 與套件版本。數字對不上，不一定是你寫錯了。</p>
+</div>
+
+<h2 id="lab">5.8　動手做</h2>
+
+<div class="lab">
+<h4>重算 self-BLEU、看 seed 的效果</h4>
+<p><b>1. 從 log 重算 self-BLEU</b>（只用 CPU、不載入模型；在 repo 根目錄執行，需要裝好的 <code>.venv</code>，因為它 import hw3.py 與 nltk）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_selfbleu.py</pre>
+<p>它讀 <code>docs/HW03/logs/</code> 裡三份 hw3.py 的 Q4 log，把句子解析回來，印出每組的不同句數、重算的 self-BLEU（和 log 印的並列）、加平滑的版本、實際為 0 與等於 1 的對數、不對稱的對數、各種警告實際觸發的次數，最後是 <a href="#by-hand">5.2.1 節</a>那幾對的拆解與 <a href="#zero">5.2.2 節</a>那個極小值。輸出格式就是 <code>logs/facts_pre_ch05_selfbleu.txt</code>；每一組的 <code>recomputed self-BLEU</code> 都應該等於括號裡的 <code>log</code> 值。</p>
+<p><b>2. 看 seed 的效果</b>（需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>；每條約 25 秒）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 4 --seed 0
+.venv/bin/python HW03/hw3.py --q 1 4 --seed 0</pre>
+<p>第一條最後應該印 <code>0.2029</code> 與 <code>0.5542</code>；第二條先跑 Q1（多十幾秒）再跑 Q4，應該印 <code>0.2020</code> 與 <code>0.5542</code>，top-k 第 13 句和第一條不同（<a href="#r10-symptom">5.6.1 節</a>）。在不同的 GPU 或版本上，兩條的數字可能都和本書不同，但「兩條彼此不同」這件事不一定會重現：它取決於某一步是否剛好接近同分。</p>
+<p><b>3. R10 的對照實驗</b>（需要 GPU 與 HF 授權）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_r10_cache.py</pre>
+<p>它在同一個 process 裡做 <a href="#r10-experiment">5.6.2 節</a>第二張表的四種情況（含人工放 544 格與 282 格的 HybridCache），每種印一行：亂數狀態有沒有被 Q1 改變、Q4 的兩個 self-BLEU、Q4 用的 cache 長度。輸出格式就是 <code>logs/facts_review1_r10.txt</code> 的後半（第 7–13 行）。</p>
+<p><b>4. 不給 seed</b>：把第一條的 <code>--seed 0</code> 拿掉，連跑兩次，兩次的句子與分數應該都不同（<a href="#variance">5.5 節</a>）。</p>
+</div>
+
+<h2 id="pitfalls">5.9　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 self-BLEU 當成品質分數</h4>
+<dl>
+<dt>症狀</dt><dd>說「p=0.6 的 self-BLEU 比較高，所以生成得比較好」。</dd>
+<dt>後果</dt><dd>方向完全相反：高代表 20 句很像、多樣性低；它也完全不看通不通順。</dd>
+<dt>正解</dt><dd class="fix">self-BLEU 只量多樣性（越高越不多樣）。流暢、連貫要另外看句子本身。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>看到警告就以為只有幾對是 0</h4>
+<dl>
+<dt>症狀</dt><dd>log 只有三則「0 counts of N-gram overlaps」警告，以為只有三對沒重疊。</dd>
+<dt>後果</dt><dd>低估了 0 的比例；p=0.999 那組其實有 290／380 對實際為 0。</dd>
+<dt>正解</dt><dd class="fix">Python 的警告預設同一個位置只顯示一次。要數，像 <code>hw03_selfbleu.py</code> 那樣把警告設成每次都記錄。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>拿一次執行的分數當定值</h4>
+<dl>
+<dt>症狀</dt><dd>「k=2 的 self-BLEU 是 0.2029」寫進結論，或和同學的數字對不上就以為寫錯。</dd>
+<dt>後果</dt><dd>本機 5 個 seed 下 k=2 在 0.2029–0.2740、p=0.6 在 0.4284–0.7719；不同 seed、不同執行本來就不同。</dd>
+<dt>正解</dt><dd class="fix">比較方向（k=2 &gt; k=200、p=0.6 &gt; p=0.999），而不是小數點後的數字；要比數字就固定 seed 與整條指令。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為設了 seed 就一定一樣</h4>
+<dl>
+<dt>症狀</dt><dd><code>--seed 0</code> 全部題目一起跑，和只跑 <code>--q 4 --seed 0</code> 的結果不同，以為程式有 bug。</dd>
+<dt>後果</dt><dd>去查亂數，找不到原因。</dd>
+<dt>正解</dt><dd class="fix">R10：前面的 Q1 在模型上留下 544 格的 cache，Q4 沿用它。要比較就用完全相同的指令；要隔離，就在 Q4 前把 <code>model._cache</code> 清掉。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>--num-samples 給 1</h4>
+<dl>
+<dt>症狀</dt><dd>只想看 k=1 生成什麼，給 <code>--num-samples 1</code>，句子印出來後程式以 <code>ZeroDivisionError</code> 結束。</dd>
+<dt>後果</dt><dd>結束碼 1；如果 <code>--q</code> 後面還有別的題目，它們都不會跑。</dd>
+<dt>正解</dt><dd class="fix">至少給 2（R9）。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 split() 會處理標點</h4>
+<dl>
+<dt>症狀</dt><dd>以為 <code>education.</code> 與 <code>education</code> 是同一個詞。</dd>
+<dt>後果</dt><dd>手算 BLEU 時 p<sub>1</sub>、p<sub>2</sub> 對不上工具的數字。</dd>
+<dt>正解</dt><dd class="fix"><code>str.split()</code> 只依空白切，標點黏在前一個詞上；hw3.py 的 self-BLEU 就是這樣算的。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>BLEU = BP × (p<sub>1</sub>p<sub>2</sub>p<sub>3</sub>p<sub>4</sub>)<sup>1/4</sup>：p<sub>n</sub> 是修正 n-gram 精確度，BP 罰比 reference 短的 hypothesis。本機第 0 句對第 2 句：10/12、8/11、6/10、4/9，BP 0.8465，BLEU 0.5367；反過來是 0.5317（不對稱）。<code>split()</code> 不拆標點。</li>
+<li>沒有 smoothing 時，任一階沒有重疊，nltk 3.10.3 回傳極小值（例如 6.22 × 10<sup>−155</sup>），等同 0；警告實際觸發上百次，log 只顯示一次。加 <code>SmoothingFunction().method1</code> 分數會變，但排序不變。</li>
+<li>self-BLEU（hw3.py:188–197）：每句當 hypothesis、其他 19 句各當一次 reference，380 個有序句對平均。越高越像、多樣性越低，不是品質分數。p=0.6 有 98 對完全相同，k=2 有 146 對實際為 0。</li>
+<li>hw3.py：<code>--q 4 --seed 0</code> 0.2029／0.5542；k=200、p=0.999 是 0.1343／0.0625；k=1、p=0 是 1.0000。從 log 的句子重算全部一致。hw3.py 的 p=0.999（0.0625）與事實腳本各自 seed 0 的 0.1257 不是同一批句子。</li>
+<li>單次數字不是定值：5 個 seed 下方向穩定、數值波動大；不給 seed 每次都不同。</li>
+<li>R10（實測定論）：<code>--seed</code> 只在載入模型前設一次亂數；先跑 Q1 會在模型上留下 544 格 cache，Q4 沿用它，top-k 第 13 句因此不同（0.2029 → 0.2020），亂數狀態完全沒變。R9：<code>--num-samples 1</code> 會除以零。</li>
+</ul>
+<p>下一章是 Q5：不再生成，而是看模型內部。六句話各取最後一層的 hidden state 平均成一個句子向量，再用 t-SNE（一種把高維向量壓到 2 維、盡量保留「誰跟誰近」的方法）畫到平面上，看同一個字 Apple 在不同語境下會不會被分開。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. 20 句完全相同時 self-BLEU 是多少？20 句彼此沒有任何 4 個連續詞相同時呢？</summary>
+<p>完全相同時每一對的 BLEU 都是 1，self-BLEU 是 1.0000（本機 k=1、p=0 抽 2 句時就是這樣；20 句全同依定義也一樣）。都沒有 4-gram 重疊時，沒有 smoothing 的 BLEU 每一對都是極小值（例如 10<sup>−155</sup> 等級），self-BLEU 等同 0。所以 self-BLEU 越高，句子越像、越不多樣。</p>
+</details>
+
+<details class="quiz"><summary>2. 本機第 0 句對第 2 句的 BLEU 是 0.5367，反過來是 0.5317。為什麼不一樣？哪一個方向被 BP 罰了？</summary>
+<p>精確度的分母是 hypothesis 的 n-gram 數，所以誰當 hypothesis 會改變 p<sub>n</sub>（10/12 對 10/14 等）；BP 只罰 hypothesis 比 reference 短的情況。第 0 句（12 個詞）當 hypothesis、第 2 句（14 個詞）當 reference 時被罰，BP = exp(1 − 14/12) ≈ 0.8465；反過來 hypothesis 比較長，BP = 1。</p>
+</details>
+
+<details class="quiz"><summary>3. log 裡 4-gram 的「0 counts」警告只出現一次，k=2 那組實際上有幾對 4-gram 完全沒重疊？為什麼只印一次？</summary>
+<p>本機數到 146 次（380 對裡）。Python 的 <code>warnings</code> 預設同一個程式位置、同一則訊息只顯示第一次，後面的被略過，所以 log 只看得到一次。</p>
+</details>
+
+<details class="quiz"><summary>4. 同學用 <code>--seed 0</code> 跑全部題目，得到 top-k 0.2020；你用 <code>--q 4 --seed 0</code> 得到 0.2029。誰錯了？</summary>
+<p>都沒錯（假設同樣的 GPU 與版本）。全部題目一起跑時，Q1 在模型上留下 544 格的 KV cache，Q4 沿用它；只跑 Q4 時，Q4 自己配 62 格。兩者的亂數狀態相同，但 fp16 的運算形狀不同，讓第 13 句某一步抽到不同的 token（R10）。要對數字，就用完全相同的指令。</p>
+</details>
+
+<details class="quiz"><summary>5. <code>--num-samples 1</code> 為什麼會當掉？原版 Colab 為什麼沒有這個問題？</summary>
+<p>只有一句時，「其他句」是空的，<code>bleu_scores</code> 是空 list，hw3.py:196 的 <code>sum([]) / len([])</code> 是 0 / 0，丟出 <code>ZeroDivisionError</code>（R9）。原版寫死生成 20 次，永遠有 20 句，碰不到這個邊界；hw3.py 把次數做成旗標，邊界才露出來。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Papineni et al., <i>BLEU: a Method for Automatic Evaluation of Machine Translation</i>, ACL 2002, <a href="https://aclanthology.org/P02-1040/">aclanthology.org/P02-1040</a>：BLEU 的原始論文，修正精確度與 brevity penalty 的定義。</li>
+<li>Zhu et al., <i>Texygen: A Benchmarking Platform for Text Generation Models</i>, 2018, <a href="https://arxiv.org/abs/1802.01886">arXiv:1802.01886</a>：把 self-BLEU 當成生成多樣性指標的出處。</li>
+<li>Chen &amp; Cherry, <i>A Systematic Comparison of Smoothing Techniques for Sentence-Level BLEU</i>, WMT 2014, <a href="https://aclanthology.org/W14-3346/">aclanthology.org/W14-3346</a>：nltk <code>SmoothingFunction</code> 的各種 method 的來源。</li>
+<li>nltk 文件 <a href="https://www.nltk.org/api/nltk.translate.bleu_score.html">nltk.translate.bleu_score</a>：<code>sentence_bleu</code> 與 <code>SmoothingFunction</code>。</li>
+<li>Python 文件 <a href="https://docs.python.org/3/library/warnings.html">warnings</a>：預設的警告過濾規則（同一位置只顯示一次）。</li>
+<li>PyTorch 文件 <a href="https://pytorch.org/docs/stable/notes/randomness.html">Reproducibility</a>：<code>torch.manual_seed</code> 能保證與不能保證的事。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch04.html">← 第 4 章</a><span class="disabled">第 6 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>

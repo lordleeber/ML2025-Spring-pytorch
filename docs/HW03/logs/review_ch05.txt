@@ -1,0 +1,13 @@
+==================== review_ch05: --q 4 1 --seed 0（Q4 先跑、Q1 後跑）====================
+$ .venv/bin/python HW03/hw3.py --q 4 1 --seed 0
+############################## Q4 ##############################
+self-BLEU Score for top_k (k=2): 0.2029
+self-BLEU Score for top_p (p=0.6): 0.5542
+############################## Q1 ##############################
+Q4 段（20+20 句與分數）與 logs/run_q4_seed0.txt 逐字相同（剔除 nltk 警告後比對）
+
+==================== review_ch05: 6.22e-155 的拆解 ====================
+p1..p4 ['4/12', '1/11', '0/10', '0/9'] ; BP 1 (hyp 12, ref 8)
+method0 replaces zero precisions with sys.float_info.min = 2.2250738585072014e-308
+exp(sum 0.25*log p_i) = 6.223629500679345e-155 ; sentence_bleu = 6.223629500679345e-155
+no unigram overlap at all -> sentence_bleu(['x y z'], 'a b c') = 0
