@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1037,6 +1037,100 @@ def pre_ch04_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch04 review: hw3.py-order runs with variations (eos [1, 107], top_k=0), first tokens, replace() effects
+def review_ch04_facts(tokenizer, model):
+    from collections import Counter
+
+    section("review_ch04")
+    prompt = "Generate a paraphrase of the sentence 'Professor Hung-yi Lee is one of the best teachers in the domain of machine learning'. Just response with one sentence."
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    n0 = len(input_ids.input_ids[0])
+    base = {"do_sample": True, "max_length": 30 + n0, "pad_token_id": tokenizer.pad_token_id,
+            "eos_token_id": tokenizer.eos_token_id, "bos_token_id": tokenizer.bos_token_id,
+            "attention_mask": input_ids.attention_mask.to(DEVICE), "use_cache": True,
+            "return_dict_in_generate": True, "output_scores": True}
+
+    def run(k, p, extra_p=None, eos=None):
+        """Same order as hw3.py --q 4 --seed 0 (standalone): 20 top-k, then 20 top-p, one random stream."""
+        params = dict(base)
+        if eos is not None:
+            params["eos_token_id"] = eos
+        model._cache = None
+        torch.manual_seed(0)
+        res = {}
+        for method in ["top-k", "top-p"]:
+            kw = {"top_k": k} if method == "top-k" else {"top_p": p, **(extra_p or {})}
+            res[method] = [model.generate(input_ids=input_ids.input_ids.to(DEVICE), **kw, **params) for _ in range(20)]
+        return res
+
+    def sent(o):
+        t = tokenizer.decode(o.sequences[0, n0:], skip_special_tokens=True)
+        return t.replace(" ,", ",").replace(" 's", "'s").replace(" .", ".").strip()
+
+    def summary(label, outs):
+        rows = []
+        for o in outs:
+            new = o.sequences[0, n0:].tolist()
+            rows.append((len(new), tokenizer.convert_ids_to_tokens(new[-1]), new.index(107) if 107 in new else None))
+        print(f"--- {label}: new-token counts {[r[0] for r in rows]}; reached 30: {sum(r[0] == 30 for r in rows)}")
+        print(f"    last token {Counter(r[1] for r in rows)}; first <end_of_turn> step (None = never) {[r[2] for r in rows]}")
+        raw = [tokenizer.decode(o.sequences[0, n0:], skip_special_tokens=True) for o in outs]
+        print(f"    first new token {Counter(tokenizer.convert_ids_to_tokens(int(o.sequences[0, n0])) for o in outs)}")
+        print(f"    raw text containing ' ,' / \" 's\" / ' .': {sum(' ,' in r for r in raw)} / {sum(chr(32) + chr(39) + 's' in r for r in raw)} / {sum(' .' in r for r in raw)}")
+
+    for k, p in [(2, 0.6), (200, 0.999)]:
+        ref = run(k, p)
+        summary(f"hw3.py order k={k}", ref["top-k"])
+        summary(f"hw3.py order p={p} (+ default top_k=50)", ref["top-p"])
+        for o in ref["top-k"] + ref["top-p"]:
+            new = o.sequences[0, n0:].tolist()
+            if len(new) == 30:
+                print(f"    30-token sentence: {sent(o)!r}")
+        print(f"    sentence 0: k {sent(ref['top-k'][0])!r}; p {sent(ref['top-p'][0])!r}")
+        e = run(k, p, eos=[1, 107])
+        summary(f"eos_token_id=[1, 107], k={k}", e["top-k"])
+        summary(f"eos_token_id=[1, 107], p={p}", e["top-p"])
+        z = run(k, p, extra_p={"top_k": 0})
+        same_k = sum(sent(a) == sent(b) for a, b in zip(ref["top-k"], z["top-k"]))
+        same_p = sum(sent(a) == sent(b) for a, b in zip(ref["top-p"], z["top-p"]))
+        print(f"--- top_p={p} with top_k=0 at hw3.py:231: top-k group identical {same_k}/20, top-p group identical {same_p}/20; "
+              f"distinct top-p sentences {len(set(map(sent, ref['top-p'])))} -> {len(set(map(sent, z['top-p'])))}")
+        for i, (a, b) in enumerate(zip(ref["top-p"], z["top-p"])):
+            if sent(a) != sent(b):
+                print(f"    {i}: {sent(a)!r} -> {sent(b)!r}")
+
+    # top_k=200 vs top_p=0.999, top_k=0 from the same seed: per-step candidate sets
+    outs = {}
+    for name, kw in [("top_k=200", {"top_k": 200}), ("top_p=0.999,top_k=0", {"top_p": 0.999, "top_k": 0})]:
+        model._cache = None
+        torch.manual_seed(0)
+        outs[name] = [model.generate(input_ids=input_ids.input_ids.to(DEVICE), **kw, **base) for _ in range(20)]
+    a, b = outs.values()
+    same = sum(torch.equal(x.sequences, y.sequences) for x, y in zip(a, b))
+    diffs, mass, kept = [], [], []
+    for x, y in zip(a, b):
+        if not torch.equal(x.sequences, y.sequences):
+            continue
+        for sx, sy in zip(x.scores, y.scores):
+            px, py = torch.softmax(sx[0], -1), torch.softmax(sy[0], -1)
+            diffs.append(float((px - py).abs().max()))
+            only = torch.isfinite(sy[0]) & ~torch.isfinite(sx[0])
+            mass.append(float(py[only].sum()))
+            kept.append((int(torch.isfinite(sx[0]).sum()), int(torch.isfinite(sy[0]).sum())))
+    print(f"--- top_k=200 vs top_p=0.999,top_k=0 (each from seed 0): identical sentences {same}/20; {len(diffs)} steps compared")
+    print(f"    kept per step: top_k=200 median {np.median([k[0] for k in kept]):.0f}; top_p=0.999,top_k=0 median {np.median([k[1] for k in kept]):.0f} min {min(k[1] for k in kept)} max {max(k[1] for k in kept)}")
+    print(f"    steps where top_p keeps fewer than 200: {sum(k[1] < 200 for k in kept)}")
+    print(f"    renormalized prob max |diff| over steps: max {max(diffs):.4f} median {np.median(diffs):.5f}; prob mass on tokens only top-p keeps: max {max(mass):.4f} median {np.median(mass):.5f}")
+
+    # what the '-' at step 9 of k=2 sentence 0 would have become
+    ids = tokenizer(prompt + " \n\nHe is highly regarded as a top", return_tensors="pt", add_special_tokens=True).input_ids.to(DEVICE)
+    model._cache = None
+    o = model.generate(torch.cat([ids, torch.tensor([[tokenizer.convert_tokens_to_ids("-")]], device=DEVICE)], 1),
+                       attention_mask=None, max_new_tokens=6, do_sample=False, pad_token_id=tokenizer.pad_token_id)
+    print(f"--- after '... as a top' + '-', greedy: {tokenizer.convert_ids_to_tokens(o[0, ids.shape[1]:].tolist())}")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1053,7 +1147,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

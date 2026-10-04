@@ -948,7 +948,13 @@ Here's why this paraphrase works:
 
 * **Focuses on</pre>
 
-<p>改寫完一句之後，又開始解釋「為什麼這樣改寫」，到 30 個 token 被截斷。這段延伸的中間有沒有出現過 <code>&lt;end_of_turn&gt;</code>（也就是如果停止 token 包含 107，會不會早一點停），這次執行沒有逐步記錄，本機沒有量。<!-- TODO(本機實測): hw3.py --q 4 --seed 0 --top-k 200 --top-p 0.999 中碰到 30 token 上限的句子，逐步的 token 裡有沒有 <end_of_turn>（107）；若把 eos_token_id 改回 [1, 107]，這些句子會停在哪裡 --></p>
+<p>改寫完一句之後，又開始解釋「為什麼這樣改寫」，到 30 個 token 被截斷。</p>
+<p>這段延伸的中間有沒有出現過 <code>&lt;end_of_turn&gt;</code>？本機用同樣的順序與 seed 重現了這條指令（40 句和 log 逐句相同），逐步檢查碰到上限的句子（<code>logs/review_ch04.txt</code>）：</p>
+<ul>
+<li><b>k=200 有 4 句用滿 30 個</b>（第 7、11、12、13 句），最後一個 token 分別是 <code>▁is</code>、<code>▁leader</code>、<code>▁in</code>、<code>▁on</code>，都是寫到一半被截斷。其中第 7、12 句在第 25、20 個 token 就生成過 <code>&lt;end_of_turn&gt;</code>，之後又接著寫 <code>Professor Lee is …</code>；上面的第 13 句和第 11 句則從頭到尾都沒有生成 <code>&lt;end_of_turn&gt;</code>，就算停止 token 包含 107 也停不下來。</li>
+<li><b>p=0.999 有 3 句用滿 30 個</b>（第 4、14、17 句）：第 4 句沒有 <code>&lt;end_of_turn&gt;</code>、寫到 <code>**Par</code> 被截斷；第 14 句的第 30 個剛好是 <code>&lt;end_of_turn&gt;</code>；第 17 句第 29 個是 <code>&lt;end_of_turn&gt;</code>、第 30 個是 <code>&lt;eos&gt;</code>，等於自己停了。</li>
+</ul>
+<p>把 <code>eos_token_id</code> 改成 <code>[1, 107]</code> 再從 seed 0 跑一次，四個設定每一句的最後一個 token 都變成 <code>&lt;end_of_turn&gt;</code>（碰到上限的除外），碰到上限的句數變成 k=2 1 句、p=0.6 0 句、k=200 2 句、p=0.999 1 句。注意這不是「同樣的句子提早停」：第一個提早停的句子少抽了幾步亂數，後面每一句用到的亂數就都不同了，所以只能比句數，不能逐句比。</p>
 
 <h3 id="r4">4.5.3　R4：沒有 chat template</h3>
 
@@ -965,7 +971,7 @@ Here's why this paraphrase works:
 </tbody>
 </table></div>
 
-<p>前三名都是空白或換行，加起來超過九成：模型傾向先「換個段落」再開始寫。所以句子 decode 出來的開頭多半是空白或換行。本機逐步看的兩個第 0 句（4.6 節），decode 出來分別是 <code>' \n\nHe is highly regarded as a top expert in machine learning education. \n'</code> 與 <code>' \n\nProfessor Lee is highly regarded as a leading expert in machine learning education. \n'</code>（<code>logs/facts_pre_ch04.txt</code> 第 22、42 行）：開頭一個空白加兩個換行、結尾一個空白加一個換行；其他句子第一步抽到的也可能是 <code>'\n\n'</code> 或兩個空白，本機沒有逐句統計（<code>▁</code> 與空白 token 見<a href="ch03.html#space">第 3 章 3.3 節</a>）。:235 最後的 <code>.strip()</code> 把頭尾的空白與換行去掉，印出來才是乾淨的一句。同一行的三個 <code>.replace(...)</code> 把「空白加標點」接回去（<code>" ,"</code> → <code>","</code> 等），是原版 Colab 就有的清理；這次的輸出裡有沒有真的出現這些組合，本機沒有逐一檢查（推論：它們是為了某些在標點前多加空白的解碼方式準備的）。</p>
+<p>前三名都是空白或換行，加起來超過九成：模型傾向先「換個段落」再開始寫。所以句子 decode 出來的開頭多半是空白或換行。本機逐步看的兩個第 0 句（4.6 節），decode 出來分別是 <code>' \n\nHe is highly regarded as a top expert in machine learning education. \n'</code> 與 <code>' \n\nProfessor Lee is highly regarded as a leading expert in machine learning education. \n'</code>（<code>logs/facts_pre_ch04.txt</code> 第 22、42 行）：開頭一個空白加兩個換行、結尾一個空白加一個換行；其他句子第一步抽到的也可能是別的：本機統計 hw3.py 同樣順序下各 20 句的第一個新 token（<code>logs/review_ch04.txt</code>），k=2 是 <code>▁</code> 10 句、<code>\n\n</code> 10 句；p=0.6 是 16 與 4 句；k=200 是 <code>▁</code> 8、<code>\n\n</code> 6、<code>▁▁</code> 3、<code>▁Professor</code> 3；p=0.999 是 <code>▁</code> 15、<code>\n\n</code> 3、<code>▁Here</code> 1、<code>▁He</code> 1（<code>▁</code> 與空白 token 見<a href="ch03.html#space">第 3 章 3.3 節</a>）。:235 最後的 <code>.strip()</code> 把頭尾的空白與換行去掉，印出來才是乾淨的一句。同一行的三個 <code>.replace(...)</code> 把「空白加標點」接回去（<code>" ,"</code> → <code>","</code> 等），是原版 Colab 就有的清理；本機檢查了四個設定各 20 句 decode 後、replace 之前的字串（<code>logs/review_ch04.txt</code>），<code>' ,'</code>、<code>" 's"</code>、<code>' .'</code> 一次都沒有出現，所以這三個 replace 在這份輸出裡沒有作用；它們為什麼存在，原版沒有說明（推論：為了某些會在標點前多加空白的解碼方式準備的）。</p>
 
 <p>沒有 template 還有一個後果：就算寫完了，模型仍然會生成 <code>&lt;end_of_turn&gt;</code>（和第 1 章沒有 template 的情況一樣），只是 Q4 又把它從停止 token 裡拿掉了（R3），兩件事疊在一起。</p>
 
@@ -1000,7 +1006,7 @@ Here's why this paraphrase works:
 <p>兩種設定走出很不同的節奏：</p>
 
 <ul>
-<li><b>top_k=2 每一步都留 2 個</b>，所以每一步都有機會抽到第 2 名。第 0 句在 step 2、8、9 三步抽到非第 1 名：step 2 第 1 名是 Professor（0.6770），卻抽到 He（重新正規化 0.1755），整句從「Professor Lee」變成「He」；step 8 抽到 ▁top 而不是 ▁leading；step 9 的第 1 名是連字號 <code>-</code>（0.3877，大概是要寫 leading-edge 之類，推論），抽到第 2 名 ▁expert。</li>
+<li><b>top_k=2 每一步都留 2 個</b>，所以每一步都有機會抽到第 2 名。第 0 句在 step 2、8、9 三步抽到非第 1 名：step 2 第 1 名是 Professor（0.6770），卻抽到 He（重新正規化 0.1755），整句從「Professor Lee」變成「He」；step 8 抽到 ▁top 而不是 ▁leading；step 9 的第 1 名是連字號 <code>-</code>（0.3877），抽到第 2 名 ▁expert。前一步是 ▁top，本機把 <code>-</code> 接上去讓模型 greedy 往下寫，得到 <code>-</code>、<code>notch</code>、<code>▁expert</code>…，也就是 top-notch expert（<code>logs/review_ch04.txt</code>）。</li>
 <li><b>top_p=0.6 有 17 步只剩 1 個</b>，那些步等於 greedy。只有 step 0（第 1 名 0.5430）、step 7（0.5146）、step 9（0.5978）三步的第 1 名不到 0.6，留下 2 個；這三步也剛好都抽到第 1 名，所以整句就是 greedy 的那一句（<a href="#greedy-limit">4.7.2 節</a>）。注意 step 9 的 0.5978 只差 0.6 一點點，一樣要留第 2 名：這就是 <code>&lt;= 1 − p</code> 規則的邊界（其他加起來 0.4022，大於 0.4）。</li>
 </ul>
 
@@ -1061,7 +1067,7 @@ Professor Hung-yi Lee is one of the best teachers in the domain of machine learn
 
 <p>模型沒有改寫，而是先把原句抄一遍、準備寫「**Paraphrase**」，就被 30 token 的上限截斷了。同一份輸出裡 k=200 的第 11 句是 <code>Here I would like an accurate paraphrase,</code> 開頭，第 13 句是上一節的「Here's why this paraphrase works:」。分布越平，抽到低機率續寫的機會越多，句子越容易走偏、越容易寫到上限。這和<a href="#walk">上一節</a>的統計是同一件事的兩面：k=200 每步留 200 個、p=0.999 平均留 20 個，留下的候選裡有很多「不那麼像改寫」的選項。</p>
 
-<p>FACTS 還記錄了一個現象：事實腳本裡 <code>top_k=200</code> 與 <code>top_p=0.999, top_k=0</code> 兩個設定，在 5 個 seed 下抽出的 20 句<b>逐句相同</b>（<code>logs/facts_q4_q7.txt</code> 的兩段句子一模一樣）。<b>推論</b>：在這個 prompt 上，兩者留下的 token 集合幾乎相同（第一步一個留 200 個、一個留 607 個，但被額外留下的那些機率極小），同一條亂數流就抽出同樣的 token。本機沒有逐步比對兩者每一步的候選集合。</p>
+<p>FACTS 還記錄了一個現象：事實腳本裡 <code>top_k=200</code> 與 <code>top_p=0.999, top_k=0</code> 兩個設定，在 5 個 seed 下抽出的 20 句<b>逐句相同</b>（<code>logs/facts_q4_q7.txt</code> 的兩段句子一模一樣）。本機逐步比對了兩者的候選集合（<code>logs/review_ch04.txt</code>，467 步）：<b>集合其實差很多</b>，<code>top_p=0.999, top_k=0</code> 每步留下的中位數只有 26 個（最少 1 個、最多 14,579 個），467 步裡有 396 步比 200 少。但兩者都留住了幾乎全部的機率質量，所以重新正規化後的機率幾乎一樣：每一步兩邊機率差的最大值，中位數 0.0005、最大 0.0186。<code>torch.multinomial</code> 拿同一個亂數去查這兩張幾乎一樣的機率表，落在同一個 token 上，句子就逐句相同（最後這一步是推論，本機沒有拆開 multinomial 的內部）。</p>
 
 <h3 id="greedy-limit">4.7.2　k=1 與 p=0：都退化成 greedy</h3>
 
@@ -1092,7 +1098,7 @@ self-BLEU Score for top_p (p=0.0): 1.0000</pre>
 <h4>讀 code 不盡信文件：R2、R3、R4 與 S1</h4>
 <p>（R2–R4 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡 repo 問題的第 2–4 條，S1 是「投影片與程式不一致」的第 1 條；S3 在 <a href="#four">4.7.1 節</a>。）這四條都是原版 Colab 就有、hw3.py 為了和助教的參考答案一致而保留的（hw3.py 的 docstring，<a href="ch00.html#skeleton">第 0 章 0.2 節</a>）。</p>
 <p><b>R2　「top-p 組」其實是 top_k=50 加上 top-p。</b>程式只傳 <code>top_p</code>，<code>generation_config</code> 的預設 top_k=50 照樣生效，而且先作用。p=0.6 時沒差；p=0.999 時，第一步的候選從 607 個變成 39 個（<a href="#r2">4.5.1 節</a>）。投影片問「top-p 的效果」，量到的是「top-k=50 之後的 top-p」。要只用 top-p，:231 加上 <code>top_k=0</code>。</p>
-<p><b>R3　eos_token_id 被蓋成 1。</b><code>generation_params</code> 傳了 <code>tokenizer.eos_token_id</code>（只有 <code>&lt;eos&gt;</code>），蓋掉模型的 <code>[1, 107]</code>，遇到 <code>&lt;end_of_turn&gt;</code> 不停。在 k=2 下多半只是多生成一個 <code>&lt;eos&gt;</code>；分布平的設定裡，有些句子寫到 30 token 上限（<a href="#r3">4.5.2 節</a>）。要和模型的預設一致，把 :215 拿掉，或改成 <code>"eos_token_id": [1, 107]</code>。改了之後句子會在哪裡停，本機沒有量。</p>
+<p><b>R3　eos_token_id 被蓋成 1。</b><code>generation_params</code> 傳了 <code>tokenizer.eos_token_id</code>（只有 <code>&lt;eos&gt;</code>），蓋掉模型的 <code>[1, 107]</code>，遇到 <code>&lt;end_of_turn&gt;</code> 不停。在 k=2 下多半只是多生成一個 <code>&lt;eos&gt;</code>；分布平的設定裡，有些句子寫到 30 token 上限（<a href="#r3">4.5.2 節</a>）。要和模型的預設一致，把 :215 拿掉，或改成 <code>"eos_token_id": [1, 107]</code>。改了之後每一句都停在 <code>&lt;end_of_turn&gt;</code>，碰到上限的句數也變少（<a href="#r3">4.5.2 節</a>）。</p>
 <p><b>R4　沒有 chat template。</b>一個對話格式訓練的模型，拿到裸的指令，第一個 token 有超過九成的機率是空白或換行，句子開頭多半是空白與換行（本機的第 0 句是 <code>' \n\n'</code>），靠 :235 的 <code>.strip()</code> 收拾（<a href="#r4">4.5.3 節</a>）。第 1 章看過，同一個模型有沒有 template，回答的樣子很不同；Q4 測的是「沒有 template 時的改寫」。</p>
 <p><b>S1　投影片的 prompt 少了 Hung-yi。</b>p.18 寫 <code>'Professor Lee is one of the best teachers in the domain of machine learning'</code>，原版 Colab 與 hw3.py:208 都是 <code>'Professor Hung-yi Lee is one of the best teachers ...'</code>。以程式為準：你自己跑時用的是程式裡的句子。生成的句子大多寫成「Professor Lee」，但也有寫出全名的（例如 k=2 第 14 句 <code>Professor Hung-yi Lee is highly regarded ...</code>），那是 prompt 裡本來就有全名的緣故。</p>
 </div>
@@ -1111,7 +1117,7 @@ self-BLEU Score for top_p (p=0.0): 1.0000</pre>
 <p>第二行是「每步留下幾個」的次數分布（<code>kept-token histogram</code>）。</p>
 <p>想用 hw3.py 自己驗證 R2，要做一組前後對照，兩次的旗標完全相同，只差 :231 有沒有 <code>top_k=0</code>。先用沒改過的 hw3.py 跑一次當基準：</p>
 <pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-p 0.999</pre>
-<p>再把 :231 暫時改成在 <code>top_p=top_p</code> 後面多傳一個 <code>top_k=0</code>，用同一條指令再跑一次，比較兩次的 top-p 組。兩次的 top-k 組（k=2，在 top-p 之前抽）應該逐句相同，因為它們用的亂數一樣；top-p 組的句子則可能不同。這組對照本書沒有跑過，所以沒有預期的句子；事實腳本做過的對照（各自從 seed 0 起算）見 <a href="#r2">4.5.1 節</a>。改完記得把 :231 改回來。</p>
+<p>再把 :231 暫時改成在 <code>top_p=top_p</code> 後面多傳一個 <code>top_k=0</code>，用同一條指令再跑一次，比較兩次的 top-p 組。兩次的 top-k 組（k=2，在 top-p 之前抽）應該逐句相同，因為它們用的亂數一樣；top-p 組的句子則可能不同。本機用 hw3.py 的順序跑過這組對照（<code>logs/review_ch04.txt</code>）：<code>--q 4 --seed 0</code> 與 <code>--top-k 200 --top-p 0.999</code> 兩條指令，加了 <code>top_k=0</code> 之後 top-k 組與 top-p 組都 <b>20 句全部相同</b>，雖然每步的候選最多變成 5,766 個，<code>top_k=0</code> 確實生效了。原因同上一段：被 top_k=50 擋掉的那些 token 機率太小，這條亂數流剛好一次都沒抽中。換一個起點就可能不同：事實腳本各自從 seed 0 起算的對照，p=0.999 加不加 <code>top_k=0</code> 結果就不一樣（<a href="#r2">4.5.1 節</a>）。改完記得把 :231 改回來。</p>
 </div>
 
 <h2 id="pitfalls">4.10　常見錯誤</h2>

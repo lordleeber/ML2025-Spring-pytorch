@@ -877,8 +877,23 @@
 - **原版 Colab**：第 22 格是「## Q4: Auto-regressive generation」標題，第 23 格是整個 Q4（第一個 TODO 寫死 `top_k = 2`、`top_p = 0.6`；建了 `kv_cache = HybridCache(...)` 但沒傳給 generate；第二個 TODO 的提示「Hint: You can check how we generate the text with top_k」），第 24 格是 `compute_self_bleu` 與印分數。
 - **計算值**：hw3.py `--q 4 --seed 0` 的 top-p 20 句裡，`Professor Lee is highly regarded as a leading expert in machine learning education.` 出現 10 次（本書數的，run_q4_seed0.txt 第 33–52 行）。top_k=200 的 467 步裡留下 201–203 個的有 57 步（53 + 3 + 1）。Q4 第一個新 token 前三名（空白、換行、兩個空白）合計 0.9279。
 - **top_k=2 第 17、18 句**都是 30 個新 token：第 18 句第 30 個是 `<eos>`（自己停），第 17 句第 30 個是 `<end_of_turn>`（被上限截斷）。
-- **沒有量、ch04 標為推論或 TODO 的**：k=200／p=0.999 碰到上限的句子中途有沒有 `<end_of_turn>`（TODO）；eos 改回 `[1, 107]` 後句子停在哪；`top_k=200` 與 `top_p=0.999, top_k=0` 抽出相同句子的原因；`.replace(" ,", ",")` 等在這次輸出裡有沒有作用；step 9 第 1 名 `-` 是要寫 leading-edge 之類；直接改 hw3.py:231 加 `top_k=0` 的對照（ch04 4.9 只給做法）。
+- **沒有量、ch04 標為推論或 TODO 的**（本機審稿已實測，見「ch04 審稿補測」；只剩 multinomial 內部與 replace 的原意仍是推論）：k=200／p=0.999 碰到上限的句子中途有沒有 `<end_of_turn>`（TODO）；eos 改回 `[1, 107]` 後句子停在哪；`top_k=200` 與 `top_p=0.999, top_k=0` 抽出相同句子的原因；`.replace(" ,", ",")` 等在這次輸出裡有沒有作用；step 9 第 1 名 `-` 是要寫 leading-edge 之類；直接改 hw3.py:231 加 `top_k=0` 的對照（ch04 4.9 只給做法）。
 - **ch04 第一次交代的名詞**：sampling／取樣、top-k、top-p（nucleus sampling）、logits processor／warper、temperature、beam search（一句帶過）、`torch.multinomial`、原始機率 vs 重新正規化、機率質量、`min_tokens_to_keep`、`max_length` vs `max_new_tokens`、`return_dict_in_generate`／`.sequences`、`GenerationMixin`、`scatter`／`masked_fill`。
+
+## ch04 審稿補測（本機，2026-10-04；`hw03_facts.py review_ch04`，logs/review_ch04.txt）
+
+- **重現**：照 hw3.py 的順序（`model._cache = None`、`torch.manual_seed(0)`、20 句 top-k 再 20 句 top-p）重跑，`--q 4 --seed 0` 與 `--q 4 --seed 0 --top-k 200 --top-p 0.999` 的 40 句都和 logs/run_q4_seed0.txt、logs/run_q4_k200_p0999_seed0.txt 逐句相同。hw3.py 的 k=200 指令本機連跑兩次，輸出也和 log 逐字相同。
+- **碰到 30 上限的句子**（hw3.py 順序）：
+  - k=2：第 17、18 句（見「ch04 寫作時查證的事項」）。
+  - k=200：第 7、11、12、13 句，最後一個 token 是 ▁is、▁leader、▁in、▁on。第一個 `<end_of_turn>` 出現在第 25、無、20、無個 token（第 7、12 句生成 `<end_of_turn>` 後繼續寫 `Professor Lee is …`）。
+  - p=0.999：第 4、14、17 句。第 4 句沒有 `<end_of_turn>`，結尾 `**Par`；第 14 句第 30 個是 `<end_of_turn>`；第 17 句第 29 個 `<end_of_turn>`、第 30 個 `<eos>`。
+  - p=0.6：0 句。
+- **eos_token_id 改成 [1, 107]**（同樣順序從 seed 0）：四個設定每句最後一個 token 都是 `<end_of_turn>`（碰到上限的除外）。碰到上限的句數：k=2 1、p=0.6 0、k=200 2、p=0.999 1。第一句提早停之後亂數流就錯開，只能比句數。
+- **第一個新 token**（hw3.py 順序，各 20 句）：k=2 ▁ 10、`\n\n` 10；p=0.6 ▁ 16、`\n\n` 4；k=200 ▁ 8、`\n\n` 6、▁▁ 3、▁Professor 3；p=0.999 ▁ 15、`\n\n` 3、▁Here 1、▁He 1。
+- **hw3.py:235 的三個 replace**：四個設定共 80 句 decode 後的字串裡，`' ,'`、`" 's"`、`' .'` 都沒有出現。
+- **hw3.py:231 加 `top_k=0`**（hw3.py 順序）：p=0.6 與 p=0.999 兩條指令的 top-k 組、top-p 組都 20/20 和沒加時相同；加了之後每步候選最多 5,766 個（沒加時最多 50 個），確認有生效。
+- **top_k=200 vs top_p=0.999, top_k=0**（各自從 seed 0，20 句逐句相同，467 步）：top_p 每步留下中位數 26、最少 1、最多 14,579 個；396 步少於 200 個。重新正規化後兩邊機率差的最大值：中位數 0.00051、最大 0.0186；只有 top_p 留下的 token 的機率合計：中位數 0、最大 0.0510。
+- **k=2 第 0 句 step 9 的 `-`**：接在 `… as a top` 後面，greedy 往下是 `-`、`notch`、`▁expert`、`▁in`…（top-notch）。
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -911,6 +926,7 @@
 - facts_pre_ch03.txt：`hw03_facts.py pre_ch03` 的輸出與 byte fallback 的補充。
 - review_ch03.txt：ch03 審稿補測（shell 引號、argparse 錯誤、`hw03_facts.py review_ch03` 的輸出）。
 - facts_pre_ch04.txt：`hw03_facts.py pre_ch04` 的輸出（過濾器作用在 Q2 第 1 輪與 Q4 第一步、逐步重現 Q4 第 0 句）。
+- review_ch04.txt：`hw03_facts.py review_ch04` 的輸出（hw3.py 順序下的 eos [1, 107]、top_k=0 對照，碰到上限的句子，top_k=200 與 top_p=0.999 的逐步比較）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
