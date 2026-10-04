@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -637,6 +637,246 @@ def rescale26_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# Review of ch01: what the Colab TODO does without max_new_tokens / do_sample, chat_template errors
+def review_ch01_facts(tokenizer, model):
+    import warnings
+
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    section("review_ch01")
+    sm = AutoModelForSequenceClassification.from_pretrained(hw3.SCORING_MODEL_ID)
+    st = AutoTokenizer.from_pretrained(hw3.SCORING_MODEL_ID)
+    question = "Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words."
+    prompt_t = tokenizer.apply_chat_template([{"role": "user", "content": question}], tokenize=False, add_generation_prompt=True)
+
+    def run(prompt, label, **kw):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)  # as hw3.py:77 (double <bos>)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            out = model.generate(input_ids, **kw)
+        new = out[0, input_ids.shape[1]:]
+        text = tokenizer.decode(out[0], skip_special_tokens=True)
+        resp = (text.split("model\n")[-1] if prompt is prompt_t else text.split(question.split(" ")[-1])[-1]).strip("\n").strip()
+        score = hw3.calculate_coherence(question, resp, sm, st)
+        print(f"--- {label}: generate({', '.join(f'{k}={v}' for k, v in kw.items())})")
+        print(f"  new tokens {len(new)}, last token {tokenizer.convert_ids_to_tokens(int(new[-1]))!r}, coherence {score:.4f}")
+        for x in w:
+            print(f"  python warning: {x.category.__name__}: {x.message}")
+        print(f"  response: {resp!r}")
+        return new
+
+    for prompt, name in [(prompt_t, "with template"), (question, "without template")]:
+        model._cache = None  # start every run from a fresh KV cache (see R10)
+        ref = run(prompt, f"{name}, hw3.py", max_new_tokens=512, do_sample=False)
+        model._cache = None
+        a = run(prompt, f"{name}, no do_sample", max_new_tokens=512)
+        print(f"  identical to hw3.py: {torch.equal(ref, a)}")
+        model._cache = None
+        run(prompt, f"{name}, Colab TODO without max_new_tokens", do_sample=False)
+    print("generation_config.max_length", model.generation_config.max_length, "max_new_tokens", model.generation_config.max_new_tokens)
+
+    for label, chat in [("system role", [{"role": "system", "content": "Be brief."}, {"role": "user", "content": question}]),
+                        ("two user turns", [{"role": "user", "content": "Hi"}, {"role": "user", "content": question}])]:
+        try:
+            tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+            print(f"{label}: no error")
+        except Exception as e:
+            print(f"{label}: {type(e).__module__}.{type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# ch00b (KV cache chapter): speed, prefill vs decode, cache layout, masking, numerics
+def kvcache_facts(tokenizer, model):
+    from transformers import DynamicCache, HybridCache
+
+    section("kvcache")
+    cfg = model.config
+    gib = 2**30
+    question = "Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words."
+    prompt_t = tokenizer.apply_chat_template([{"role": "user", "content": question}], tokenize=False, add_generation_prompt=True)
+    ids = tokenizer(prompt_t, return_tensors="pt").input_ids.to(DEVICE)  # Q1 with template, as hw3.py (32 tokens)
+    T = ids.shape[1]
+
+    def sync_time(f):
+        torch.cuda.synchronize()
+        t0 = time.time()
+        r = f()
+        torch.cuda.synchronize()
+        return r, time.time() - t0
+
+    def fresh(n):
+        return HybridCache(config=cfg, max_batch_size=1, max_cache_len=n, device=DEVICE, dtype=hw3.DTYPE)
+
+    # 1. generate with and without cache (fresh cache each time; warm-up first)
+    model.generate(ids, max_new_tokens=8, do_sample=False)
+    model._cache = None
+    out_c, t_c = sync_time(lambda: model.generate(ids, max_new_tokens=512, do_sample=False, output_logits=True, return_dict_in_generate=True))
+    model._cache = None
+    out_n, t_n = sync_time(lambda: model.generate(ids, max_new_tokens=512, do_sample=False, use_cache=False))
+    gen_c, gen_n = out_c.sequences[0, T:], out_n[0, T:]
+    k = next((i for i in range(min(len(gen_c), len(gen_n))) if gen_c[i] != gen_n[i]), None)
+    print(f"[1] Q1 prompt ({T} tokens), greedy, max_new_tokens=512:")
+    print(f"  use_cache=True : {len(gen_c)} new tokens in {t_c:.2f} s ({len(gen_c) / t_c:.1f} tok/s)")
+    print(f"  use_cache=False: {len(gen_n)} new tokens in {t_n:.2f} s ({len(gen_n) / t_n:.1f} tok/s)")
+    print(f"  identical tokens: {torch.equal(gen_c, gen_n)}; first differing new token: {k}"
+          + ("" if k is None else f" ({tokenizer.convert_ids_to_tokens(int(gen_c[k]))!r} vs {tokenizer.convert_ids_to_tokens(int(gen_n[k]))!r})"))
+    N = len(gen_c)
+    print(f"  tokens pushed through the model: with cache {T} + {N - 1} = {T + N - 1}; "
+          f"without cache sum_(i=0..{N - 1}) ({T}+i) = {sum(T + i for i in range(N))}")
+
+    # 2. the same sequence in one forward pass vs the step-by-step logits from generate
+    seq = out_c.sequences[:, :-1]
+    with torch.no_grad():
+        full = model(seq, use_cache=False).logits[0, T - 1:].float()
+    steps = torch.stack(out_c.logits)[:, 0].float()
+    d = (full - steps).abs().amax(-1)
+    agree = (full.argmax(-1) == gen_c).sum().item()
+    bad = [i for i in range(N) if full[i].argmax() != gen_c[i]]
+    for i in bad:
+        top = torch.topk(steps[i], 2)
+        print(f"  step {i}: generate picked {tokenizer.convert_ids_to_tokens(int(gen_c[i]))!r}, one-pass argmax "
+              f"{tokenizer.convert_ids_to_tokens(int(full[i].argmax()))!r}; generate's top-2 logits "
+              f"{[(tokenizer.convert_ids_to_tokens(int(j)), round(float(v), 4)) for v, j in zip(top.values, top.indices)]}")
+    print(f"[2] one forward over all {seq.shape[1]} tokens vs generate's per-step logits ({N} steps): "
+          f"max |diff| {d.max():.4f}, mean of per-step max {d.mean():.4f}, steps with diff 0: {(d == 0).sum().item()}; "
+          f"argmax agrees with the generated token at {agree}/{N} steps")
+
+    # 3. prefill vs decode timing with an explicit HybridCache; no-cache forward at growing lengths
+    n_dec = 64
+    pos = torch.arange(T, device=DEVICE)
+    with torch.no_grad():
+        cache = fresh(T + n_dec)
+        model(ids, past_key_values=cache, cache_position=pos, use_cache=True)  # warm-up
+        cache = fresh(T + n_dec)
+        o, t_pre = sync_time(lambda: model(ids, past_key_values=cache, cache_position=pos, use_cache=True))
+        nxt = o.logits[:, -1:].argmax(-1)
+        dec = []
+        for i in range(n_dec):
+            o, t = sync_time(lambda: model(nxt, past_key_values=cache, cache_position=torch.tensor([T + i], device=DEVICE), use_cache=True))
+            nxt = o.logits[:, -1:].argmax(-1)
+            dec.append(t)
+    print(f"[3] prefill {T} tokens: {t_pre * 1000:.1f} ms; decode 1 token with cache: median {np.median(dec) * 1000:.1f} ms "
+          f"(min {min(dec) * 1000:.1f}, max {max(dec) * 1000:.1f}) over {n_dec} steps")
+    with torch.no_grad():
+        for L in [32, 64, 128, 256, T + N - 1]:
+            x = out_c.sequences[:, :L]
+            model(x, use_cache=False)
+            ts = [sync_time(lambda: model(x, use_cache=False))[1] for _ in range(5)]
+            print(f"    no-cache forward of {x.shape[1]:4d} tokens (= one generation step without cache): median {np.median(ts) * 1000:.1f} ms")
+
+    # 3b. long sequences: one decode step with a nearly full cache vs one no-cache forward of the same length
+    filler = out_c.sequences[0].repeat(20)[None]  # real tokens, repeated, only used for timing
+    with torch.no_grad():
+        for L in [512, 1024, 2048, 4096]:
+            x = filler[:, :L]
+            model(x, use_cache=False)
+            ts = [sync_time(lambda: model(x, use_cache=False))[1] for _ in range(3)]
+            cache = fresh(L + 1)
+            model(x, past_key_values=cache, cache_position=torch.arange(L, device=DEVICE), use_cache=True)
+            nx = x[:, -1:]
+            model(nx, past_key_values=cache, cache_position=torch.tensor([L], device=DEVICE), use_cache=True)
+            td = [sync_time(lambda: model(nx, past_key_values=cache, cache_position=torch.tensor([L], device=DEVICE), use_cache=True))[1]
+                  for _ in range(5)]
+            print(f"    length {L:4d}: no-cache forward median {np.median(ts) * 1000:.1f} ms; one decode step with {L} cached tokens median "
+                  f"{np.median(td) * 1000:.1f} ms; peak allocated {torch.cuda.max_memory_allocated() / gib:.2f} GiB so far")
+            del cache
+    # 3c. force 1024 new tokens with and without cache
+    for uc in [True, False]:
+        model._cache = None
+        torch.cuda.reset_peak_memory_stats()
+        o, t = sync_time(lambda: model.generate(ids, min_new_tokens=1024, max_new_tokens=1024, do_sample=False, use_cache=uc))
+        print(f"    generate exactly {o.shape[1] - T} new tokens, use_cache={uc}: {t:.1f} s; peak allocated {torch.cuda.max_memory_allocated() / gib:.2f} GiB")
+
+    # 4. what the cache looks like
+    model._cache = None
+    model.generate(ids, max_new_tokens=512, do_sample=False)
+    c = model._cache
+    print(f"[4] model._cache after generate: {type(c).__name__}, max_cache_len {c.max_cache_len}, layers {len(c.key_cache)}, "
+          f"is_sliding[:4] {c.is_sliding[:4].tolist()}")
+    for li in [0, 1]:
+        kc = c.key_cache[li]
+        filled = int(kc[0, 0].any(-1).sum())
+        print(f"  layer {li} ({'sliding' if c.is_sliding[li] else 'global'}): key {tuple(kc.shape)} value {tuple(c.value_cache[li].shape)} {kc.dtype}; "
+              f"slots holding non-zero keys: {filled}; slots after them all zero: {bool((kc[0, :, filled:] == 0).all())}")
+    nbytes = sum(t.numel() * t.element_size() for t in c.key_cache + c.value_cache)
+    print(f"  total {nbytes:,} bytes = {nbytes / gib:.4f} GiB; per slot {nbytes // c.max_cache_len:,} bytes")
+    big = fresh(8192)
+    nb = sum(t.numel() * t.element_size() for t in big.key_cache + big.value_cache)
+    print(f"  HybridCache(max_cache_len=8192): layer 0 {tuple(big.key_cache[0].shape)}, layer 1 {tuple(big.key_cache[1].shape)}; "
+          f"total {nb:,} bytes = {nb / gib:.3f} GiB")
+    del big
+    try:
+        dc = DynamicCache()
+        with torch.no_grad():
+            o = model(ids, past_key_values=dc, use_cache=True)
+        pk = o.past_key_values
+        print(f"  forward with past_key_values=DynamicCache(): returned {type(pk).__name__}; "
+              f"layer 0 key {tuple(pk.key_cache[0].shape) if hasattr(pk, 'key_cache') else None}")
+    except Exception as e:
+        print(f"  forward with past_key_values=DynamicCache(): {type(e).__name__}: {e}")
+    with torch.no_grad():
+        o = model(ids, use_cache=True)
+    print(f"  forward(use_cache=True) without a cache argument returns {type(o.past_key_values).__name__} "
+          f"with max_cache_len {o.past_key_values.max_cache_len} (= prompt length)")
+
+    # 5. cached k/v of a prefix do not depend on later tokens
+    pc = tokenizer("Time travel will become a reality as technology continues to advance.", return_tensors="pt").input_ids.to(DEVICE)
+    ca, cb = fresh(32), fresh(32)
+    with torch.no_grad():
+        model(pc, past_key_values=ca, cache_position=torch.arange(pc.shape[1], device=DEVICE), use_cache=True)
+        model(pc[:, :6], past_key_values=cb, cache_position=torch.arange(6, device=DEVICE), use_cache=True)
+    dk = max(float((ca.key_cache[i][:, :, :6].float() - cb.key_cache[i][:, :, :6].float()).abs().max()) for i in range(26))
+    dv = max(float((ca.value_cache[i][:, :, :6].float() - cb.value_cache[i][:, :, :6].float()).abs().max()) for i in range(26))
+    print(f"[5] prompt c ({pc.shape[1]} tokens) vs its first 6 tokens: max |diff| of cached keys at positions 0-5 over 26 layers {dk:.4f}, values {dv:.4f}")
+
+    # 6. unwritten slots get exactly zero attention
+    cache = fresh(T + 512)
+    with torch.no_grad():
+        o = model(ids, past_key_values=cache, cache_position=torch.arange(T, device=DEVICE), use_cache=True, output_attentions=True)
+        a = o.attentions
+        o2 = model(o.logits[:, -1:].argmax(-1), past_key_values=cache, cache_position=torch.tensor([T], device=DEVICE),
+                   use_cache=True, output_attentions=True)
+    print(f"[6] prefill attentions: {len(a)} x {tuple(a[0].shape)}; weight on slots >= {T} summed over all layers/heads/rows: "
+          f"{sum(float(x[..., T:].float().sum()) for x in a)}; rows sum to 1: max |sum-1| {max(float((x.float().sum(-1) - 1).abs().max()) for x in a):.2e}")
+    a2 = o2.attentions
+    print(f"    decode step 1: {tuple(a2[0].shape)}; weight on slots >= {T + 1}: {sum(float(x[..., T + 1:].float().sum()) for x in a2)}; "
+          f"min weight on slot {T} (the new token itself) over layers/heads {min(float(x[..., T].min()) for x in a2):.4f}")
+    print(f"    fp16 mask value finfo(float16).min = {torch.finfo(torch.float16).min}")
+
+    # 7. where does a different cache length first change the numbers? (Q1 without template, decode step 2)
+    q = tokenizer(question, return_tensors="pt").input_ids.to(DEVICE)
+    feats = {}
+    for n in [535, 544]:
+        cache = fresh(n)
+        acts = []
+        hooks = [model.model.layers[li].self_attn.register_forward_hook(
+            lambda m, i, out, li=li: acts.append((li, out[0].detach().float().clone(), None if out[1] is None else out[1].detach().float().clone())))
+            for li in range(26)]
+        with torch.no_grad():
+            o = model(q, past_key_values=cache, cache_position=torch.arange(q.shape[1], device=DEVICE), use_cache=True)
+            t = o.logits[:, -1:].argmax(-1)
+            for i in range(3):
+                acts.clear()
+                o = model(t, past_key_values=cache, cache_position=torch.tensor([q.shape[1] + i], device=DEVICE), use_cache=True,
+                          output_attentions=True)
+                t = o.logits[:, -1:].argmax(-1)
+        for h in hooks:
+            h.remove()
+        feats[n] = acts[:]
+    L = q.shape[1] + 3
+    first = None
+    for (li, oa, wa), (_, ob, wb) in zip(feats[535], feats[544]):
+        dw = float((wa[..., :L] - wb[..., :L]).abs().max())
+        do = float((oa - ob).abs().max())
+        if first is None and (dw > 0 or do > 0):
+            first = (li, dw, do)
+    print(f"[7] Q1 without template, 3rd decode step, cache 535 vs 544: first layer whose self_attn differs: "
+          f"{None if first is None else first[0]} (max |diff| attention weights on written slots "
+          f"{first[1] if first else 0}, attention output {first[2] if first else 0})")
+    model._cache = None
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -652,7 +892,8 @@ def main():
         print(f"load_model {time.time() - t0:.1f}s")
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
-              "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts}
+              "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

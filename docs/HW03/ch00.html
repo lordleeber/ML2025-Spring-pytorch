@@ -585,7 +585,7 @@ footer.chap-footer {
 </style>
 </head>
 <body>
-<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><span class="disabled">第 1 章 →</span></nav>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><a href="ch00b.html">補充章 KV cache →</a></nav>
 <header class="chap-header">
   <p class="book-title">ML2025 Spring HW03 教材</p>
   <h1>第 0 章　開工前：環境、CLI 與 Gemma-2-2b-it 模型總覽</h1>
@@ -731,7 +731,7 @@ def main():
 <ul>
 <li><code>--q</code> 的 <code>nargs="+"</code> 讓它可以給多個題號，例如 <code>--q 1 3 4</code>；不給就是 <code>list(QUESTIONS)</code>，也就是 1 到 7 全跑；<code>choices</code> 限定只能是 1–7，給 8 會被 argparse 擋下來。</li>
 <li>執行順序是你寫的順序，不是由小到大：<code>for q in args.q</code> 直接照 list 走。</li>
-<li>七題共用同一個 <code>model</code> 物件。這省下了重複載入的時間，代價是前一題留在模型物件上的狀態會被下一題看到。最明顯的是 KV cache：模型逐字生成時，把前面每個 token 在每一層算過的 key、value 存起來，下一步就不必重算（Gemma 2 用的類別叫 <code>HybridCache</code>）。Q1 跑完後，<code>model.generate</code> 會在 <code>model._cache</code> 留下一個 0.054 GiB 的 HybridCache（<a href="#time-mem">0.10 節</a>），後面的題目會沿用它。這件事會讓 Q4 的取樣結果跟「只跑 Q4」不同，第 5 章專門處理。</li>
+<li>七題共用同一個 <code>model</code> 物件。這省下了重複載入的時間，代價是前一題留在模型物件上的狀態會被下一題看到。最明顯的是 KV cache：模型逐字生成時，把前面每個 token 在每一層算過的 key、value 存起來，下一步就不必重算（Gemma 2 用的類別叫 <code>HybridCache</code>；它存了什麼、佔多少、怎麼被沿用，<a href="ch00b.html">補充章</a>整章講）。Q1 跑完後，<code>model.generate</code> 會在 <code>model._cache</code> 留下一個 0.054 GiB 的 HybridCache（<a href="#time-mem">0.10 節</a>），後面的題目會沿用它。這件事會讓 Q4 的取樣結果跟「只跑 Q4」不同，第 5 章專門處理。</li>
 <li><code>--seed</code> 只做一件事：在載入模型<b>之前</b>呼叫一次 <code>torch.manual_seed</code>。沒給就完全不設（原版 Colab 也沒設，見 :487 的 help）。只有 Q4 有隨機取樣，所以 seed 實際上只影響 Q4。</li>
 <li><code>ArgumentParser(description=__doc__)</code> 把整段 docstring 當成 <code>--help</code> 的說明文字。<code>--help</code> 在 argparse 解析時就結束程式，不會載入模型：本機實測先印 <code>usage: hw3.py [-h] [--q {1,2,3,4,5,6,7} ...</code>，接著是整段 docstring 與旗標說明，整條指令 2.2 秒，時間花在 import torch、transformers 這些套件（<code>logs/review_ch00_errors.txt</code> 第 3 段）。</li>
 </ul>
@@ -1408,7 +1408,7 @@ weights in fp16: 4.87 GiB; cuda allocated after load 4.87 GiB «4»</pre>
 <li><code>hidden_states</code> 有 27 個：[0] 是 embedding × 48，[i] 是 block i−1 的輸出，[26] 是最後 norm 之後。</li>
 <li>七題合計 39.0 s，Q4 最慢；GPU 記憶體峰值 5.26 GiB（Q7）。</li>
 </ul>
-<p>下一章從 Q1 開始：同一個問題，套不套 chat template，模型看到的 token 與回答有什麼不同。</p>
+<p>下一章是補充章：生成時模型記住了什麼（KV cache）。它在第 1、5、7 章都會用到，所以先講。之後從 Q1 開始：同一個問題，套不套 chat template，模型看到的 token 與回答有什麼不同。</p>
 </div>
 
 <h2 id="quiz">自我測驗</h2>
@@ -1444,7 +1444,7 @@ weights in fp16: 4.87 GiB; cuda allocated after load 4.87 GiB «4»</pre>
 </ul>
 
 </main>
-<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><span class="disabled">第 1 章 →</span></nav>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><a href="ch00b.html">補充章 KV cache →</a></nav>
 <footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
 <script id="inline-js">
 /* repo → HTML 教材 — 頁面強化腳本

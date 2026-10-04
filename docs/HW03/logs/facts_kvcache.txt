@@ -1,0 +1,78 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.16s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.80it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.55it/s]
+load_model 3.3s
+
+==================== kvcache ====================
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1160, in emit
+    msg = self.format(record)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/logging/__init__.py", line 703, in format
+    record.message = record.getMessage()
+                     ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/logging/__init__.py", line 392, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/docs/tools/hw03_facts.py", line 905, in <module>
+    main()
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/docs/tools/hw03_facts.py", line 900, in main
+    fn[s](tokenizer, model)
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/docs/tools/hw03_facts.py", line 715, in kvcache_facts
+    out_n, t_n = sync_time(lambda: model.generate(ids, max_new_tokens=512, do_sample=False, use_cache=False))
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/docs/tools/hw03_facts.py", line 703, in sync_time
+    r = f()
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/docs/tools/hw03_facts.py", line 715, in <lambda>
+    out_n, t_n = sync_time(lambda: model.generate(ids, max_new_tokens=512, do_sample=False, use_cache=False))
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2008, in generate
+    generation_config, model_kwargs = self._prepare_generation_config(generation_config, **kwargs)
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 1544, in _prepare_generation_config
+    model_kwargs = generation_config.update(**kwargs)
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/transformers/generation/configuration_utils.py", line 1325, in update
+    self.validate()
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/transformers/generation/configuration_utils.py", line 789, in validate
+    logger.warning_once(
+  File "/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/.venv/lib/python3.12/site-packages/transformers/utils/logging.py", line 328, in warning_once
+    self.warning(*args, **kwargs)
+Message: 'You have set `use_cache` to `False`, but cache_implementation is set to hybrid. cache_implementation will have no effect.'
+Arguments: (<class 'UserWarning'>,)
+[1] Q1 prompt (32 tokens), greedy, max_new_tokens=512:
+  use_cache=True : 240 new tokens in 5.69 s (42.2 tok/s)
+  use_cache=False: 240 new tokens in 6.10 s (39.3 tok/s)
+  identical tokens: False; first differing new token: 234 ('▁available' vs '▁data')
+  tokens pushed through the model: with cache 32 + 239 = 271; without cache sum_(i=0..239) (32+i) = 36360
+  step 234: generate picked '▁available', one-pass argmax '▁data'; generate's top-2 logits [('▁available', 19.0469), ('▁data', 19.0312)]
+[2] one forward over all 271 tokens vs generate's per-step logits (240 steps): max |diff| 0.0625, mean of per-step max 0.0390, steps with diff 0: 0; argmax agrees with the generated token at 239/240 steps
+[3] prefill 32 tokens: 24.7 ms; decode 1 token with cache: median 22.7 ms (min 22.1, max 24.8) over 64 steps
+    no-cache forward of   32 tokens (= one generation step without cache): median 22.2 ms
+    no-cache forward of   64 tokens (= one generation step without cache): median 21.7 ms
+    no-cache forward of  128 tokens (= one generation step without cache): median 22.6 ms
+    no-cache forward of  256 tokens (= one generation step without cache): median 31.3 ms
+    no-cache forward of  271 tokens (= one generation step without cache): median 35.5 ms
+    length  512: no-cache forward median 49.4 ms; one decode step with 512 cached tokens median 23.1 ms; peak allocated 6.23 GiB so far
+    length 1024: no-cache forward median 90.0 ms; one decode step with 1024 cached tokens median 22.9 ms; peak allocated 6.73 GiB so far
+    length 2048: no-cache forward median 218.7 ms; one decode step with 2048 cached tokens median 23.3 ms; peak allocated 7.82 GiB so far
+    length 4096: no-cache forward median 604.3 ms; one decode step with 4096 cached tokens median 24.2 ms; peak allocated 9.98 GiB so far
+    generate exactly 1024 new tokens, use_cache=True: 26.3 s; peak allocated 5.77 GiB
+    generate exactly 1024 new tokens, use_cache=False: 52.6 s; peak allocated 5.75 GiB
+[4] model._cache after generate: HybridCache, max_cache_len 544, layers 26, is_sliding[:4] [True, False, True, False]
+  layer 0 (sliding): key (1, 4, 544, 256) value (1, 4, 544, 256) torch.float16; slots holding non-zero keys: 271; slots after them all zero: True
+  layer 1 (global): key (1, 4, 544, 256) value (1, 4, 544, 256) torch.float16; slots holding non-zero keys: 271; slots after them all zero: True
+  total 57,933,824 bytes = 0.0540 GiB; per slot 106,496 bytes
+  HybridCache(max_cache_len=8192): layer 0 (1, 4, 4096, 256), layer 1 (1, 4, 8192, 256); total 654,311,424 bytes = 0.609 GiB
+  forward with past_key_values=DynamicCache(): returned DynamicCache; layer 0 key (1, 4, 32, 256)
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+  forward(use_cache=True) without a cache argument returns HybridCache with max_cache_len 32 (= prompt length)
+[5] prompt c (13 tokens) vs its first 6 tokens: max |diff| of cached keys at positions 0-5 over 26 layers 0.0078, values 0.0078
+[6] prefill attentions: 26 x (1, 8, 32, 544); weight on slots >= 32 summed over all layers/heads/rows: 0.0; rows sum to 1: max |sum-1| 3.36e-04
+    decode step 1: (1, 8, 1, 544); weight on slots >= 33: 0.0; min weight on slot 32 (the new token itself) over layers/heads 0.0000
+    fp16 mask value finfo(float16).min = -65504.0
+[7] Q1 without template, 3rd decode step, cache 535 vs 544: first layer whose self_attn differs: 7 (max |diff| attention weights on written slots 0.0003662109375, attention output 0.001953125)
+[kvcache took 106.8s]

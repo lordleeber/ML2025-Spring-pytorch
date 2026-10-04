@@ -1,0 +1,13 @@
+$ .venv/bin/python docs/tools/hw03_cache_overflow.py
+prefill 3 tokens into a 3-slot cache: ok
+decode into slot 3: model(...) returned without an exception
+/pytorch/aten/src/ATen/native/cuda/IndexKernel.cu:111: operator(): block: [0,0,0], thread: [32,0,0] Assertion `-sizes[i] <= index && index < sizes[i] && "index out of bounds"` failed.
+/pytorch/aten/src/ATen/native/cuda/IndexKernel.cu:111: operator(): block: [0,0,0], thread: [33,0,0] Assertion `-sizes[i] <= index && index < sizes[i] && "index out of bounds"` failed.
+...（同樣的 Assertion 一共 160 行，略）
+AcceleratorError: CUDA error: device-side assert triggered
+
+$ CUDA_LAUNCH_BLOCKING=1 .venv/bin/python docs/tools/hw03_cache_overflow.py
+prefill 3 tokens into a 3-slot cache: ok
+/pytorch/aten/src/ATen/native/cuda/IndexKernel.cu:111: operator(): block: [0,0,0], thread: [0,0,0] Assertion `-sizes[i] <= index && index < sizes[i] && "index out of bounds"` failed.
+...（其餘 Assertion 略）
+AcceleratorError: CUDA error: device-side assert triggered

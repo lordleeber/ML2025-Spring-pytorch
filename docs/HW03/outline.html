@@ -589,7 +589,7 @@ footer.chap-footer {
 </style>
 </head>
 <body>
-<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><span class="disabled">第 0 章 →</span></nav>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">第 0 章 →</a></nav>
 <header class="chap-header">
   <p class="book-title">ML2025 Spring HW03 教材</p>
   <h1>全書大綱</h1>
@@ -703,6 +703,21 @@ footer.chap-footer {
 <li>各題執行時的 GPU 記憶體峰值。目前只有「載入後 4.87 GiB」。<!-- TODO(本機實測): hw3.py 每一題的 torch.cuda.max_memory_allocated() --></li>
 <li>各題的執行秒數。目前只有全部七題 45.7 s、載入約 2 s、Q4 約 25 s。<!-- TODO(本機實測): Q1–Q7 各題單獨執行的秒數 --></li>
 </ul></dd>
+</dl>
+</div>
+
+<!-- ======================= ch00b ======================= -->
+<div class="chap" id="ch00b">
+<h3>補充章　KV cache：生成時模型記住了什麼</h3>
+<dl>
+<dt>為什麼加這一章</dt>
+<dd>大綱核可後、審第 1 章時加的。KV cache 是第 1 章（Q1 的 greedy 結果隨 cache 長度改變）、第 5 章（R10）、第 7 章（Q6 手寫生成迴圈）的共同前置知識，原本只在第 0 章 0.2.2 節有一句話。已寫成 <a href="ch00b.html">ch00b.html</a>。</dd>
+<dt>對應原始碼</dt>
+<dd>hw3.py:73–85（<code>generate_text_from_prompt</code>）、:319–358（Q6 的 HybridCache 與生成迴圈）；transformers 4.47.0 <code>cache_utils.py</code>（<code>HybridCache</code>）、<code>modeling_gemma2.py</code>（attention 與 mask）、<code>generation/utils.py</code>（<code>_get_cache</code>）。</dd>
+<dt>實測素材</dt>
+<dd>FACTS「KV cache 補充章實測」；logs/facts_kvcache.txt、logs/facts_kvcache_overflow.txt、logs/review_ch01_cache.txt。</dd>
+<dt>對後面章節的影響</dt>
+<dd>第 5 章講 R10 時回指 K.8 節的沿用機制；第 7 章講 Q6 時回指 K.5 節（attention 寬度是 cache 長度、mask），只需補 heatmap 與逐步累積的部分。</dd>
 </dl>
 </div>
 
@@ -1022,7 +1037,7 @@ footer.chap-footer {
 </ul>
 
 </main>
-<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><span class="disabled">第 0 章 →</span></nav>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">第 0 章 →</a></nav>
 <footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
 <script id="inline-js">
 /* repo → HTML 教材 — 頁面強化腳本

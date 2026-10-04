@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 章　Q1 Chat template：同一個問題，兩種 prompt — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00b.html">← 補充章 KV cache</a><span class="disabled">第 2 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 1 章　Q1 Chat template：同一個問題，兩種 prompt</h1>
+  <p class="chap-lead">同一句「Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.」，一次包成 Gemma 的對話格式再送進模型，一次直接把純文字送進去。這一章逐字看兩種 prompt 變成了哪些 token、模型各自回了什麼、回答怎麼從輸出裡切出來，以及那個替回答打分數的小模型到底在量什麼。最後拆開原版留下來的雙 <code>&lt;bos&gt;</code>。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">IT 模型是用 <code>&lt;start_of_turn&gt;user … &lt;end_of_turn&gt;</code> 這種對話格式訓練的；套上它，Gemma-2-2b-it 本機實測回了 240 個 token 的散文加條列，評分 6.0734；不套，回了 138 個 token 的純條列，評分 5.0104。這只是一題、一個評分器、一次 greedy（每一步都取機率最高的 token，不抽籤）的結果。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:65–70（<code>calculate_coherence</code>）、:73–85（<code>generate_text_from_prompt</code>，TODO 在 :79–81）、:88–108（<code>q1</code>）。</li>
+    <li>本章的實測數字來自 <code>logs/run_seed0.txt</code> 的 Q1 段（hw3.py 的實際輸出）與 <code>logs/facts_q1_q2.txt</code>、<code>logs/facts_env_model_tok.txt</code>（事實腳本 <code>docs/tools/hw03_facts.py</code> 的輸出）。哪個數字來自哪一份，會在用到時註明。</li>
+    <li>Q1 這一題在投影片 p.12–13，配分 1 分：要你算出兩種回答的 coherence 分數並比較。</li>
+  </ul>
+</div>
+
+<h2 id="why">1.1　IT 模型為什麼需要對話格式</h2>
+
+<p>Gemma-2-2b-it 名稱裡的 <code>-it</code> 是 instruction-tuned（<a href="index.html#hw">目錄頁第 1 節</a>）。它的底子是一個「讀前面的字、預測下一個 token」的語言模型，再用大量「使用者問、模型答」的對話資料微調過。微調時的每一筆對話，都不是單純把問句和答句接起來，而是用一組<b>特殊 token</b> 把「誰在說話、這一段從哪裡開始到哪裡結束」標出來。模型學到的是：看到「使用者那一段結束、輪到 model 開始」的記號，接下來就該寫一段回答，寫完再補上「這一段結束」的記號。</p>
+
+<p>這組格式寫在 tokenizer 的設定裡，叫 <b>chat template</b>。所以「套 template」這件事，就是把你的問題排成模型微調時看過的樣子；不套，就是把一句裸的英文交給一個學過對話的模型，讓它自己決定怎麼接。Q1 要觀察的就是這兩種情況的差別。</p>
+
+<h3 id="special-tokens">1.1.1　要認得的特殊 token</h3>
+
+<p>Gemma 的 tokenizer 有 256000 個 token，其中幾個是特殊 token，不代表任何文字，只是記號（<code>logs/facts_env_model_tok.txt</code> 的 tokenizer 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>token</th><th class="num">id</th><th>意思</th></tr></thead>
+<tbody>
+<tr><td><code>&lt;pad&gt;</code></td><td class="num">0</td><td>補位用，湊齊同一批句子的長度（第 6 章）</td></tr>
+<tr><td><code>&lt;eos&gt;</code></td><td class="num">1</td><td>end of sequence，整段序列結束</td></tr>
+<tr><td><code>&lt;bos&gt;</code></td><td class="num">2</td><td>beginning of sequence，序列從這裡開始，正常只出現一次、在最前面</td></tr>
+<tr><td><code>&lt;start_of_turn&gt;</code></td><td class="num">106</td><td>一個人開始說話；後面緊接著角色名稱 <code>user</code> 或 <code>model</code></td></tr>
+<tr><td><code>&lt;end_of_turn&gt;</code></td><td class="num">107</td><td>這個人說完了</td></tr>
+<tr><td><code>\n</code>（換行）</td><td class="num">108</td><td>不是特殊 token，但 template 裡到處都是，列出來方便對照</td></tr>
+</tbody>
+</table></div>
+
+<p>tokenizer 的 <code>special_tokens_map</code> 把 <code>&lt;start_of_turn&gt;</code>、<code>&lt;end_of_turn&gt;</code> 列在 <code>additional_special_tokens</code>，所以 <code>decode(..., skip_special_tokens=True)</code> 會把它們連同 <code>&lt;bos&gt;</code>、<code>&lt;eos&gt;</code> 一起拿掉。這一點在 <a href="#extract">1.4 節</a>切回答時會用到。</p>
+
+<h3 id="template-text">1.1.2　Gemma 的 chat_template 全文</h3>
+
+<p>chat template 是一段 <a href="https://jinja.palletsprojects.com/">Jinja</a> 樣板（一種用 <code>{% if %}</code>、<code>{% for %}</code>、<code>{{ 變數 }}</code> 把資料填進文字的樣板語言），存在 <code>tokenizer.chat_template</code>。本機印出來是一整行（<code>logs/facts_env_model_tok.txt</code> 的 <code>chat_template:</code> 那一行，逐字）：</p>
+
+<pre class="shell">chat_template: "{{ bos_token }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '&lt;start_of_turn&gt;' + role + '\n' + message['content'] | trim + '&lt;end_of_turn&gt;\n' }}{% endfor %}{% if add_generation_prompt %}{{'&lt;start_of_turn&gt;model\n'}}{% endif %}"</pre>
+
+<p>為了閱讀，下面把同一段依 <code>{% %}</code> 斷行、加上縮排。這是本書排版過的版本，內容與上面那一行相同，程式不會這樣印：</p>
+
+<pre class="shell">{{ bos_token }}                                         «1»
+{% if messages[0]['role'] == 'system' %}
+    {{ raise_exception('System role not supported') }}  «2»
+{% endif %}
+{% for message in messages %}
+    {% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}
+        {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}  «3»
+    {% endif %}
+    {% if (message['role'] == 'assistant') %}
+        {% set role = 'model' %}                         «4»
+    {% else %}
+        {% set role = message['role'] %}
+    {% endif %}
+    {{ '&lt;start_of_turn&gt;' + role + '\n' + message['content'] | trim + '&lt;end_of_turn&gt;\n' }}  «5»
+{% endfor %}
+{% if add_generation_prompt %}
+    {{ '&lt;start_of_turn&gt;model\n' }}                         «6»
+{% endif %}</pre>
+<ol class="notes">
+<li><span class="mk">1</span><b>開頭先放一個 <code>&lt;bos&gt;</code></b>。<code>bos_token</code> 就是 <code>&lt;bos&gt;</code> 這個字串。template 產生的字串本身就以 <code>&lt;bos&gt;</code> 開頭，這是 <a href="#r1">1.7 節</a>雙 <code>&lt;bos&gt;</code> 的起點。</li>
+<li><span class="mk">2</span><b>不支援 system role</b>。很多聊天模型可以在最前面放一則 <code>{"role": "system", ...}</code> 給整段對話下指示；Gemma 的 template 一看到就丟出例外。要給這類指示，只能寫進第一則 user 訊息裡。本機實測丟出的是 <code>jinja2.exceptions.TemplateError: System role not supported</code>（<code>logs/review_ch01.txt</code>）。</li>
+<li><span class="mk">3</span><b>user 與 assistant 必須交替</b>。<code>loop.index0</code> 是從 0 起算的訊息編號：偶數則必須是 user、奇數則必須不是 user。兩則 user 連在一起，或第一則就是 assistant，都會丟出例外。第 2 章的多輪對話就是靠這條規則一來一往地接下去。</li>
+<li><span class="mk">4</span><b>assistant 改名為 <code>model</code></b>。你在 Python 裡寫 <code>"role": "assistant"</code>，進到 prompt 裡變成 <code>model</code>。所以 Gemma 的 prompt 裡只會看到 <code>user</code> 與 <code>model</code> 兩種角色。</li>
+<li><span class="mk">5</span><b>每則訊息的固定形狀</b>：<code>&lt;start_of_turn&gt;</code> + 角色 + 換行 + 內容 + <code>&lt;end_of_turn&gt;</code> + 換行。Jinja 的 filter（<code>| trim</code>）比 <code>+</code> 先結合，所以 <code>trim</code> 只作用在 <code>message['content']</code> 上：內容頭尾的空白與換行會被去掉。第 2 章會看到這個 <code>trim</code> 把模型回答尾巴的 <code>' \n'</code> 吃掉。</li>
+<li><span class="mk">6</span><b><code>add_generation_prompt</code></b>：對話最後補上「輪到 model 說話」的開頭 <code>&lt;start_of_turn&gt;model\n</code>，但不補 <code>&lt;end_of_turn&gt;</code>。模型看到這裡，下一個 token 就是回答的第一個字。不加的話，prompt 停在 user 那則的 <code>&lt;end_of_turn&gt;\n</code>，模型得自己猜下一步要幹嘛。</li>
+</ol>
+
+<h2 id="prompt-string">1.2　apply_chat_template 產生的字串</h2>
+
+<p>先看 <code>q1</code> 的前半：載入評分模型、定下問題、套 template。</p>
+
+<figure class="listing"><figcaption>hw3.py:88–97 — q1 的前半：評分模型、問題、套 template</figcaption>
+<pre class="py" data-hot="89,90,92,95,96"><code>def q1(tokenizer, model, args):
+    scoring_model = AutoModelForSequenceClassification.from_pretrained(SCORING_MODEL_ID)
+    scoring_tokenizer = AutoTokenizer.from_pretrained(SCORING_MODEL_ID)
+
+    question = "Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words."
+
+    # With chat template
+    chat = [{"role": "user", "content": question}]
+    prompt_with_template = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+    response_with_template = generate_text_from_prompt(prompt_with_template, tokenizer, model, args.max_new_tokens)</code></pre>
+</figure>
+
+<p>:89–90 的評分模型留到 <a href="#scorer">1.5 節</a>。:95 把問題包成只有一則訊息的對話（一個 list，裡面一個 dict），:96 交給 <code>apply_chat_template</code>，兩個參數決定了它回傳什麼：</p>
+
+<ul>
+<li><b><code>tokenize=False</code></b>：回傳<b>字串</b>，不是 token id。hw3.py 要先把字串印出來（Q1 的作業就是觀察它），再自己呼叫 <code>tokenizer(...)</code> 轉成 id。這一步正是雙 <code>&lt;bos&gt;</code> 的來源，見 <a href="#r1">1.7 節</a>。</li>
+<li><b><code>add_generation_prompt=True</code></b>：結尾補上 <code>&lt;start_of_turn&gt;model\n</code>（上一節 «6»）。</li>
+</ul>
+
+<p>產生的字串，用 <code>repr()</code> 印出來是這樣（<code>logs/facts_env_model_tok.txt</code>，逐字）：</p>
+
+<pre class="shell">Q1 prompt_with_template repr: '&lt;bos&gt;&lt;start_of_turn&gt;user\nPlease tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.&lt;end_of_turn&gt;\n&lt;start_of_turn&gt;model\n'</pre>
+
+<p>hw3.py 自己印出來的是不經 <code>repr()</code> 的版本，換行真的換行（<code>logs/run_seed0.txt</code> 第 5–9 行，逐字；第一行開頭的空白是 <code>print</code> 在兩個參數之間補的）：</p>
+
+<pre class="shell">========== Prompt inputted to the model ==========
+ &lt;bos&gt;&lt;start_of_turn&gt;user
+Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.&lt;end_of_turn&gt;
+&lt;start_of_turn&gt;model
+</pre>
+
+<p>對照 template：開頭一個 <code>&lt;bos&gt;</code>，一則 user 訊息，最後是等著 model 開口的 <code>&lt;start_of_turn&gt;model</code> 與換行。<b>印出來的字串只有一個 <code>&lt;bos&gt;</code></b>；模型實際收到的 token 卻有兩個，差別發生在下一步的 <code>tokenizer(prompt)</code>。</p>
+
+<p>這個字串變成 token 之後，本機量到的是 32 個（<code>logs/facts_env_model_tok.txt</code>）：前 6 個是 <code>[2, 2, 106, 1645, 108, 5958]</code>，也就是 <code>['&lt;bos&gt;', '&lt;bos&gt;', '&lt;start_of_turn&gt;', 'user', '\n', 'Please']</code>；後 5 個是 <code>['&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'model', '\n']</code>。沒套 template 的純文字問題是 23 個，開頭是 <code>['&lt;bos&gt;', 'Please', '▁tell']</code>（<code>▁</code> 是什麼，第 3 章再講）。把兩邊對起來，32 個 token 可以拆成：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>片段</th><th class="num">token 數</th><th>來源</th></tr></thead>
+<tbody>
+<tr><td><code>&lt;bos&gt;</code> <code>&lt;bos&gt;</code></td><td class="num">2</td><td>一個來自 template，一個是 tokenizer 加的</td></tr>
+<tr><td><code>&lt;start_of_turn&gt;</code> <code>user</code> <code>\n</code></td><td class="num">3</td><td>template</td></tr>
+<tr><td>問題本身 <code>Please</code> … <code>words.</code></td><td class="num">22</td><td>純文字的 23 個扣掉 <code>&lt;bos&gt;</code></td></tr>
+<tr><td><code>&lt;end_of_turn&gt;</code> <code>\n</code> <code>&lt;start_of_turn&gt;</code> <code>model</code> <code>\n</code></td><td class="num">5</td><td>template（含 <code>add_generation_prompt</code>）</td></tr>
+<tr><td><b>合計</b></td><td class="num"><b>32</b></td><td></td></tr>
+</tbody>
+</table></div>
+
+<p>前 6 個與後 5 個是實測印出來的；中間 22 個是「純文字 23 個扣掉 <code>&lt;bos&gt;</code>」推出來的，前提是同一句話放在換行後面和放在句首切法相同（兩邊開頭都是不帶 <code>▁</code> 的 <code>Please</code>，加總也剛好等於實測的 32）。另一個旁證：Q1 跑完後留在 <code>model._cache</code> 的 KV cache 長度是 544（<a href="ch00.html#time-mem">第 0 章 0.10 節</a>），正好是 32 + <code>max_new_tokens</code> 512。<code>generate</code> 一開始就照「prompt 長度 + 最多生成幾個」把 cache 配置好，不管實際生成了幾個（這次是 240）；Q1 的第二次 <code>generate</code>（沒有 template，23 + 512 = 535 格就夠）發現模型上已經有一份夠長的 cache，就清空沿用，不重新配置。所以留下來的是第一次、32 個 token 那條路配置的長度。這個「夠長就沿用」的機制本機在第 5 章的實驗裡確認過。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 340" role="img" aria-label="同一個問題分成兩條路進模型：上路套 chat template，tokenizer 又加一個 bos，共 32 個 token，生成 240 個新 token，用 model 換行切出回答，評分 6.0734；下路是純文字，23 個 token，生成 138 個新 token，用 words. 切出回答，評分 5.0104">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="a1w" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent-warm)"/>
+    </marker>
+  </defs>
+  <rect x="16" y="128" width="140" height="84" rx="9" class="s-box"/>
+  <text class="s-lbl" x="86" y="158" text-anchor="middle" font-weight="700">同一個問題</text>
+  <text class="s-sm" x="86" y="180" text-anchor="middle">… Answer in</text>
+  <text class="s-sm" x="86" y="198" text-anchor="middle">200 words.</text>
+
+  <rect x="196" y="30" width="150" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="271" y="62" text-anchor="middle" font-weight="700">chat template</text>
+  <text class="s-sm" x="271" y="84" text-anchor="middle">tokenize=False</text>
+  <rect x="380" y="30" width="160" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="460" y="62" text-anchor="middle" font-weight="700">tokenizer(prompt)</text>
+  <text class="s-mono" x="460" y="84" text-anchor="middle">[2, 2, 106, …]</text>
+  <text class="s-sm" x="460" y="101" text-anchor="middle">32 個，兩個 &lt;bos&gt;</text>
+  <rect x="574" y="30" width="140" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="644" y="62" text-anchor="middle" font-weight="700">generate</text>
+  <text class="s-sm" x="644" y="84" text-anchor="middle">240 個新 token</text>
+  <rect x="748" y="30" width="140" height="80" rx="9" class="s-box"/>
+  <text class="s-mono" x="818" y="60" text-anchor="middle">split("model\n")</text>
+  <text class="s-sm" x="818" y="82" text-anchor="middle">172 字</text>
+  <text class="s-key" x="818" y="101" text-anchor="middle" style="fill: var(--accent)">6.0734</text>
+
+  <rect x="196" y="230" width="150" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="271" y="262" text-anchor="middle" font-weight="700">不套 template</text>
+  <text class="s-sm" x="271" y="284" text-anchor="middle">直接用純文字</text>
+  <rect x="380" y="230" width="160" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="460" y="262" text-anchor="middle" font-weight="700">tokenizer(question)</text>
+  <text class="s-mono" x="460" y="284" text-anchor="middle">[2, …]</text>
+  <text class="s-sm" x="460" y="301" text-anchor="middle">23 個，一個 &lt;bos&gt;</text>
+  <rect x="574" y="230" width="140" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="644" y="262" text-anchor="middle" font-weight="700">generate</text>
+  <text class="s-sm" x="644" y="284" text-anchor="middle">138 個新 token</text>
+  <rect x="748" y="230" width="140" height="80" rx="9" class="s-box"/>
+  <text class="s-mono" x="818" y="260" text-anchor="middle">split("words.")</text>
+  <text class="s-sm" x="818" y="282" text-anchor="middle">87 字</text>
+  <text class="s-key" x="818" y="301" text-anchor="middle" style="fill: var(--accent-warm)">5.0104</text>
+
+  <line x1="157" y1="152" x2="193" y2="86" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="347" y1="70" x2="377" y2="70" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="541" y1="70" x2="571" y2="70" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="715" y1="70" x2="745" y2="70" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="157" y1="188" x2="193" y2="254" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a1w)"/>
+  <line x1="347" y1="270" x2="377" y2="270" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a1w)"/>
+  <line x1="541" y1="270" x2="571" y2="270" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a1w)"/>
+  <line x1="715" y1="270" x2="745" y2="270" stroke="var(--accent-warm)" stroke-width="2" marker-end="url(#a1w)"/>
+
+  <text class="s-sm" x="644" y="152" text-anchor="middle">同一個 model、greedy（do_sample=False）</text>
+  <text class="s-sm" x="644" y="172" text-anchor="middle">max_new_tokens=512，兩條路都停在 &lt;end_of_turn&gt;</text>
+  <text class="s-sm" x="644" y="192" text-anchor="middle">最後都交給同一個評分器（cross-encoder，CPU）</text>
+</svg>
+<figcaption>圖 1.1 — 一個問題，兩條路。上路（藍）套 chat template、下路（黃）直接用純文字；token 數、新 token 數、字數與分數都是本機 <code>hw3.py --seed 0</code> 的實測（字數與 token 數來自事實腳本同設定的重跑）。雙 <code>&lt;bos&gt;</code> 只出現在上路。</figcaption>
+</figure>
+
+<h2 id="todo">1.3　TODO 的填法：generate 一行</h2>
+
+<p>原版 Colab 第 15 格是這一題唯一要填的地方（原版 Colab 第 15 格，節錄 TODO 前後；格子編號把 markdown 格也算進去、從 1 起算）：</p>
+
+<pre class="py">  # Tokenize the prompt
+  input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to("cuda")
+
+  ######################## TODO (Q1.1 ~ 1.4) ########################
+  ### You can refer to https://huggingface.co/google/gemma-2-2b-it for basic usage
+  ### Make sure to use 'do_sample=False' to get a deterministic response
+  ### Otherwise the coherence score may be different from the sample answer
+
+  # Generate response
+  output_ids =
+  ###################################################################</pre>
+
+<p>hw3.py 填好之後的整個函式：</p>
+
+<figure class="listing"><figcaption>hw3.py:73–85 — generate_text_from_prompt：TODO 填成一行 model.generate</figcaption>
+<pre class="py" data-hot="77,80,83"><code>def generate_text_from_prompt(prompt, tokenizer, model, max_new_tokens):
+    print("========== Prompt inputted to the model ==========\n", prompt)
+
+    # Tokenize the prompt (same as Colab: a chat-template prompt ends up with two &lt;bos&gt;)
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)
+
+    ######################## TODO (Q1.1 ~ 1.4) ########################
+    output_ids = model.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)
+    ###################################################################
+    if output_ids is not None and len(output_ids) &gt; 0:
+        return tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    else:
+        return "Empty Response"</code></pre>
+</figure>
+
+<p>和原版比，hw3.py 多了一個參數 <code>max_new_tokens</code>，由 <code>--max-new-tokens</code>（預設 512，<a href="ch00.html#flags">第 0 章旗標總表</a>）一路傳進來；原版的函式簽名沒有這個參數，長度要學生自己在 TODO 裡決定。:80 這一行的三個參數：</p>
+
+<ul>
+<li><b><code>input_ids</code></b>：形狀 (1, T) 的 token id，有 template 時 T = 32、沒有時 T = 23。<code>model.generate</code> 回傳的 <code>output_ids</code> 是 (1, T + 新 token 數)：<b>prompt 的 token 也在裡面</b>，新生成的接在後面。所以 :83 的 <code>decode(output_ids[0])</code> 解出來的是「prompt + 回答」，回答要另外切出來（<a href="#extract">1.4 節</a>）。</li>
+<li><b><code>max_new_tokens=512</code></b>：最多生成 512 個<b>新</b> token，不含 prompt。本機兩條路都沒碰到這個上限（240、138）。</li>
+<li><b><code>do_sample=False</code></b>：greedy decoding，每一步直接取機率最高的那個 token，不抽籤。</li>
+</ul>
+
+<p><b>原版的註解寫「TODO (Q1.1 ~ 1.4)」，投影片 p.12 的 Q1 卻只列了三小題</b>（1. 兩個分數各是多少、2. 哪個比較高、3. 從敘述裡選出正確的兩項）。這個「1.4」對不上投影片，hw3.py:79 照抄了原版的註解。這本書以投影片為準，不臆測第四小題是什麼。</p>
+
+<h3 id="greedy">1.3.1　greedy 為什麼可以重現</h3>
+
+<p>原版註解特別交代「Make sure to use 'do_sample=False' to get a deterministic response, otherwise the coherence score may be different from the sample answer」。greedy 每一步都取 argmax，整個過程沒有亂數，所以 <code>--seed</code> 對 Q1 沒有作用（<a href="ch00.html#dispatch">第 0 章</a>說過 seed 只影響 Q4）。本機的證據是：<code>hw3.py --seed 0</code>（<code>logs/run_seed0.txt</code>）與事實腳本另外一個 process 重跑（<code>logs/facts_q1_q2.txt</code>），兩次的回答逐字相同，分數都是 6.0734 與 5.0104。</p>
+
+<p>「可以重現」的範圍是同一台機器、同一套軟體版本。換一張 GPU 或換版本，fp16 運算的最後幾位可能不同，只要某一步前兩名的分數夠接近，argmax 就可能翻過去，後面的回答整段改寫（推論，本機只有一張 GPU，沒有跨機比較過）。這也是為什麼投影片 p.12 的填空題寫「Error with 0.5 is accepted」，允許分數有誤差。</p>
+
+<p>本機還量到一個更意外的前提：<b>同一台機器上，前一次 <code>generate</code> 留下的 KV cache 長度也會改變 greedy 的結果</b>。<code>generate</code> 會把 KV cache 留在 <code>model._cache</code>，下一次呼叫只要長度夠用就沿用（<a href="ch00b.html#reuse">補充章 K.8 節</a>；cache 是什麼、「格」是什麼，見<a href="ch00b.html#layout">補充章 K.3–K.5 節</a>）。Q1 先跑有 template 的那條路，配置了 32 + 512 = 544 格；接著沒有 template 的那條路只需要 23 + 512 = 535 格，於是沿用那 544 格。把沒有 template 的那條路換成各種 cache 長度單獨跑（<code>docs/tools/hw03_q1_cache.py</code>，<code>logs/review_ch01_cache.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>沒有 template 那條路用的 cache</th><th class="num">新 token</th><th class="num">字數</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>544 格（hw3.py 的順序：沿用有 template 那次留下的）</td><td class="num">138</td><td class="num">87</td><td class="num">5.0104</td></tr>
+<tr><td>535 格（單獨跑，自己配置）</td><td class="num">136</td><td class="num">85</td><td class="num">4.2210</td></tr>
+<tr><td>600 格、1024 格</td><td class="num">136</td><td class="num">85</td><td class="num">4.2210</td></tr>
+</tbody>
+</table></div>
+
+<p>兩個版本從第 30 個新 token 開始分岔。那一步在 535 格之下，<code>▁outputs</code> 和 <code>▁the</code> 的 logit 都是 17.875，完全同分，argmax 選了 <code>▁the</code>；在 544 格之下，<code>▁outputs</code> 是 17.8906，多了一格 fp16 的精度，argmax 就選它。cache 長度不同時，前 30 步每一步 logits 的最大差異都在 0.05 以內（第 0、1 步完全相同）：平常不影響誰是第一名，碰到同分才翻過去。為什麼 544 格會算出不同的數值、而 600 與 1024 格不會，本機沒有追。</p>
+
+<p>所以「可以重現」更精確的說法是：<b>同一台機器、同一套版本、同樣的呼叫順序</b>。hw3.py 照原版 Colab 的順序（先有 template、再沒有 template，共用同一個模型物件），所以本書的 5.0104 是照作業流程跑會得到的數字；只跑沒有 template 的那條路，會得到 4.2210，兩者差 0.79，超過投影片允許的 0.5。原版 Colab 也是同一個順序、同一個 transformers 版本，推論會有同樣的沿用行為，但 Colab 的 GPU 不同，數值本來就可能不同。有 template 的那條路在 hw3.py 裡是第一次 <code>generate</code>，用的是它自己的 544 格，不受影響（換成 600 格是 6.0616，1024 格仍是 6.0734）。</p>
+
+<p>那不寫 <code>do_sample=False</code> 會怎樣？這要看 <code>generation_config</code>：它是模型附帶的一份「<code>generate</code> 的預設參數」（從模型的 <code>generation_config.json</code> 讀進來，掛在 <code>model.generation_config</code> 上），呼叫 <code>generate</code> 時沒傳的參數就從這裡拿，這裡也沒寫的，再用 transformers 的 <code>GenerationConfig</code> 類別內建的預設值。本機印出的內容是（<code>logs/facts_env_model_tok.txt</code> 第 47 行，事實腳本 <code>model</code> 段的輸出，逐字）：</p>
+
+<pre class="shell">generation_config: {'cache_implementation': 'hybrid', 'pad_token_id': 0, 'bos_token_id': 2, 'eos_token_id': [1, 107], '_from_model_config': True, 'transformers_version': '4.47.0'}</pre>
+
+<p>裡面沒有 <code>do_sample</code>，所以會用 <code>GenerationConfig</code> 類別的預設值 <code>False</code>。本機實測拿掉 <code>do_sample=False</code>、其他不變，兩條路生成的 token 與用 <code>do_sample=False</code> 時逐一相同（同樣的 cache 長度下比較，<code>logs/review_ch01.txt</code>）：不寫也是 greedy。明寫的好處是不依賴模型附的設定檔。</p>
+
+<p>長度就不一樣了。原版 Colab 的 <code>generate_text_from_prompt</code> 沒有 <code>max_new_tokens</code> 參數，TODO 若只寫 <code>model.generate(input_ids, do_sample=False)</code>，本機實測（<code>logs/review_ch01.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>只寫 <code>do_sample=False</code>、不給長度</th><th class="num">新 token</th><th>最後一個 token</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>有 template</td><td class="num">20</td><td><code>**</code></td><td class="num">4.0107</td></tr>
+<tr><td>沒有 template</td><td class="num">20</td><td><code>)</code></td><td class="num">−2.8643</td></tr>
+</tbody>
+</table></div>
+
+<p>兩條路都只生成 20 個新 token，句子寫到一半就斷了，分數也掉很多，沒有 template 的甚至是負的。<code>generation_config</code> 沒有 <code>max_length</code>，所以用 <code>GenerationConfig</code> 類別的預設 20；transformers 4.47 看到「長度是預設值」時，會把它解讀成「20 個<b>新</b> token」，加上 prompt 長度當上限（<code>transformers/generation/utils.py:1471–1473</code>）。這次執行<b>沒有印出任何警告</b>，很容易以為程式正常。所以 hw3.py 把 <code>max_new_tokens</code> 加成函式參數、預設 512（<code>--max-new-tokens</code>，<a href="ch00.html#flags">第 0 章旗標表</a>）。</p>
+
+<h3 id="stop">1.3.2　為什麼會停在 &lt;end_of_turn&gt;</h3>
+
+<p>上面那行 <code>generation_config</code> 的 <b><code>'eos_token_id': [1, 107]</code></b> 決定了何時停：<code>generate</code> 生成出 id 1（<code>&lt;eos&gt;</code>）或 id 107（<code>&lt;end_of_turn&gt;</code>）任何一個，就停下來。hw3.py:80 沒有傳 <code>eos_token_id</code>，所以用的是模型附的這份設定。本機量到兩條路最後一個新 token 都是 <code>&lt;end_of_turn&gt;</code>（<code>logs/facts_q1_q2.txt</code> 的 <code>last token '&lt;end_of_turn&gt;'</code>）：模型寫完回答，自己補上「這一段結束」的記號，<code>generate</code> 看到 107 就收工，遠在 512 的上限之前。</p>
+
+<p>這兩個 id 的 list 是 Q4 的伏筆：Q4 自己傳了 <code>eos_token_id=tokenizer.eos_token_id</code>，也就是只有 1，把 107 蓋掉了，所以 Q4 的句子遇到 <code>&lt;end_of_turn&gt;</code> 不會停（第 4 章）。</p>
+
+<p>另外，Q1 跑完 <code>generate</code> 會在模型物件上留下一份 KV cache，後面的題目會沿用它，並因此影響 Q4 的取樣結果，見 <a href="ch00b.html#reuse">補充章 K.8 節</a>，第 5 章詳談。</p>
+
+<h2 id="extract">1.4　怎麼把回答切出來</h2>
+
+<p><code>generate_text_from_prompt</code> 回傳的是整段「prompt + 回答」decode 後的字串，<code>q1</code> 再各自切出回答。先看有 template 的那條路：</p>
+
+<figure class="listing"><figcaption>hw3.py:97–101 — 有 template：用 "model\n" 切</figcaption>
+<pre class="py" data-hot="98"><code>    response_with_template = generate_text_from_prompt(prompt_with_template, tokenizer, model, args.max_new_tokens)
+    response_with_template = response_with_template.split("model\n")[-1].strip("\n").strip()
+    print("========== Output ==========\n", response_with_template)
+    score_with = calculate_coherence(question, response_with_template, scoring_model, scoring_tokenizer)
+    print(f"========== Coherence Score (with template) : {score_with:.4f}  ==========\n")</code></pre>
+</figure>
+
+<p><code>skip_special_tokens=True</code> 把兩個 <code>&lt;bos&gt;</code>、<code>&lt;start_of_turn&gt;</code>、<code>&lt;end_of_turn&gt;</code> 全部拿掉之後，字串剩下角色名稱與內容。本機 decode 出來的前 300 個字元（<code>logs/facts_q1_q2.txt</code>，<code>repr</code>，逐字）：</p>
+
+<pre class="shell">'user\nPlease tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.\nmodel\nSupervised and unsupervised learning are two fundamental types of machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each input ha'</pre>
+
+<p>原本 template 裡的 <code>&lt;start_of_turn&gt;model\n</code> 只剩 <code>model\n</code>，所以 <code>split("model\n")[-1]</code> 取「最後一個 <code>model\n</code> 之後的所有文字」，再去掉頭尾的換行與空白，就是回答。</p>
+
+<p>沒有 template 的那條路沒有 <code>model\n</code> 可以切，改用問題的最後一個字：</p>
+
+<figure class="listing"><figcaption>hw3.py:103–108 — 沒有 template：用問題的最後一個字切</figcaption>
+<pre class="py" data-hot="104,105"><code>    # Without chat template (directly using plain text)
+    response_without_template = generate_text_from_prompt(question, tokenizer, model, args.max_new_tokens)
+    response_without_template = response_without_template.split(question.split(" ")[-1])[-1].strip("\n").strip()
+    print("========== Output ==========\n", response_without_template)
+    score_without = calculate_coherence(question, response_without_template, scoring_model, scoring_tokenizer)
+    print(f"========== Coherence Score (without template) : {score_without:.4f}  ==========")</code></pre>
+</figure>
+
+<p><code>question.split(" ")[-1]</code> 是 <code>'words.'</code>（事實腳本印的 <code>split key for no-template: 'words.'</code>）。decode 出來的字串是問題原文接著回答（<code>logs/facts_q1_q2.txt</code>，前 300 字元，逐字）：</p>
+
+<pre class="shell">'Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words.\n\n**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels) to train models.\n* **Goal:** Predict outputs for new, unseen data.\n* **Examples:** Image classific'</pre>
+
+<p>以 <code>'words.'</code> 切開、取最後一段，就是 <code>\n\n**Supervised Learning:**</code> 開始的回答。</p>
+
+<p>兩種切法都靠一個<b>沒有寫出來的假設</b>：</p>
+
+<ul>
+<li>有 template 時，假設<b>回答裡不會出現 <code>model\n</code></b>。這題問的是機器學習，回答裡 <code>model</code> 這個字到處都是；只要某一行剛好以 <code>model</code> 結尾（例如 <code>... train a model</code> 後面換行），<code>[-1]</code> 就會只拿到那之後的半段。</li>
+<li>沒有 template 時，假設<b>回答裡不會出現 <code>words.</code></b>。題目要求「Answer in 200 words.」，模型很可能在回答裡寫出同樣的字（例如結尾補一句「… in 200 words.」），那樣回答前面整段都會被切掉。</li>
+</ul>
+
+<p>本機這一次的兩段回答剛好都沒有這兩個字串，所以切得正確。換一個問題、換一次生成，就不保證了。比較穩的做法是不切字串、直接切 token：<code>output_ids[0][input_ids.shape[1]:]</code> 只留新生成的部分再 decode。hw3.py 自己的 Q2（:163，沿用原版 Colab 第 19 格的寫法）就是這樣切的，第 2 章會看到。</p>
+
+<h2 id="scorer">1.5　coherence 評分器在量什麼</h2>
+
+<p>投影片 p.13 說評分模型的目的是「Calculate the coherence score between the question (prompt) and the model response」。hw3.py 的函式：</p>
+
+<figure class="listing"><figcaption>hw3.py:65–70 — calculate_coherence</figcaption>
+<pre class="py" data-hot="66,69"><code>def calculate_coherence(question, answer, scoring_model, scoring_tokenizer):
+    features = scoring_tokenizer([question], [answer], padding=True, truncation=True, return_tensors="pt")
+    scoring_model.eval()
+    with torch.no_grad():
+        scores = scoring_model(**features).logits.squeeze().item()
+    return scores</code></pre>
+</figure>
+
+<p>對照原版 Colab 第 13 格：</p>
+
+<pre class="py">SCORING_MODEL = AutoModelForSequenceClassification.from_pretrained('cross-encoder/ms-marco-MiniLM-L-6-v2')
+SCORING_TOKENIZER = AutoTokenizer.from_pretrained('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+
+def calculate_coherence(question, answer, scoring_model=SCORING_MODEL, tokenizer=SCORING_TOKENIZER):
+  features = tokenizer([question], [answer], padding=True, truncation=True, return_tensors="pt")
+  scoring_model.eval()
+  with torch.no_grad():
+      scores = scoring_model(**features).logits.squeeze().item()
+  return scores</pre>
+
+<p>函式本體一樣，差在評分模型從哪裡來：原版在格子裡載入成全域變數、當預設參數；hw3.py 在 <code>q1</code> 裡載入（:89–90）再明確傳進來，所以每次呼叫 <code>q1</code> 都會從快取讀一次評分模型。<a href="ch00.html#time-mem">第 0 章 0.10 節</a>量過 Q1 的 10.7 s 包含了這次載入，而評分模型跑在 CPU 上，這裡不重複。</p>
+
+<h3 id="cross-encoder">1.5.1　cross-encoder：一次讀兩段</h3>
+
+<p><code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> 是一個很小的 BERT 類模型（BERT 是只有 encoder 的 Transformer：不逐字往後生成，而是一次讀完整段、每個 token 前後都看得到，最後接一個小的輸出層），22,713,601 個參數，大約是 Gemma-2-2b-it 的百分之一。它用 <code>AutoModelForSequenceClassification</code> 載入，這個類別名稱是「序列分類」，但 <code>num_labels</code> 是 1，也就是輸出層只有一個數字，拿來當分數而不是分類；tokenizer 的 <code>model_max_length</code> 是 512（<code>logs/facts_q1_q2.txt</code> 的 <code>scoring model params</code> 那一行）。名字裡的幾個部分：</p>
+
+<ul>
+<li><b>cross-encoder</b>：:66 把 <code>[question]</code> 與 <code>[answer]</code> 當成「一對」交給 tokenizer（回傳一個像 dict 的物件，裝著 <code>input_ids</code>、<code>attention_mask</code> 等 tensor；:69 的 <code>**features</code> 把這些 key 當成具名參數傳給模型，模型回傳的物件上 <code>.logits</code> 就是輸出層的數值），兩段被接成一個序列一起送進模型，模型同時看到兩段、讓兩段的 token 互相做 attention，最後只輸出一個數字。對比的是 bi-encoder：兩段各自算一個向量，再算相似度。</li>
+<li><b>ms-marco</b>：它是在 MS MARCO 這個搜尋資料集上訓練的，原本的任務是「給一個搜尋查詢和一段文章，判斷這段文章跟查詢有多相關」，用來替搜尋結果排序（依 Hugging Face 模型頁的說明）。所以它量的嚴格說是<b>相關性</b>：這段回答像不像是在回應這個問題。作業把它叫做 coherence。</li>
+<li><b>MiniLM-L-6</b>：MiniLM 是一種從大模型蒸餾（distillation，讓小模型模仿大模型的輸出）出來的小型 BERT；從名稱看，<code>L-6</code> 指 6 層，本機沒有另外核對。</li>
+</ul>
+
+<h3 id="logit">1.5.2　輸出是 logit，不是機率</h3>
+
+<p>:69 的 <code>.logits.squeeze().item()</code> 拿到的是模型最後那一個輸出的原始數值，<b>沒有經過 sigmoid 或 softmax</b>。它沒有上下限：可以是負的，也可以超過 1。本機的 6.0734 和 5.0104 都遠大於 1，就是因為它不是機率。</p>
+
+<p>如果硬把它當 logistic 迴歸的 logit 套上 sigmoid，6.0734 → 0.9977、5.0104 → 0.9934（計算值，hw3.py 沒有做這一步）：兩個回答在這個評分器眼裡都是「非常相關」，差別在很靠近 1 的地方。這提醒我們，<b>這個分數沒有校準過的尺度</b>：「差 1 分」既不是「好 1 成」，也沒有人定義過「幾分算及格」。它只能拿來比較同一個問題下的兩個回答，而且只代表這一個評分器的看法。</p>
+
+<h3 id="truncation">1.5.3　512 token 的截斷有沒有碰到</h3>
+
+<p>:66 的 <code>truncation=True</code> 表示問題加回答超過 512 個 token 時，評分器只看前 512 個，後面的被丟掉。如果被截斷，回答後半段寫得好不好就不影響分數了。本機量到評分器實際收到的 token 數（含它自己的特殊 token，也就是 BERT 類模型開頭與分隔兩段用的記號）：有 template 285 個、沒有 template 189 個（<code>logs/facts_q1_q2.txt</code> 的 <code>scorer tokens</code>），都遠低於 512，<b>截斷沒有碰到</b>。<code>padding=True</code> 在只有一對的時候不會補任何東西。</p>
+
+<h2 id="results">1.6　實測對照：兩種回答長什麼樣</h2>
+
+<p>下面兩段是 <code>.venv/bin/python HW03/hw3.py --seed 0</code> 印出的 Q1 輸出（<code>logs/run_seed0.txt</code> 第 11–26 行與第 30–44 行，逐字；這份 log 是用 <code>script</code> 指令模擬終端機錄下的，stdout 與 stderr 混在一起，所以行號包含 stderr 的訊息；行尾的 «N» 是本書加的標記）。先看有 template 的：</p>
+
+<pre class="shell">========== Output ==========
+ Supervised and unsupervised learning are two fundamental types of machine learning.  «1»
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them.  «2»
+
+**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.
+
+**Key differences:**  «3»
+
+* **Labeling:** Supervised uses labeled data, unsupervised doesn't.
+* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.
+* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction.
+
+
+Both types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data.  «4»
+========== Coherence Score (with template) : 6.0734  ==========</pre>
+<ol class="notes">
+<li><span class="mk">1</span>開頭一句總起，像在回答一個人的問題。</li>
+<li><span class="mk">2</span>兩段散文各講一種學習，各配一個比喻（「Think of it like teaching a child」、「letting a child explore a room full of toys」）。</li>
+<li><span class="mk">3</span>標題直接用了題目裡的「key differences」，接三點條列。</li>
+<li><span class="mk">4</span>最後一句收尾。整體是「總起、分述、條列、總結」的完整回答。</li>
+</ol>
+
+<p>再看沒有 template 的：</p>
+
+<pre class="shell">========== Output ==========
+ **Supervised Learning:**  «1»
+
+* **Labeled data:** Uses data with known outputs (labels) to train models.
+* **Goal:** Predict outputs for new, unseen data.
+* **Examples:** Image classification, spam detection, regression.
+
+**Unsupervised Learning:**
+
+* **Unlabeled data:** Uses data without known outputs to discover patterns.
+* **Goal:** Explore data, identify clusters, or reduce dimensionality.
+* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.
+
+In summary, supervised learning relies on labeled data to learn a mapping from input to output, while unsupervised learning uses unlabeled data to discover hidden structures and relationships.  «2»
+========== Coherence Score (without template) : 5.0104  ==========</pre>
+<ol class="notes">
+<li><span class="mk">1</span>沒有開場白，直接是粗體標題加條列，每種學習三點：Labeled data／Goal／Examples。比較像一份筆記，而不是對一個人的回答。</li>
+<li><span class="mk">2</span>一句「In summary」收尾。內容方向與上一段相同，但短得多，沒有比喻。</li>
+</ol>
+
+<p>數字整理成一張表。分數兩列來自 hw3.py 的實際輸出；新 token 數、停在哪、秒數、字數、評分器 token 數來自事實腳本以相同設定（greedy、<code>max_new_tokens=512</code>）重跑的紀錄（<code>logs/facts_q1_q2.txt</code>），兩者的回答逐字相同。「字數」是把回答用空白切開的段數（<code>len(resp.split())</code>），條列開頭的 <code>*</code> 也算一段，所以真正的英文字數更少。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>條件</th><th class="num">prompt token</th><th class="num">新 token</th><th>停在</th><th class="num">生成秒數</th><th class="num">字數</th><th class="num">評分器 token</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>有 template（hw3.py，雙 <code>&lt;bos&gt;</code>）</td><td class="num">32</td><td class="num">240</td><td><code>&lt;end_of_turn&gt;</code></td><td class="num">6.8 s</td><td class="num">172</td><td class="num">285</td><td class="num"><b>6.0734</b></td></tr>
+<tr><td>沒有 template（hw3.py）</td><td class="num">23</td><td class="num">138</td><td><code>&lt;end_of_turn&gt;</code></td><td class="num">3.3 s</td><td class="num">87</td><td class="num">189</td><td class="num"><b>5.0104</b></td></tr>
+</tbody>
+</table></div>
+
+<p>從這兩段回答與這張表，可以確定地說的是：</p>
+
+<ul>
+<li><b>回答的形狀不同</b>：套 template 時，模型寫出一段對著人說話的回答（總起、比喻、條列、總結）；不套時，模型寫出一份條列筆記。長度差將近一倍（240 對 138 個新 token）。</li>
+<li><b>「Answer in 200 words」兩條路都沒做到</b>：172 與 87，都不到 200，沒套 template 的連一半都不到。2B 的小模型對字數指令的服從度有限。</li>
+<li><b>沒有 template，模型最後還是吐了 <code>&lt;end_of_turn&gt;</code></b>：prompt 裡根本沒有任何 <code>&lt;start_of_turn&gt;</code>，模型仍用對話格式的結束記號收尾。IT 模型在微調時學到「回答完就寫 <code>&lt;end_of_turn&gt;</code>」，這個習慣不需要 template 提醒。也因為這樣，沒套 template 那條路也在 138 個 token 就停了，沒有一路寫到 512。</li>
+<li><b>這一次，有 template 的分數比較高</b>：6.0734 對 5.0104，差 1.063（計算值）。沒有 template 的 5.0104 是照 hw3.py 的順序、沿用前一次 KV cache 得到的；那條路單獨跑是 4.2210（<a href="#greedy">1.3.1 節</a>），有 template 一樣比較高。</li>
+</ul>
+
+<p>不能從這裡推出的是「套 template 一定比較好」。這是<b>一個問題、一個評分器、一次 greedy</b> 的結果；評分器是搜尋相關性模型，分數沒有校準過的尺度（<a href="#logit">1.5.2 節</a>）。我們也不知道評分器為什麼給上面那段比較高：可能是比較長、比較完整，也可能是它直接寫了題目裡的「key differences」幾個字，這些都是猜測，本機沒有做實驗把它們分開。下一節的單 <code>&lt;bos&gt;</code> 版本就是一個反例：它沒有「Key differences」標題、也比較短，分數卻比 hw3.py 的版本還高一點。</p>
+
+<div class="note">
+<h4>max_new_tokens 會不會影響分數？</h4>
+<p>會，而且影響的方式不只是「回答被截短」。2026-10-03 本機用 <code>--max-new-tokens 128</code> 跑過一次（記錄在本書的事實清單 <code>docs/HW03/FACTS.md</code> 的「Q1 實測」一節，那次只抄下分數，沒有留下逐字 log）：有 template 6.0589、沒有 template 4.0062。兩條路的回答都被 128 的上限截在半途，評分器看到的是沒寫完的回答。和預設 512 比，有 template 只差 0.0145，沒有 template 卻差了 1.0042（計算值），超過投影片允許的 0.5 誤差。原版 TODO 沒有規定長度，所以你填的 <code>max_new_tokens</code> 也是結果的一部分。這本書的數字一律以 hw3.py 的預設 512 為準；這兩個數字只有一次紀錄，僅供對照。</p>
+</div>
+
+<p>關於 Gradescope：Q1 的三小題是填兩個分數（允許 0.5 誤差）、選哪個比較高、從一組敘述裡選出恰好兩個正確的。這本書只列本機實測的數字，那些敘述選項不在投影片與 Colab 裡，這裡不編，也不把上面的觀察寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）。</p>
+
+<h2 id="r1">1.7　雙 &lt;bos&gt;：讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：R1 Q1 的 prompt 開頭有兩個 &lt;bos&gt;</h4>
+<p>（R1 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡第 1 條 repo 問題的編號。）</p>
+<p><b>現象</b>：<code>apply_chat_template(..., tokenize=False)</code> 產生的字串已經以 <code>&lt;bos&gt;</code> 開頭（template 第一句就是 <code>{{ bos_token }}</code>），接著 hw3.py:77 的 <code>tokenizer(prompt)</code> 預設 <code>add_special_tokens=True</code>，又在最前面加一個。本機實測 input_ids 開頭是 <code>[2, 2, 106, …]</code>，共 32 個 token；用 <code>apply_chat_template(..., tokenize=True)</code> 直接拿 id，是 31 個，只有一個 <code>&lt;bos&gt;</code>（<code>logs/facts_env_model_tok.txt</code>）：</p>
+<pre class="shell">tokenizer(prompt).input_ids: len 32, first 6 [2, 2, 106, 1645, 108, 5958] -&gt; ['&lt;bos&gt;', '&lt;bos&gt;', '&lt;start_of_turn&gt;', 'user', '\n', 'Please'], last 5 ['&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'model', '\n']
+apply_chat_template(tokenize=True): len 31, first 3 ['&lt;bos&gt;', '&lt;start_of_turn&gt;', 'user']</pre>
+<p><b>為什麼看不出來</b>：hw3.py 印的是 tokenize <b>之前</b>的字串（<a href="#prompt-string">1.2 節</a>），上面只有一個 <code>&lt;bos&gt;</code>；第二個是在印完之後才加的。decode 時 <code>skip_special_tokens=True</code> 又把兩個都拿掉，輸出裡也看不到。只有直接看 input_ids 才會發現。沒有 template 的那條路沒有這個問題：純文字裡沒有 <code>&lt;bos&gt;</code>，tokenizer 加一個，剛好一個。</p>
+<p><b>影響（本機實測，greedy、<code>max_new_tokens=512</code>）</b>：事實腳本把同一個 template 字串改用 <code>tokenizer(prompt, add_special_tokens=False)</code> 轉成 id，只留 template 自帶的那一個 <code>&lt;bos&gt;</code>，其餘設定不變。<b>這是事實腳本的實驗，不是 hw3.py 的輸出</b>（<code>logs/facts_q1_q2.txt</code> 的 <code>with template, single &lt;bos&gt;</code> 段）：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>條件</th><th class="num">prompt token</th><th class="num">新 token</th><th class="num">字數</th><th class="num">評分器 token</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>雙 <code>&lt;bos&gt;</code>（hw3.py）</td><td class="num">32</td><td class="num">240</td><td class="num">172</td><td class="num">285</td><td class="num">6.0734</td></tr>
+<tr><td>單 <code>&lt;bos&gt;</code>（事實腳本的實驗，沿用 544 格 cache）</td><td class="num">31</td><td class="num">161</td><td class="num">127</td><td class="num">204</td><td class="num">6.1188</td></tr>
+<tr><td>單 <code>&lt;bos&gt;</code>（自己配置 543 格 cache）</td><td class="num">31</td><td class="num">149</td><td class="num">116</td><td class="num">187</td><td class="num">6.3992</td></tr>
+</tbody>
+</table></div>
+<p>開頭幾乎一樣（「two fundamental <b>approaches</b> in machine learning」對「two fundamental <b>types</b> of machine learning」），接著就分岔了：單 <code>&lt;bos&gt;</code> 的版本沒有比喻、沒有「Key differences」條列，兩段散文加一句「In essence」總結。多一個 token、而且是放在最前面的 <code>&lt;bos&gt;</code>，就足以讓 greedy 的回答換一條路走。</p>
+<p>表中單 <code>&lt;bos&gt;</code> 有兩列，原因是 <a href="#greedy">1.3.1 節</a>的 cache 長度效應：事實腳本是在雙 <code>&lt;bos&gt;</code> 那次之後跑的，沿用了 544 格，得到 161 個 token、6.1188；自己配置 31 + 512 = 543 格時，第 76 個新 token 開始不同，得到 149 個 token、6.3992（<code>logs/review_ch01_cache.txt</code>，這兩列都是實驗，不是 hw3.py 的輸出）。兩列的結論一樣：<b>回答內容換了</b>，分數和雙 <code>&lt;bos&gt;</code> 的 6.0734 相差 0.05 到 0.33（計算值）。上面描述的文字是 161 個 token 那一版。</p>
+<p><b>為什麼保留</b>：hw3.py 的 docstring（hw3.py:11–12）說「Everything else (including quirks like the double &lt;bos&gt; in Q1/Q2) is kept identical to the Colab so results match the TA reference answers」，:76 的註解也寫明「a chat-template prompt ends up with two &lt;bos&gt;」。作業要和助教的參考答案比對，所以照原版保留。</p>
+<p><b>正確的寫法</b>（二選一）：</p>
+<pre class="py"># 1) 字串已經有 &lt;bos&gt;，tokenize 時不要再加
+input_ids = tokenizer(prompt, add_special_tokens=False, return_tensors="pt").input_ids.to(DEVICE)
+
+# 2) 讓 apply_chat_template 直接回傳 token id，不經過字串
+input_ids = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True,
+                                          return_tensors="pt").to(DEVICE)</pre>
+<p>第 1 種只改一個參數，但要記得「字串從哪裡來」：同一個函式也拿來處理沒有 template 的純文字，那時候不加 <code>&lt;bos&gt;</code> 反而錯了，所以要分開處理。第 2 種從源頭就不經過字串，不會有這個問題。上面這兩段是本書寫的示意，不在 hw3.py 裡；第 1 種的效果就是表中「單 <code>&lt;bos&gt;</code>」那一列，第 2 種本機只量過 token 數（31），沒有跑過生成。</p>
+<p>Q2 的多輪對話用的是同一個寫法，每一輪的 prompt 也都是雙 <code>&lt;bos&gt;</code>，第 2 章回指這裡。</p>
+</div>
+
+<h2 id="lab">1.8　動手做：自己跑 Q1</h2>
+
+<div class="lab">
+<h4>只跑 Q1</h4>
+<p>在 repo 根目錄執行（需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 1</pre>
+<p>Q1 是 greedy，不需要 <code>--seed</code>。第一次跑會先下載評分模型（本機 HF 快取裡佔 0.092 GB，<a href="ch00.html#env">第 0 章 0.1 節</a>）。你會依序看到：<code>############################## Q1 ##############################</code> 分隔線 → 有 template 的 prompt（<a href="#prompt-string">1.2 節</a>那四行）→ 一條 <code>HybridCache</code> 的 deprecation 訊息（可以忽略，見 <a href="ch00.html#env">第 0 章 0.1 節</a>）→ 回答 → <code>Coherence Score (with template)</code> → 沒有 template 的 prompt、回答與分數。和 <a href="#results">1.6 節</a>比對：在相同的 GPU 與套件版本下，回答應該逐字相同、分數是 6.0734 與 5.0104。你的分數若有些微差異，多半是 GPU 或版本不同造成的 fp16 數值差（<a href="#greedy">1.3.1 節</a>）。</p>
+<p>想看長度上限的影響，加上 <code>--max-new-tokens</code>：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 1 --max-new-tokens 128</pre>
+<p>本機 2026-10-03 那一次得到 6.0589 與 4.0062，回答在半途被截斷（上面的提示框）。</p>
+<p>想看 input_ids 開頭的兩個 2 與單 <code>&lt;bos&gt;</code> 的對照，用 repo 附的事實腳本（同樣在 repo 根目錄；<code>model</code> 印 config 與 <code>generation_config</code>，<code>tok</code> 印 template 與 token 數，<code>q1</code> 跑三種條件的生成與評分）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py model tok q1</pre>
+<p>輸出的格式就是本章引用的 <code>logs/facts_env_model_tok.txt</code> 的 model 段、tokenizer 段與 <code>logs/facts_q1_q2.txt</code> 的 q1 段（行號不一定對得上：log 檔還含有其他段落）。<code>tok</code> 段在 template 之後還會印一長串各種字串的切法，那是第 3 章的素材。</p>
+</div>
+
+<h2 id="pitfalls">1.9　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 coherence 當成機率或百分比</h4>
+<dl>
+<dt>症狀</dt><dd>看到 6.07，以為「超過 1 是程式錯了」；或說「有 template 好了 1 成」。</dd>
+<dt>後果</dt><dd>誤判程式有 bug，或對分數差做出評分器撐不起的解讀。</dd>
+<dt>正解</dt><dd class="fix">它是 cross-encoder 的原始 logit，沒有上下限、沒有校準過的尺度。只能在同一個問題下比較兩個回答。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為印出來的 prompt 就是模型看到的</h4>
+<dl>
+<dt>症狀</dt><dd>從「Prompt inputted to the model」那幾行判斷只有一個 <code>&lt;bos&gt;</code>。</dd>
+<dt>後果</dt><dd>看不到雙 <code>&lt;bos&gt;</code>；修改 prompt 時也可能重複加特殊 token。</dd>
+<dt>正解</dt><dd class="fix">要知道模型收到什麼，印 <code>input_ids</code> 或 <code>tokenizer.convert_ids_to_tokens(input_ids[0])</code>，不要看 tokenize 之前的字串。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 decode(output_ids[0]) 就是回答</h4>
+<dl>
+<dt>症狀</dt><dd>把 <code>generate</code> 的輸出整段 decode 拿去評分。</dd>
+<dt>後果</dt><dd>回答前面黏著整個問題，評分器看到「問題 + 問題 + 回答」，分數失真。</dd>
+<dt>正解</dt><dd class="fix"><code>generate</code> 的輸出包含 prompt。照 hw3.py 用字串切，或更穩地切 token：<code>output_ids[0][input_ids.shape[1]:]</code>。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>用字串切回答，卻沒檢查切點</h4>
+<dl>
+<dt>症狀</dt><dd>換一個問題後，回答莫名只剩後半段。</dd>
+<dt>後果</dt><dd>回答裡出現了 <code>model\n</code> 或問題的最後一個字，<code>split(...)[-1]</code> 從錯的地方切。</dd>
+<dt>正解</dt><dd class="fix">印出切之前的完整字串確認一次；或改成切 token，不依賴回答內容。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>給 Gemma 加一則 system 訊息</h4>
+<dl>
+<dt>症狀</dt><dd><code>chat = [{"role": "system", ...}, {"role": "user", ...}]</code>。</dd>
+<dt>後果</dt><dd><code>apply_chat_template</code> 丟出 <code>jinja2.exceptions.TemplateError: System role not supported</code>（本機實測，<code>logs/review_ch01.txt</code>）。連續兩則 user 訊息則是 <code>Conversation roles must alternate user/assistant/user/assistant/...</code>。</dd>
+<dt>正解</dt><dd class="fix">Gemma 的 template 只接受 user／assistant 交替。要下指示，寫進第一則 user 訊息。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>改用單 &lt;bos&gt; 之後，拿分數去對助教的答案</h4>
+<dl>
+<dt>症狀</dt><dd>修掉雙 <code>&lt;bos&gt;</code>，回答和 hw3.py 的整段不同。</dd>
+<dt>後果</dt><dd>本機這一題的分數差 0.05 到 0.33（看 cache 長度，<a href="#r1">1.7 節</a>），回答內容換了一套；其他依賴生成內容的地方就對不上了。</dd>
+<dt>正解</dt><dd class="fix">交作業時照原版（雙 <code>&lt;bos&gt;</code>）跑；想知道正確寫法的效果，另外跑一份對照，像 <a href="#r1">1.7 節</a>那樣分開記錄。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>Gemma 的 chat template：開頭 <code>{{ bos_token }}</code>；不支援 system role；user／assistant 必須交替；assistant 改名 <code>model</code>；每則訊息是 <code>&lt;start_of_turn&gt;</code> + 角色 + 換行 + <code>trim</code> 過的內容 + <code>&lt;end_of_turn&gt;</code> + 換行；<code>add_generation_prompt</code> 補上 <code>&lt;start_of_turn&gt;model\n</code>。</li>
+<li>Q1 的 TODO 是一行 <code>model.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)</code>。greedy 沒有亂數，同一台機器、同樣的呼叫順序可以完全重現；但前一次 <code>generate</code> 留下的 KV cache 長度會改變 fp16 的數值，碰到同分就換答案（沒有 template 那條路：沿用 544 格是 5.0104，單獨跑是 4.2210）。不給 <code>max_new_tokens</code> 只會生成 20 個新 token，而且沒有警告；<code>generation_config</code> 的 <code>eos_token_id</code> 是 <code>[1, 107]</code>，所以兩條路都停在 <code>&lt;end_of_turn&gt;</code>。</li>
+<li><code>generate</code> 的輸出包含 prompt。有 template 用 <code>split("model\n")</code>、沒有用 <code>split("words.")</code> 切出回答，兩者都假設回答裡不會出現切點。</li>
+<li>評分器 <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> 一次讀「問題、回答」這一對，輸出一個沒有上下限的相關性 logit，不是機率；這次的輸入 285 與 189 個 token，沒碰到 512 的截斷。</li>
+<li>本機實測：有 template 240 個新 token、6.0734；沒有 template 138 個新 token、5.0104。回答形狀一個是完整回答、一個是條列筆記；兩者都沒寫到 200 字；沒套 template 也用 <code>&lt;end_of_turn&gt;</code> 收尾。這是一題、一個評分器、一次 greedy 的證據。</li>
+<li>R1：有 template 時 input_ids 是 <code>[2, 2, 106, …]</code> 共 32 個；單 <code>&lt;bos&gt;</code> 是 31 個，實驗得到 149 或 161 個新 token、6.3992 或 6.1188（看 cache 長度），回答內容都和 hw3.py 不同。hw3.py 為了和助教答案一致而保留。</li>
+</ul>
+<p>下一章是 Q2：同一套 template 拿來做多輪對話，chat_history 一輪一輪把 prompt 接長，並且不再直接 <code>generate</code>，而是先看模型對下一個 token 的機率分布。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. 有 template 的 prompt 印出來只有一個 <code>&lt;bos&gt;</code>，為什麼 input_ids 是 32 個、開頭兩個 2？把 32 拆成各部分。</summary>
+<p>template 自己以 <code>{{ bos_token }}</code> 開頭，印出來的字串就有一個 <code>&lt;bos&gt;</code>；hw3.py:77 的 <code>tokenizer(prompt)</code> 預設 <code>add_special_tokens=True</code>，又在最前面加一個。32 = 2（兩個 <code>&lt;bos&gt;</code>）+ 3（<code>&lt;start_of_turn&gt;</code> <code>user</code> <code>\n</code>）+ 22（問題本身）+ 5（<code>&lt;end_of_turn&gt;</code> <code>\n</code> <code>&lt;start_of_turn&gt;</code> <code>model</code> <code>\n</code>）。</p>
+</details>
+
+<details class="quiz"><summary>2. 沒有套 template 時，prompt 裡沒有任何 <code>&lt;start_of_turn&gt;</code>，為什麼模型還是在 138 個 token 就停了，沒有寫到 512？</summary>
+<p>模型最後生成了 <code>&lt;end_of_turn&gt;</code>（id 107）。模型附的 <code>generation_config</code> 的 <code>eos_token_id</code> 是 <code>[1, 107]</code>，hw3.py 沒有覆蓋它，所以 <code>generate</code> 看到 107 就停。IT 模型在微調時學到「回答完寫 <code>&lt;end_of_turn&gt;</code>」，就算 prompt 沒有對話格式也照做。</p>
+</details>
+
+<details class="quiz"><summary>3. 同學說：「有 template 的 coherence 是 6.07、沒有的是 5.01，所以套 template 的回答品質好了大約 1 成。」哪裡有問題？</summary>
+<p>兩個地方。第一，分數是 cross-encoder 的原始 logit，不是機率或百分比，也沒有校準過的尺度，「差 1 分」不能換算成「好幾成」。第二，這只是一個問題、一個評分器（而且是搜尋相關性模型）、一次 greedy 的結果，不能推廣成「套 template 一定比較好」。單 <code>&lt;bos&gt;</code> 的實驗版回答更短、沒有 Key differences 條列，分數反而更高，說明分數高低的原因並不清楚。</p>
+</details>
+
+<details class="quiz"><summary>4. 假設有 template 的回答裡有一行寫「… we train a model」然後換行。<code>split("model\n")[-1]</code> 會拿到什麼？怎麼改比較穩？</summary>
+<p>decode 後那一行會變成 <code>... we train a model\n</code>，<code>split("model\n")</code> 在這裡多切一刀，<code>[-1]</code> 只拿到這一行之後的部分，回答前半段就不見了。比較穩的做法是切 token 而不是切字串：<code>tokenizer.decode(output_ids[0][input_ids.shape[1]:], skip_special_tokens=True)</code>，只 decode 新生成的部分。</p>
+</details>
+
+<details class="quiz"><summary>5. 要讓模型只看到一個 <code>&lt;bos&gt;</code>，有哪兩種改法？為什麼不能直接在 <code>generate_text_from_prompt</code> 裡一律加 <code>add_special_tokens=False</code>？</summary>
+<p>一是 <code>tokenizer(prompt, add_special_tokens=False)</code>，二是 <code>apply_chat_template(..., tokenize=True, return_tensors="pt")</code> 直接拿 id。這個函式同時處理沒有 template 的純文字：那時字串裡沒有 <code>&lt;bos&gt;</code>，一律關掉特殊 token 會讓純文字那條路變成零個 <code>&lt;bos&gt;</code>。所以第一種改法要依 prompt 的來源分開處理。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Hugging Face 模型頁 <a href="https://huggingface.co/google/gemma-2-2b-it">google/gemma-2-2b-it</a>：模型卡裡有 chat template 的用法與對話格式的範例。</li>
+<li>transformers v4.47.0 文件 <a href="https://huggingface.co/docs/transformers/v4.47.0/en/chat_templating">Chat templates</a>：<code>apply_chat_template</code> 的參數（<code>tokenize</code>、<code>add_generation_prompt</code>）與「template 已經含特殊 token 時不要再加」的提醒。</li>
+<li>transformers v4.47.0 文件 <a href="https://huggingface.co/docs/transformers/v4.47.0/en/generation_strategies">Text generation strategies</a>：greedy、sampling 與 <code>generation_config</code>。</li>
+<li>Hugging Face 模型頁 <a href="https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2">cross-encoder/ms-marco-MiniLM-L-6-v2</a>：評分模型的用途與訓練資料。</li>
+<li>Nguyen et al., <i>MS MARCO: A Human Generated MAchine Reading COmprehension Dataset</i>, 2016, <a href="https://arxiv.org/abs/1611.09268">arXiv:1611.09268</a>：評分器的訓練資料集。</li>
+<li>Wang et al., <i>MiniLM: Deep Self-Attention Distillation for Task-Agnostic Compression of Pre-Trained Transformers</i>, 2020, <a href="https://arxiv.org/abs/2002.10957">arXiv:2002.10957</a>。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00b.html">← 補充章 KV cache</a><span class="disabled">第 2 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>

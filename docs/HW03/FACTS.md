@@ -224,6 +224,7 @@
 10. **`--seed` 只能讓「同一條指令」重現**：
     - `.venv/bin/python HW03/hw3.py --q 4 --seed 0` 的 top-k 20 句，與 facts 腳本以 seed 0 重跑的結果逐句相同。
     - 但 `hw3.py --seed 0`（全部題目，Q1–Q3 先跑）的 Q4 和只跑 `--q 4 --seed 0` 不同：top-k 第 13 句不一樣，self-BLEU 是 0.2020 vs 0.2029。
+    - 同一個效應也讓 Q1 沒有 template 那條路的 greedy 結果改變（見「ch01 審稿補測」）。
     - **原因已實測確認**（見「大綱審稿補測（第 1 輪）」的 R10 一節）：Q1 沒有動到亂數狀態。差別來自 `model.generate` 把 HybridCache 留在 `model._cache` 重複使用；Q1 留下長度 544 的 cache，Q4 就用 544 格而不是 62 格算，數值差一點點，翻掉了一次取樣。
     - 教材不要宣稱「設了 seed 就一定一樣」。
 
@@ -306,6 +307,7 @@
   - 22,713,601 個參數，num_labels 1，`model_max_length` 512，**跑在 CPU**（程式沒有 `.to("cuda")`）。
   - 它輸出的是 (question, answer) 這一對的相關性 logit，沒有上下限，不是機率。
 - **greedy（`do_sample=False`）可以完全重現**：全程跑兩次，數字一樣。
+  - **但前提是呼叫順序相同**：沒有 template 的 5.0104、單 `<bos>` 的 6.1188 都是沿用前一次 generate 留下的 544 格 KV cache 得到的；自己配置 cache 時是 4.2210、6.3992。見「ch01 審稿補測」。
 
   | 條件 | 新 token 數 | 停在 | 秒數 | 回答字數 | 評分器 token 數 | coherence |
   |---|---|---|---|---|---|---|
@@ -678,6 +680,17 @@
 - `Gemma2ForCausalLM`：`_tied_weights_keys = ["lm_head.weight"]`（:887）；final soft-cap 30 在 :993–996。
 - **原版 Colab 的格子編號**：ch00 與 index.html 一律「把 markdown 格也算進去、從 1 起算」：第 3 格 `!nvidia-smi`、第 5 格 `!pip install transformers==4.47.0`、第 7 格 `login("your_hf_token")`、第 10 格載入模型。上面「環境」一節寫的「Colab 第 4 格」是 0 起算的編號，指的是同一格（第 5 格）。
 
+## ch01 寫作時查證的事項（雲端，2026-10-04）
+
+- **投影片 p.12–13（Q1，1 分）**：三小題：(1) 兩個 coherence 分數（0.2 + 0.2，填空，「Error with 0.5 is accepted」）；(2) 哪個比較高（0.3，選擇）；(3) 從敘述裡選恰好 2 個正確的（0.3，選擇，選項不在投影片裡）。p.13 寫評分器的目的是「Calculate the coherence score between the question (prompt) and the model response」。
+- **原版 Colab 的 Q1 格子**（markdown 格也算、從 1 起算）：第 13 格載入評分模型與 `calculate_coherence`（全域變數當預設參數）；第 15 格 `generate_text_from_prompt`（TODO，函式沒有 `max_new_tokens` 參數，註解要求 `do_sample=False`）；第 16 格有 template；第 17 格沒有 template。
+- **TODO 註解寫「Q1.1 ~ 1.4」**（Colab 第 15 格、hw3.py:79），投影片只有三小題。
+- **事實腳本 q1 段的計數方式**（docs/tools/hw03_facts.py:152–167）：「words」是 `len(resp.split())`（條列的 `*` 也算一段）；「scorer tokens」是 `len(st(q, resp, truncation=True).input_ids)`，含評分器自己的特殊 token。
+- **Q1 留下的 cache 544 是第一次 generate 配置的**：第二次（沒有 template）只需 23 + 512 = 535 格，沿用既有的 544 格 cache（機制見「ch05 R10 的原因」）。
+- **generation_config**（logs/facts_env_model_tok.txt 第 47 行，model 段）沒有 `do_sample`、`max_length`，所以不寫時用 `GenerationConfig` 類別預設值（do_sample=False）。「原版 TODO 不給 max_new_tokens 會怎樣」本機已量，見「ch01 審稿補測」。
+- **ch01 第一次交代的名詞**：greedy、Jinja、`add_generation_prompt`、`generation_config`、cross-encoder／bi-encoder、BERT 類（encoder-only）、MS MARCO、MiniLM／蒸餾、logit vs 機率（sigmoid 計算值 6.0734 → 0.9977、5.0104 → 0.9934）。
+- **ch00 沒有特殊 token 表**：`<start_of_turn>`=106 等 id 是在 ch01 1.1.1 第一次列出的。
+
 ## ch00 審稿補測（本機，2026-10-04；logs/review_ch00_errors.txt）
 
 - **雲端從 GitHub v4.47.0 讀的 modeling_gemma2.py 行號**：本機 .venv 的檔案（1282 行）逐行核對，全部正確。
@@ -698,6 +711,73 @@
   - 其餘：tokenizer.json 17,525,357、tokenizer.model 4,241,003、tokenizer_config.json 46,996、README.md 29,091、model.safetensors.index.json 24,223、config.json 838、special_tokens_map.json 636、generation_config.json 187。
   - 總計 5,250,585,819 bytes = 5.251 GB。
 - **沒有量、教材改寫成「本機沒有測」的**：sm_120 上用非 cu128 torch wheel 的錯誤訊息；清空快取後第一次的下載時間。
+
+## ch01 審稿補測（本機，2026-10-04；logs/review_ch01.txt、logs/review_ch01_cache.txt）
+
+- **Q1 的 greedy 結果取決於 KV cache 的長度**（`docs/tools/hw03_q1_cache.py`）：
+  - `generate` 把 HybridCache 留在 `model._cache`，長度夠就沿用（R10 的機制）。hw3.py 的 q1 先跑有 template（32 + 512 = 544 格），沒有 template 那次只需要 23 + 512 = 535 格，於是沿用 544 格。
+  - 同一個 prompt、預先放好不同長度的 cache，`max_new_tokens=512, do_sample=False`：
+
+    | 路徑 | 自己配置（不沿用） | 544 格 | 600 格 | 1024 格 |
+    |---|---|---|---|---|
+    | 有 template、雙 `<bos>`（hw3.py） | 544：240 token／172 字／6.0734 | 同左 | 240／172／**6.0616**（第 234 個新 token 不同） | 240／172／6.0734 |
+    | 有 template、單 `<bos>` | 543：**149 token／116 字／評分器 187 token／6.3992** | 161／127／6.1188 | 161／127／6.1188 | 161／127／6.1188 |
+    | 沒有 template（hw3.py） | 535：**136 token／85 字／評分器 187 token／4.2210** | 138／87／5.0104 | 136／85／4.2210 | 136／85／4.2210 |
+
+  - hw3.py 的 5.0104 與 facts 腳本的 6.1188 都是「沿用 544 格」的數字。照作業順序跑，沒有 template 就是 5.0104；單獨跑是 4.2210，差 0.79，超過投影片允許的 0.5。
+  - 沒有 template 那條路在第 30 個新 token 分岔：535 格之下 `▁outputs` 與 `▁the` 的 logit 都是 17.875（同分），argmax 選了 `▁the`；544 格之下 `▁outputs` 是 17.8906。
+  - 前 30 步每一步 logits 的最大差異：第 0、1 步是 0，之後 0.03–0.05（fp16 在 18 附近的精度是 0.0156）。
+  - 為什麼 544 會不同、600 與 1024 不會：沒有追，教材不要解釋。
+  - 原版 Colab 也是同一個順序、transformers 4.47.0，推論會有同樣的沿用行為；Colab 的 GPU 不同，數值本來就可能不同。
+- **拿掉 `do_sample=False`**（只給 `max_new_tokens=512`）：兩條路生成的 token 與 hw3.py 的寫法逐一相同（同樣的 cache 長度下比較）。不寫也是 greedy。
+- **原版 TODO 不給長度**（`model.generate(input_ids, do_sample=False)`）：
+  - 有 template：20 個新 token，最後一個是 `**`，coherence 4.0107；沒有 template：20 個新 token，最後一個是 `)`，coherence −2.8643。
+  - 沒有印出任何警告（Python warnings 與 stderr 都沒有）。
+  - `model.generation_config.max_length` 是 20、`max_new_tokens` 是 None。transformers 4.47 `generation/utils.py:1471–1473`：長度是預設值 20 時，上限改成「prompt 長度 + 20」，所以是 20 個新 token。
+- **chat_template 的例外**（`apply_chat_template`）：
+  - 有 system 訊息：`jinja2.exceptions.TemplateError: System role not supported`。
+  - 連續兩則 user：`jinja2.exceptions.TemplateError: Conversation roles must alternate user/assistant/user/assistant/...`。
+- **沒有量的**：跨 GPU 時 argmax 是否翻轉（本機只有一張 GPU），ch01 維持推論。
+
+## KV cache 補充章實測（本機，2026-10-04；logs/facts_kvcache.txt、logs/facts_kvcache_overflow.txt）
+
+頁面：`docs/HW03/ch00b.html`（補充章，節號與圖號用 K.n）。`check_book.py` 的圖號檢查只認「圖 數字.數字」，對這一頁會報「3 張 svg 但有 0 個圖號」，屬已知、不用修。transformers 原始碼的節錄用 `python3 docs/tools/build_ch00b.py --check docs/HW03/ch00b.html` 逐字核對（需要本機 .venv）。
+
+指令：`.venv/bin/python docs/tools/hw03_facts.py kvcache`（約 107 s）；溢位測試另跑 `docs/tools/hw03_cache_overflow.py`（會弄壞 CUDA context，所以獨立一支）。輸入是 Q1 有 template 的 prompt（hw3.py 的寫法，雙 `<bos>`，T = 32），greedy；每次測量前都把 `model._cache` 清成 None。
+
+- **有沒有 cache，生成 Q1 的回答**（max_new_tokens=512，兩者都停在 240 個新 token）：
+  - use_cache=True：5.69 s（42.2 tok/s）；use_cache=False：6.10 s（39.3 tok/s）。
+  - 生成的 token 從第 234 個新 token 開始不同（`▁available` vs `▁data`）。
+  - 送進模型的 token 總數（計算值）：有 cache 32 + 239 = 271；沒有 cache Σ(32+i), i=0..239 = 36,360，約 134 倍。
+  - 強制生成 1024 個新 token（`min_new_tokens=max_new_tokens=1024`）：有 cache 26.3 s、沒有 cache 52.6 s；峰值 allocated 5.77 vs 5.75 GiB。
+  - `generate(..., use_cache=False)` 在 transformers 4.47 會印一段 `--- Logging error ---` 的 traceback（transformers 自己 `logger.warning_once` 的格式化錯誤，訊息是 "You have set `use_cache` to `False`, but cache_implementation is set to hybrid. cache_implementation will have no effect."），程式照常繼續。
+- **一步要多久**（每個數字是多次的中位數）：
+  - prefill 32 個 token：24.7 ms；有 cache 的 decode 一步：22.7 ms（64 步，22.1–24.8）。
+  - 沒有 cache 時，一步就是把整段重算一次：32 個 token 22.2 ms、64 個 21.7、128 個 22.6、256 個 31.3、271 個 35.5、512 個 49.4、1024 個 90.0、2048 個 218.7、4096 個 604.3 ms。
+  - 有 cache 時，cache 裡已有 512／1024／2048／4096 個 token，decode 一步是 23.1／22.9／23.3／24.2 ms。
+  - 解讀（推論）：短序列時一次 forward 的時間大多是固定開銷（26 層、每層多個小 kernel），所以 300 個 token 以內有沒有 cache 差不多；序列越長，沒有 cache 的一步越貴，有 cache 幾乎不變。
+- **一次 forward 整段 vs generate 逐步的 logits**（同一串 271 個 token）：
+  - 240 步裡每一步都有差異（沒有一步完全相同），每步最大差異的平均 0.0390、最大 0.0625。
+  - 239/240 步的 argmax 與 generate 選的 token 相同；不同的是第 234 步：generate 的前兩名是 `▁available` 19.0469、`▁data` 19.0312（差一格 fp16 精度，19 附近是 0.0156），一次 forward 的 argmax 是 `▁data`。這也是 use_cache=False 從第 234 個 token 開始不同的原因。
+- **cache 的樣子**（`model._cache`，Q1 生成完）：
+  - HybridCache，max_cache_len 544，26 層，`is_sliding` 是 [True, False, True, False, …]（偶數層 sliding）。
+  - 每層 key、value 各一個 (1, 4, 544, 256) float16；有 271 格寫了非零值（32 + 239），之後的格子全是 0。
+  - 總共 57,933,824 bytes = 0.0540 GiB；每一格 106,496 bytes（= 26 層 × 2（k、v）× 4 組 × 256 維 × 2 bytes）。
+  - `HybridCache(max_cache_len=8192)`：sliding 層 (1, 4, 4096, 256)、global 層 (1, 4, 8192, 256)，總共 654,311,424 bytes = 0.609 GiB。若 26 層都是 8192 格會是 872,415,232 bytes = 0.8125 GiB（計算值）。
+  - 若 k、v 也有 8 個 head（不用 GQA），每格 212,992 bytes，cache 加倍（計算值）。
+  - forward 時傳 `past_key_values=DynamicCache()` 也能跑，回傳 DynamicCache，layer 0 的 key 是 (1, 4, 32, 256)（剛好 32 格，不預留）。
+  - forward 時 `use_cache=True` 但不給 cache：模型自己建一個 max_cache_len = 32（prompt 長度）的 HybridCache（modeling_gemma2.py:711–719）。
+- **前綴的 k、v 不受後面 token 影響**：Q7 prompt c（13 個 token）整段 prefill，與只 prefill 前 6 個 token，兩份 cache 在位置 0–5 的 key、value，26 層裡最大差異都是 0.0078（數學上相同；fp16 運算的形狀不同造成的捨入差）。
+- **沒寫入的格子拿到的注意力是 0**：
+  - prefill 時 attentions 是 26 個 (1, 8, 32, 544)：寬度是 cache 的長度，不是序列長度。第 32 格以後的權重，全部層、head、列加總是 0.0；每列加總與 1 的差最多 3.36e-04（fp16 捨入）。
+  - decode 第 1 步 attentions 是 (1, 8, 1, 544)，第 33 格以後的權重加總也是 0.0。
+  - mask 的值是 fp16 的最小值 −65504（`torch.finfo(torch.float16).min`），在 soft-cap 之後加上去（modeling_gemma2.py:183–194）。
+- **cache 長度不同時，差異從哪裡開始**（Q1 沒有 template，cache 535 vs 544，decode 第 3 步）：最早不同的是第 7 層的 self_attn；已寫入格子上的 attention 權重差 0.00037，attention 輸出差 0.0020。為什麼是第 7 層、為什麼 softmax 的結果會因為多出幾個被遮掉的格子而改變，沒有追（推論：加總的運算順序不同）。
+- **手動建的 HybridCache 少一格**（logs/facts_kvcache_overflow.txt）：3 格的 cache prefill 3 個 token 正常；往第 3 格（第 4 個位置）寫時，`model(...)` 照常回傳、沒有例外，stderr 印出 160 行 `IndexKernel.cu:111 … Assertion ... "index out of bounds" failed.`，到 `torch.cuda.synchronize()` 才丟出 `AcceleratorError: CUDA error: device-side assert triggered`。之後這個 process 的 CUDA 都不能用了。
+- **原始碼位置**（transformers 4.47.0）：
+  - `cache_utils.py`：`class HybridCache` :1561（docstring :1562–1565 寫明是給 `torch.compile` 用、sliding 與 global 交替）；`__init__` :1604–1662（`is_sliding` :1637–1639，兩種形狀 :1642–1648，每層 `torch.zeros` 配置 :1649–1662）；`_sliding_update` :1664–1690；`_static_update` :1692–1698；`update` :1700–1724；`get_seq_length` :1729–1738；`reset` :1740–1745；`batch_size` property :1747–1753（這就是 ch00 提到的 deprecation 訊息的出處：`__init__` 自己在 :1642 讀了 `self.batch_size`）。
+  - `models/gemma2/modeling_gemma2.py`：`Gemma2Attention.forward` :362–412（k、v 先過 RoPE :383–384，再 `past_key_value.update` :386–394）；`self.sliding_window` 只在偶數層設定 :345；forward 自建 HybridCache :711–719；`_update_causal_mask` 的 `target_length = past_key_values.get_max_cache_shape()` :812–813；mask 產生 :866–872；eager attention 加 mask :189–191。
+  - `generation/utils.py`：`_get_cache` :1589–1681（沿用的判斷 :1603–1616，沿用時 `reset()` :1680）。
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -720,6 +800,10 @@
 - neuronpedia_feature_10004.json：Neuronpedia API 的原始回應。
 - facts_review1_shapes_q4steps_rescale26.txt、facts_review1_perq.txt、facts_review1_ptit.txt：`docs/tools/hw03_facts.py shapes q4steps rescale26`、`perq`、`ptit` 的輸出（大綱審稿補測第 1 輪）。
 - review_ch00_errors.txt：ch00 審稿補測（未登入、沒有 CUDA、`--help`、sae-lens 6.53.0、快取檔案大小）。
+- review_ch01.txt：`hw03_facts.py review_ch01` 的輸出（拿掉 do_sample、不給長度、chat_template 例外）。
+- review_ch01_cache.txt：`docs/tools/hw03_q1_cache.py` 的輸出（Q1 三條路 × cache 長度）。
+- facts_kvcache.txt：`hw03_facts.py kvcache` 的輸出（KV cache 補充章）。
+- facts_kvcache_overflow.txt：`docs/tools/hw03_cache_overflow.py` 的輸出。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
