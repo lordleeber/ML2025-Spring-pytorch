@@ -1,0 +1,18 @@
+==================== review_ch06: hw3.py:275 vs 事實腳本 q5 段的句子向量 ====================
+hidden_states[-1] dtype torch.float16
+max |diff| between the two embeddings 0.01562; max relative 3.45e-04
+cosine matrices max |diff| 0.00006
+--- t-SNE perplexity=2 random_state=42 on hw3.py (fp16 mean): same twice True
+    Apple(f) (-31.6, -54.9), Apple(c) (39.0, 25.8), Orange(f) (-44.7, -54.9), Orange(t) (25.0, 4.0), MS(c) (36.6, 13.6), Banana(f) (-21.4, -45.4)
+    nearest neighbour: {'Apple(f)': 'Orange(f)', 'Apple(c)': 'MS(c)', 'Orange(f)': 'Apple(f)', 'Orange(t)': 'MS(c)', 'MS(c)': 'Apple(c)', 'Banana(f)': 'Apple(f)'}
+    x range -44.7..39.0, y range -54.9..25.8
+--- t-SNE perplexity=2 random_state=42 on facts (fp32 mean): same twice True
+    Apple(f) (-150.2, -112.6), Apple(c) (50.1, 97.7), Orange(f) (-154.1, -148.4), Orange(t) (10.7, 38.3), MS(c) (43.0, 64.4), Banana(f) (-121.0, -87.4)
+    nearest neighbour: {'Apple(f)': 'Orange(f)', 'Apple(c)': 'MS(c)', 'Orange(f)': 'Apple(f)', 'Orange(t)': 'MS(c)', 'MS(c)': 'Apple(c)', 'Banana(f)': 'Apple(f)'}
+    x range -154.1..50.1, y range -148.4..97.7
+
+==================== review_ch06: ch06 6.6 的兩行（fp16 masked mean）照字面跑 ====================
+finite True; max|hidden| 80.4; max|sum over tokens| 407.0
+vs fp32 masked mean (facts): max|diff| 0.02232
+cosine Apple(f)-Orange(f) 0.924, Apple(c)-MS 0.915, Orange(t)-MS 0.869, Apple(f)-Apple(c) 0.728
+t-SNE nearest neighbour: {'Apple(f)': 'Orange(f)', 'Apple(c)': 'MS(c)', 'Orange(f)': 'Apple(f)', 'Orange(t)': 'MS(c)', 'MS(c)': 'Apple(c)', 'Banana(f)': 'Apple(f)'}

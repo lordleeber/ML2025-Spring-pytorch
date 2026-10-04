@@ -876,7 +876,15 @@ TSNE(perplexity=2, random_state=42): init='pca' learning_rate='auto' -&gt; 50.00
 <li><b>可靠的是最近鄰</b>。本機用 random_state 0、1、42、123 各跑一次（<code>logs/facts_q4_q7.txt</code> q5 段最後四行），平面上每個點的最近鄰都是 Apple(f)↔Orange(f)、Apple(c)↔MS、Orange(t)→MS、Banana→Apple(f)，和上一節從 cosine 表讀出的最近鄰相同。</li>
 </ul>
 
-<p>座標不可靠這件事本機就碰到了一個例子：FACTS 記錄的事實腳本 t-SNE 座標（例如 Apple(f) 在 (−150.2, −112.6)）和這張 hw3.py 輸出圖的座標範圍（x 約 −45 到 40、y 約 −55 到 26，從圖讀出）對不上，但分群與最近鄰一致。事實腳本與 hw3.py 都用 <code>perplexity=2, random_state=42</code>，差異可能來自兩者算句子向量時的數值細節（例如先平均再轉 fp32，或先轉再平均），t-SNE 對輸入的微小差異很敏感（推論，本機沒有追）。<!-- TODO(本機實測): hw3.py q5 實際的 embeddings_2d 座標；事實腳本 q5 段的 t-SNE 輸入與 hw3.py 的 sentence_embeddings 是否逐元素相同、差異從哪裡來 --></p>
+<p>座標不可靠這件事本機就碰到了一個例子：FACTS「Q5 實測」原本記的座標（例如 Apple(f) 在 (−150.2, −112.6)）和這張 hw3.py 輸出圖的座標範圍（x 約 −45 到 40）對不上，但分群與最近鄰一致。本機追了原因（<code>logs/review_ch06.txt</code>）：hw3.py:275 是在 fp16 裡平均、再 <code>.float()</code>；事實腳本是先 <code>.float()</code> 再平均。兩種句子向量最多只差 0.0156（相對於最大值約 3.5 × 10<sup>−4</sup>），餘弦相似度矩陣最多差 0.00006，可是丟進同一個 <code>TSNE(perplexity=2, random_state=42)</code> 之後：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>輸入</th><th>Apple(f)</th><th>Apple(c)</th><th>x 範圍</th><th>y 範圍</th></tr></thead>
+<tbody>
+<tr><td>hw3.py:275（fp16 平均）</td><td>(−31.6, −54.9)</td><td>(39.0, 25.8)</td><td>−44.7 到 39.0</td><td>−54.9 到 25.8</td></tr>
+<tr><td>事實腳本（fp32 平均）</td><td>(−150.2, −112.6)</td><td>(50.1, 97.7)</td><td>−154.1 到 50.1</td><td>−148.4 到 97.7</td></tr>
+</tbody>
+</table></div>
+<p>座標範圍差了三倍左右，最近鄰關係卻完全相同（Apple(f)↔Orange(f)、Apple(c)↔MS、Orange(t)→MS、Banana→Apple(f)）。同一個輸入連跑兩次，座標逐位相同，所以這不是 t-SNE 自己的隨機性，而是輸入的極小差異被放大了。這正是本節要說的：t-SNE 的座標不能拿來比大小，能信的是誰和誰靠在一起。</p>
 
 <h2 id="r8">6.6　讀 code 不盡信文件</h2>
 
@@ -892,7 +900,7 @@ TSNE(perplexity=2, random_state=42): init='pca' learning_rate='auto' -&gt; 50.00
 <p><b>正確的寫法</b>（本書的示意，不在 hw3.py 裡）：用 <code>attention_mask</code> 當權重，只平均真實 token。</p>
 <pre class="py">mask = inputs.attention_mask.unsqueeze(-1).to(hidden_states.dtype)   # (6, 9, 1)
 sentence_embeddings = ((hidden_states * mask).sum(dim=1) / mask.sum(dim=1)).float().cpu().numpy()</pre>
-<p>事實腳本的「排除 pad」版本就是這個做法的結果（數字見 6.4 節）；上面這兩行本書沒有照字面跑過。hw3.py 為了和助教的參考答案一致，保留原版的寫法。</p>
+<p>事實腳本的「排除 pad」版本就是這個做法的結果（數字見 6.4 節）；上面這兩行本機照字面跑過（<code>logs/review_ch06.txt</code>）：在 fp16 裡加總沒有溢位（加總的絕對值最大 407），結果和事實腳本的 fp32 版最多差 0.022，餘弦相似度同樣是 0.924、0.915、0.869、0.728，t-SNE 的最近鄰也相同。hw3.py 為了和助教的參考答案一致，保留原版的寫法。</p>
 </div>
 
 <div class="warn">
