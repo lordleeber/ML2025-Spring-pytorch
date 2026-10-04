@@ -1082,7 +1082,7 @@
 - **`--sae-layer-idx` 不影響 Q7.2–7.3**：logs/run_q7_layer21_tok123.txt（`--q 7 --sae-layer-idx 21 --token-idx 1 2 3`）第 19–20 行的兩個 max_activation 與 run_seed0.txt 相同（58.10378646850586、31.740745544433594）。那份 log 的 Q7 段也印出 HybridCache 的 deprecation 訊息。
 - **計算值**：SAE 75,532,544 × 4 bytes = 302,130,176 bytes ≈ 0.28 GiB；1 / 0.0035 ≈ 286 個 token 亮一次；16384 / 2304 ≈ 7.1。
 - **FVU 的算法**（`hw03_facts.py` :456、:597）：一句話排除 `<bos>` 後，Σ‖x̂ − x‖² ／ Σ‖x − x̄‖²，x̄ 是這句話各 token（不含 `<bos>`）的平均向量。L0 是每個 token（不含 `<bos>`）非零 feature 數的平均。
-- **ch08 標為推論或沒有跑過的**：prompt a 後半的字詞因為上下文而亮；block 19 與 20 的輸出接近所以 [20] 的定性結論不變；`<bos>` 的大範數、attention sink、大 SAE activation 的關聯；Neuronpedia 網頁與 API 同源；R5 修法（:393 改成 `hook_layer + 1`）與 R6 修法（:397 改成 `feature_acts[1:, feature_idx]`）都沒有照字面改 hw3.py 跑過（ch08 標了 TODO）。
+- **ch08 標為推論或沒有跑過的**：prompt a 後半的字詞因為上下文而亮；block 19 與 20 的輸出接近所以 [20] 的定性結論不變；`<bos>` 的大範數、attention sink、大 SAE activation 的關聯；Neuronpedia 網頁與 API 同源；R5 修法（:393 改成 `hook_layer + 1`）與 R6 修法（:397、:400 改成 `feature_acts[1:, feature_idx]`）都沒有照字面改 hw3.py 跑過；8.10 第 4 步寫的三種組合預期值（只修 R5：a 約 71.27、b 約 30.95；只修 R6：a 約 58.10、b 0.0；都修：a 約 71.27、b 0.0）是從事實腳本的 [20]／[21] 數字推的，標了 TODO。
 - **ch08 第一次交代的名詞**：SAE、feature、預激活（hidden_pre）、JumpReLU 與門檻、W_enc／W_dec／b_enc／b_dec、FVU、L0、activation density（frac_nonzero）、Neuronpedia、自動解釋、正向／負向 logit、`hook_resid_post`、HookPoint。
 
 ## 圖檔清單（docs/HW03/img/，16 張）
