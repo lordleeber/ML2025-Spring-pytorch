@@ -665,6 +665,19 @@
 - 原本的 `TODO(本機實測): pt SAE 用在 it 模型的影響` 可以拿掉，改引用這張表。Gemma Scope 論文本身的說法仍然沒有查證，教材不要引用論文。
 - 第一次執行要下載 gemma-2-2b（HF 上是 fp32，約 10.5 GB）；之後只要讀快取。
 
+## ch00 寫作時查證的原始碼位置（雲端，2026-10-04）
+
+雲端沒有 .venv，下面的行號是從 GitHub 上 transformers 的 `v4.47.0` tag 讀的（`src/transformers/models/gemma2/modeling_gemma2.py`，1282 行）。FACTS 前面引用的 :185–188、:553–562 與這份一致，本機可以用 `.venv/lib/python3.12/site-packages/transformers/models/gemma2/modeling_gemma2.py` 核對。
+
+- `Gemma2RMSNorm`（:63–80）：權重初始化為 0，forward 乘的是 `(1.0 + self.weight)`；參數量仍是每個 2304。
+- `Gemma2MLP.forward`（:94–95）：`down_proj(act_fn(gate_proj(x)) * up_proj(x))`。
+- `eager_attention_forward`（:172–198）：`repeat_kv` 把 4 組 k／v 複製成 8 組（:180–181）；分數 × `config.scaling`（:183）；soft-cap 50（:185–188）；softmax 在 fp32 做再轉回 fp16（:194）。
+- `Gemma2Attention`：`self.scaling = config.query_pre_attn_scalar**-0.5`，即 1/16（:344）；拆 head 的 `view(...).transpose(1, 2)` 在 :379–381（hook 抓不到的就是這裡）。
+- `Gemma2DecoderLayer`：`is_sliding = not bool(layer_idx % 2)`（:440）；forward 的三明治 norm 在 :474–495（`post_*` norm 作用在子層輸出上、加回 residual 之前）。
+- `Gemma2Model.forward`：embedding × `normalizer`（√2304 = 48，轉成 hidden_states 的 dtype）在 :740–741；hidden_states 在進入每一層之前收集（:747–749），迴圈後 `self.norm`（:778）再收集一次（:781），所以是 27 個、[26] 是 norm 之後。
+- `Gemma2ForCausalLM`：`_tied_weights_keys = ["lm_head.weight"]`（:887）；final soft-cap 30 在 :993–996。
+- **原版 Colab 的格子編號**：ch00 與 index.html 一律「把 markdown 格也算進去、從 1 起算」：第 3 格 `!nvidia-smi`、第 5 格 `!pip install transformers==4.47.0`、第 7 格 `login("your_hf_token")`、第 10 格載入模型。上面「環境」一節寫的「Colab 第 4 格」是 0 起算的編號，指的是同一格（第 5 格）。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：

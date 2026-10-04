@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 0 章　開工前：環境、CLI 與 Gemma-2-2b-it 模型總覽 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><span class="disabled">第 1 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 0 章　開工前：環境、CLI 與 Gemma-2-2b-it 模型總覽</h1>
+  <p class="chap-lead">這一章不做任何一題作業，只打底：先看懂 <code>HW03/hw3.py</code> 的骨架與每一個命令列旗標，再把它載入的 Gemma-2-2b-it 拆開，畫出一次 forward 經過的每一站、每一站的 tensor 形狀，並把 2,614,341,888 個參數一個一個算回來。最後整理每一題要花多少時間、多少 GPU 記憶體。後面九章講到「第幾層」「hidden_states 的第幾個」時，都會回到這一章。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">hw3.py 是「載入一次模型、依 <code>--q</code> 逐題呼叫函式」的腳本；它載入的 Gemma-2-2b-it 是 26 層 decoder，每層的形狀、參數量與 <code>hidden_states</code> 的 27 個索引，這一章都用本機實測的數字講清楚。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:1–13（docstring）、:34–46（常數與 <code>save_fig</code>）、:49–59（<code>load_model</code>）、:481–517（<code>QUESTIONS</code> 與 <code>main</code>）。</li>
+    <li>本章所有數字都來自本機實測的紀錄（<code>docs/HW03/logs/</code>）；少數本機還沒量的地方會明寫「待本機補量」。</li>
+    <li>環境安裝的完整指令在<a href="index.html#env">目錄頁 3.2 節</a>，這一章不重貼，只補上「哪裡可能出錯」。</li>
+  </ul>
+</div>
+
+<h2 id="env">0.1　環境：目錄頁的指令跑完之後</h2>
+
+<p>clone、<code>uv sync</code>、<code>hf auth login</code>（或 <code>export HF_TOKEN=...</code>）、<code>.venv/bin/python HW03/hw3.py --seed 0</code> 這幾行指令，<a href="index.html#env">目錄頁 3.2 節</a>已經逐行說明過，這裡不重貼。這一節只補兩件事：<b>正常執行時哪些訊息看起來像錯誤、其實可以忽略</b>，以及<b>真的出錯時可能長什麼樣子</b>。</p>
+
+<p>先說可以忽略的。本機跑 <code>.venv/bin/python HW03/hw3.py --seed 0</code> 時，stderr 會夾著下面兩種訊息，程式照樣跑完、結束碼是 0（逐字紀錄 <code>logs/run_seed0.txt</code>）：</p>
+
+<pre class="shell">The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead. «1»
+…
+.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py:577: UserWarning:  «2»
+The hypothesis contains 0 counts of 4-gram overlaps.
+Therefore the BLEU score evaluates to 0, independently of
+how many N-gram overlaps of lower order it contains.
+Consider using lower n-gram order or use SmoothingFunction()</pre>
+<ol class="notes">
+<li><span class="mk">1</span>transformers 4.47 內部的 <code>HybridCache</code>（Gemma 2 用來存 KV cache 的類別，<a href="#dispatch">0.2.2</a> 說明）印的 deprecation 訊息，Q1、Q2 呼叫 <code>model.generate</code> 時出現（另一條是同樣內容的 <code>'batch_size' argument</code> 版本）。它來自 transformers 自己的程式，跟 hw3.py 的寫法無關，可以忽略。</li>
+<li><span class="mk">2</span>Q4 算 self-BLEU 時，nltk 遇到「兩句之間沒有任何 4-gram 重疊」就會警告，那一對的 BLEU 記為 0。這是 self-BLEU 定義的一部分，第 5 章會講。原始 log 裡這一行開頭是本機的絕對路徑，這裡改寫成相對路徑。</li>
+</ol>
+
+<p>另外，載入模型時會看到 <code>Loading checkpoint shards: 100%|██████████| 2/2</code> 這樣的進度條（<code>logs/facts_review1_perq.txt</code> 第 1 行）：gemma-2-2b-it 的權重分成 2 個檔案，進度條跑完就是載入完成。</p>
+
+<p>再說真的出錯的情況。下表是本機紀錄裡<b>有根據</b>的幾種狀況；「你會看到什麼」那一欄，本機還沒有刻意製造錯誤去抓逐字訊息，所以先空著，等本機補量後填入。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>情況</th><th>你會看到什麼</th><th>原因與處理</th></tr></thead>
+<tbody>
+<tr><td>沒有在 Gemma-2-2b-it 的模型頁接受授權，或沒有登入</td><td>（待本機補量）<!-- TODO(本機實測): 未接受 Gemma 授權、或未登入（無 HF_TOKEN 且無 hf auth login 快取）時，hw3.py 在 load_model 報的逐字錯誤訊息 --></td><td><code>google/gemma-2-2b-it</code> 是 gated 模型：要先在 HF 網頁接受授權，再用 read token 登入（投影片 p.5–11）。登入方式二選一：<code>.venv/bin/hf auth login</code>，或設 <code>HF_TOKEN</code>，見 <a href="#skeleton">0.2 節</a>。</td></tr>
+<tr><td>在 WSL 裡跑，但只在 Windows 那邊登入過</td><td>（待本機補量）<!-- TODO(本機實測): WSL 內沒有 token、只有 Windows 端登入時的逐字錯誤訊息（應與上一列相同，需確認） --></td><td>token 存在 <b>WSL 自己的</b> <code>~/.cache/huggingface/token</code>，Windows 那邊的登入不算。在 WSL 裡再執行一次 <code>.venv/bin/hf auth login</code>。</td></tr>
+<tr><td>機器上沒有 NVIDIA GPU</td><td>（待本機補量）<!-- TODO(本機實測): 沒有 CUDA 時 load_model（device_map="cuda"）的逐字錯誤訊息；雲端或 CPU 機器上 import 到 load_model 會停在哪一行 --></td><td>hw3.py 把 <code>DEVICE = "cuda"</code> 寫死（hw3.py:36），沒有退回 CPU 的路徑。這份作業需要 NVIDIA GPU。</td></tr>
+<tr><td>Blackwell 世代的 GPU（例如本機的 RTX PRO 4000 Blackwell，sm_120）</td><td>（待本機補量）<!-- TODO(本機實測): 在 sm_120 上用非 cu128 的 torch wheel 時的逐字錯誤或警告 --></td><td>Blackwell 需要 CUDA 12.8 的 PyTorch wheel。repo 的 <code>pyproject.toml</code> 已經把 torch 指到 PyTorch 的 cu128 index，照 <code>uv sync</code> 裝就不會碰到；自己另外 <code>pip install torch</code> 才可能裝錯版本。</td></tr>
+<tr><td>sae-lens 被升到 6.x</td><td>（待本機補量）<!-- TODO(本機實測): sae-lens 6.x 下 Q7 load_sae 的逐字錯誤訊息 --></td><td>sae-lens 是 Q7 用來載入 SAE（稀疏自編碼器，見<a href="index.html#what-kept">目錄頁 2.2 節</a>）的套件。sae-lens 6 改了 <code>SAE.from_pretrained</code> 的回傳值與 <code>cfg.hook_layer</code>，所以 <code>pyproject.toml</code> 釘在 <code>sae-lens&lt;6</code>。照 <code>uv sync</code> 裝就是 5.x（本機 5.11.0）。</td></tr>
+<tr><td>第一次執行</td><td>終端機停在下載進度條一段時間</td><td>每樣東西在第一次用到時下載到 HF 快取：gemma-2-2b-it 5.251 GB 在載入模型時；Q1 的評分模型 0.092 GB 要到第一次跑 Q1；Q7 的 SAE 0.302 GB 要到第一次跑 Q7（都是快取實際大小）。下載要多久取決於網路，本機沒有量。<!-- TODO(本機實測): 清空 HF 快取後第一次執行的下載時間（選做） --></td></tr>
+</tbody>
+</table></div>
+
+<p>只想確認環境裝好了、不想等七題跑完，可以先跑最快的 Q3（本機實測不到 0.1 秒，加上載入模型的時間）：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 3</pre>
+
+<p>終端機印出 <code>############################## Q3 ##############################</code> 這條分隔線，接著是一串 token 與 id，就表示主模型的下載、授權、GPU 都沒問題。分隔線是在載入模型<b>之後</b>才印的（hw3.py:514–516），所以沒看到它、程式就以錯誤結束，問題一定出在載入模型之前；把錯誤訊息的最後幾行對照上表的「情況」欄。這個檢查不會用到 Q1 的評分模型與 Q7 的 SAE，它們第一次跑 Q1、Q7 時才下載。Q3 印的內容第 3 章再講。</p>
+
+<h2 id="skeleton">0.2　這支腳本長什麼樣</h2>
+
+<p>原版 Colab 是 39 格的 notebook，從上往下一格一格跑；hw3.py 把它改寫成一支 521 行的腳本。改了哪些地方，作者寫在檔案開頭的 docstring：</p>
+
+<figure class="listing"><figcaption>hw3.py:1–13 — 模組 docstring：和 Colab 的差異</figcaption>
+<pre class="py" data-hot="7,8,9,10,11"><code>"""ML2025 Spring HW3 - Understanding LLM / Transformers (local PyTorch version).
+
+Ported from the official Colab:
+https://colab.research.google.com/drive/1Ku_p27ml8QJ-Rd7FilZQvDA9axe68V7o
+
+Differences from Colab:
+- HF token is read from `HF_TOKEN` / `hf auth login` cache instead of being hard-coded.
+- Figures are saved to `HW03/outputs/` instead of `plt.show()`.
+- Q2 replays the 3 conversation turns from the HW3 slides (use `--interactive` to chat).
+- Each question can be run on its own: `python HW03/hw3.py --q 1 3 4`.
+Everything else (including quirks like the double &lt;bos&gt; in Q1/Q2) is kept identical to
+the Colab so results match the TA reference answers.
+"""</code></pre>
+</figure>
+
+<p>四條差異裡，Q2 的那一條留到第 2 章，其他三條這一節講完：<b>HF 登入</b>、<b>圖存到哪裡</b>、<b>一題一個函式</b>。最後一句「其他都和 Colab 一樣，包括 Q1／Q2 的雙 <code>&lt;bos&gt;</code> 這類怪地方」，是<a href="index.html#what-kept">目錄頁 2.2 節</a>列的那幾條「刻意保留沒改」的出處，各章會逐條拆開。</p>
+
+<h3 id="colab-cells">0.2.1　Colab 專屬的格子拿掉了</h3>
+
+<p>原版 Colab 開頭有三格只在 Colab 上才有意義的程式：第 3 格 <code>!nvidia-smi</code> 看 GPU、第 5 格 <code>!pip install transformers==4.47.0</code>（格子上方的說明寫「please do not alter the version for stable usage of model」）、第 7 格登入 HF。這裡的「第 N 格」把 markdown 格也算進去，從 1 起算。第 7 格長這樣（原版 Colab 第 7 格）：</p>
+
+<pre class="py">######################## TODO (Pre-requisites) ########################
+# replace `your_hf_token` with your huggingface token
+
+from huggingface_hub import login
+login("your_hf_token")
+#######################################################################</pre>
+
+<p>hw3.py 把這三格都拿掉了：GPU 自己用 <code>nvidia-smi</code> 看；套件改由根目錄的 <code>pyproject.toml</code>／<code>uv.lock</code> 管，transformers 一樣釘在助教指定的 4.47.0；token 不寫進程式碼，改成下面這段：</p>
+
+<figure class="listing"><figcaption>hw3.py:506–517 — main 的後半：seed、HF 登入、載入模型、逐題呼叫</figcaption>
+<pre class="py" data-hot="509,510,511,512,514,515,517"><code>    if args.seed is not None:
+        torch.manual_seed(args.seed)
+
+    if os.environ.get("HF_TOKEN"):
+        from huggingface_hub import login
+
+        login(os.environ["HF_TOKEN"])
+
+    tokenizer, model = load_model()
+    for q in args.q:
+        print(f"\n{'#' * 30} Q{q} {'#' * 30}")
+        QUESTIONS[q](tokenizer, model, args)</code></pre>
+</figure>
+
+<p>:509–512 的邏輯是：環境變數 <code>HF_TOKEN</code> 有值，就拿它呼叫 <code>huggingface_hub.login()</code>；沒有值，就什麼都不做，交給下一行 <code>load_model()</code> 裡的 <code>from_pretrained</code> 自己去讀 <code>hf auth login</code> 存下的快取 token。所以兩種登入方式擇一即可，token 不會出現在程式碼或 git 歷史裡。</p>
+
+<h3 id="dispatch">0.2.2　一題一個函式，模型只載入一次</h3>
+
+<p>原版的七題是 notebook 裡一段一段的格子；hw3.py 把每一題包成一個函式 <code>q1</code>…<code>q7</code>，簽名都一樣是 <code>(tokenizer, model, args)</code>，再用一個 dict 把題號對應到函式。七題各自在做什麼，<a href="index.html#hw">目錄頁第 1 節</a>的表格列過一次，這一章只看它們共用的骨架：</p>
+
+<figure class="listing"><figcaption>hw3.py:481–504 — QUESTIONS 與 main 的前半：所有命令列旗標</figcaption>
+<pre class="py" data-hot="481,486,487"><code>QUESTIONS = {1: q1, 2: q2, 3: q3, 4: q4, 5: q5, 6: q6, 7: q7}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--q", type=int, nargs="+", default=list(QUESTIONS), choices=list(QUESTIONS), help="questions to run")
+    parser.add_argument("--seed", type=int, default=None, help="random seed (Colab does not set one)")
+    # Q1
+    parser.add_argument("--max-new-tokens", type=int, default=512, help="Q1 generation length")
+    # Q2
+    parser.add_argument("--interactive", action="store_true", help="Q2: chat interactively instead of replaying the slide turns")
+    # Q3
+    parser.add_argument("--sentence", default="I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?")
+    # Q4
+    parser.add_argument("--top-k", type=int, default=2)
+    parser.add_argument("--top-p", type=float, default=0.6)
+    parser.add_argument("--num-samples", type=int, default=20)
+    # Q6
+    parser.add_argument("--layer-idx", type=int, default=10)
+    parser.add_argument("--head-idx", type=int, default=7)
+    # Q7
+    parser.add_argument("--sae-layer-idx", type=int, default=24)
+    parser.add_argument("--token-idx", type=int, nargs="+", default=[1])
+    args = parser.parse_args()</code></pre>
+</figure>
+
+<p>串起來看，<code>main</code> 做的事依序是：解析旗標 → 有 <code>--seed</code> 就設 <code>torch.manual_seed</code> → 有 <code>HF_TOKEN</code> 就登入 → <b>載入一次</b>模型（:514）→ 照 <code>--q</code> 給的順序逐題呼叫（:515–517），每題前面印一條 <code>#</code> 分隔線。幾個從這兩段程式碼直接讀得出來的細節：</p>
+
+<ul>
+<li><code>--q</code> 的 <code>nargs="+"</code> 讓它可以給多個題號，例如 <code>--q 1 3 4</code>；不給就是 <code>list(QUESTIONS)</code>，也就是 1 到 7 全跑；<code>choices</code> 限定只能是 1–7，給 8 會被 argparse 擋下來。</li>
+<li>執行順序是你寫的順序，不是由小到大：<code>for q in args.q</code> 直接照 list 走。</li>
+<li>七題共用同一個 <code>model</code> 物件。這省下了重複載入的時間，代價是前一題留在模型物件上的狀態會被下一題看到。最明顯的是 KV cache：模型逐字生成時，把前面每個 token 在每一層算過的 key、value 存起來，下一步就不必重算（Gemma 2 用的類別叫 <code>HybridCache</code>）。Q1 跑完後，<code>model.generate</code> 會在 <code>model._cache</code> 留下一個 0.054 GiB 的 HybridCache（<a href="#time-mem">0.10 節</a>），後面的題目會沿用它。這件事會讓 Q4 的取樣結果跟「只跑 Q4」不同，第 5 章專門處理。</li>
+<li><code>--seed</code> 只做一件事：在載入模型<b>之前</b>呼叫一次 <code>torch.manual_seed</code>。沒給就完全不設（原版 Colab 也沒設，見 :487 的 help）。只有 Q4 有隨機取樣，所以 seed 實際上只影響 Q4。</li>
+<li><code>ArgumentParser(description=__doc__)</code> 把整段 docstring 當成 <code>--help</code> 的說明文字。<code>--help</code> 在 argparse 解析時就結束程式，不會載入模型。<!-- TODO(本機實測): .venv/bin/python HW03/hw3.py --help 的逐字輸出，確認開頭是 docstring、不載入模型 --></li>
+</ul>
+
+<h3 id="outputs">0.2.3　圖存到 HW03/outputs/</h3>
+
+<figure class="listing"><figcaption>hw3.py:34–46 — 全域常數與 save_fig</figcaption>
+<pre class="py" data-hot="34,35,36,37,38,42"><code>MODEL_ID = "google/gemma-2-2b-it"
+SCORING_MODEL_ID = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+DEVICE = "cuda"
+DTYPE = torch.float16
+OUT_DIR = Path(__file__).resolve().parent / "outputs"
+
+
+def save_fig(name):
+    OUT_DIR.mkdir(exist_ok=True)
+    path = OUT_DIR / name
+    plt.savefig(path, bbox_inches="tight", dpi=120)
+    plt.close()
+    print(f"[saved] {path}")</code></pre>
+</figure>
+
+<p>五個常數裡，<code>MODEL_ID</code> 是這份作業的主角；<code>SCORING_MODEL_ID</code> 是 Q1 用來替回答打分數的另一個小模型（第 1 章）；<code>DEVICE</code>、<code>DTYPE</code> 在下一節的 <code>load_model</code> 用到。<code>OUT_DIR</code> 是用 <code>__file__</code> 算出來的「hw3.py 所在目錄底下的 <code>outputs/</code>」，所以不管從哪個目錄執行，圖都存到 <code>HW03/outputs/</code>；這個目錄已列在 .gitignore。原版每張圖最後是 <code>plt.show()</code>，hw3.py 改成 <code>save_fig()</code>（並在 :21 用 <code>matplotlib.use("Agg")</code>，不開視窗），存檔後印一行 <code>[saved] &lt;路徑&gt;</code>。圖檔名帶參數，例如 Q6 換 <code>--layer-idx</code>、<code>--head-idx</code> 會得到 <code>q6_attention_L10_H7.png</code> 以外的檔名，不會互相覆蓋。</p>
+
+<table class="twocol">
+<thead><tr><th>你可能以為要自己做</th><th>實際上</th></tr></thead>
+<tbody>
+<tr><td>先建好 <code>HW03/outputs/</code></td><td>不用，<code>save_fig</code> 第一行就 <code>mkdir(exist_ok=True)</code>（hw3.py:42）。</td></tr>
+<tr><td>每一題都重新載入模型</td><td>不會，<code>main</code> 只呼叫一次 <code>load_model()</code>（hw3.py:514），七題共用。</td></tr>
+<tr><td>手動 <code>model.to("cuda")</code></td><td>不用，<code>from_pretrained(device_map="cuda")</code> 直接把權重放上 GPU（hw3.py:53）。</td></tr>
+<tr><td>每一題各自設 seed</td><td>只在開頭設一次（hw3.py:506–507），而且只有 Q4 會用到亂數。</td></tr>
+<tr><td>每次都要重新登入 HF</td><td><code>hf auth login</code> 一次，token 存在快取；或每次執行前設好 <code>HF_TOKEN</code>（hw3.py:509–512）。</td></tr>
+</tbody>
+</table>
+
+<h2 id="flags">0.3　CLI 旗標總表</h2>
+
+<p>目錄頁說過「每一題可以調的旗標，第 0 章會整理成一張表」，就是這一張。預設值全部取自 hw3.py:486–503；「用在哪裡」是該旗標在程式裡被讀取的行號。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>旗標</th><th>題</th><th>型別</th><th>預設值</th><th>作用</th><th>用在哪裡</th></tr></thead>
+<tbody>
+<tr><td><code>--q</code></td><td>全部</td><td>int，可多個</td><td>1 2 3 4 5 6 7</td><td>要跑哪幾題、照什麼順序</td><td>:515</td></tr>
+<tr><td><code>--seed</code></td><td>全部（實際只影響 Q4）</td><td>int</td><td>不設</td><td>載入模型前呼叫 <code>torch.manual_seed</code></td><td>:506–507</td></tr>
+<tr><td><code>--max-new-tokens</code></td><td>Q1</td><td>int</td><td>512</td><td>Q1 兩種 prompt 各自最多生成幾個新 token</td><td>:97、:104</td></tr>
+<tr><td><code>--interactive</code></td><td>Q2</td><td>開關</td><td>關</td><td>改成自己打字聊天；預設照投影片 p.14 的三句話自動跑完</td><td>:122、:130</td></tr>
+<tr><td><code>--sentence</code></td><td>Q3</td><td>字串</td><td><code>"I love taking a Machine Learning course by Professor Hung-yi Lee, What about you?"</code></td><td>要切成 token 的句子</td><td>:172</td></tr>
+<tr><td><code>--top-k</code></td><td>Q4</td><td>int</td><td>2</td><td>top-k 取樣的 k</td><td>:204</td></tr>
+<tr><td><code>--top-p</code></td><td>Q4</td><td>float</td><td>0.6</td><td>top-p 取樣的 p</td><td>:205</td></tr>
+<tr><td><code>--num-samples</code></td><td>Q4</td><td>int</td><td>20</td><td>每種取樣方式各生成幾句。<b>至少要 2</b>，給 1 會除以零（第 5 章）</td><td>:226</td></tr>
+<tr><td><code>--layer-idx</code></td><td>Q6</td><td>int</td><td>10</td><td>畫第幾層的 attention（0–25）</td><td>:321</td></tr>
+<tr><td><code>--head-idx</code></td><td>Q6</td><td>int</td><td>7</td><td>畫第幾個 head（0–7）</td><td>:322</td></tr>
+<tr><td><code>--sae-layer-idx</code></td><td>Q7（投影片把 Q7 分成 7.1–7.9 九小題，見第 8、9 章）</td><td>int</td><td>24</td><td>Q7.4–7.6 從 <code>hidden_states</code> 的第幾個取向量（是索引，不是 block 編號，見 <a href="#hidden-states">0.9 節</a>）</td><td>:474</td></tr>
+<tr><td><code>--token-idx</code></td><td>Q7</td><td>int，可多個</td><td>1</td><td>Q7.7–7.9 看句子裡第幾個 token（0 是 <code>&lt;bos&gt;</code>）；給多個就畫多張</td><td>:477</td></tr>
+</tbody>
+</table></div>
+
+<p>Q5 沒有旗標。<code>--layer-idx</code> 的範圍 0–25 與 <code>--head-idx</code> 的 0–7 來自模型本身（26 層、每層 8 個 query head，見 <a href="#arch">0.5 節</a>），程式裡沒有額外檢查。幾個典型用法（都在 repo 根目錄執行）：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 4 --seed 0 --top-k 200 --top-p 0.999
+.venv/bin/python HW03/hw3.py --q 7 --sae-layer-idx 21 --token-idx 1 2 3</pre>
+
+<p>第一行換成投影片 p.18 要比較的另一組 k、p（第 4 章）；第二行把 SAE 套在它真正訓練的位置、一次看三個 token（第 9 章）。兩條指令本機都跑過，逐字紀錄在 <code>logs/run_q4_k200_p0999_seed0.txt</code> 與 <code>logs/run_q7_layer21_tok123.txt</code>，對應的章節會逐行解讀。</p>
+
+<h2 id="load">0.4　模型從哪裡來：load_model</h2>
+
+<figure class="listing"><figcaption>hw3.py:49–59 — load_model：tokenizer 與模型</figcaption>
+<pre class="py" data-hot="50,51,53,54,56,58"><code>def load_model():
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        device_map=DEVICE,
+        torch_dtype=DTYPE,
+        # Gemma2 uses eager attention by default in transformers 4.47; Q6 needs attention weights
+        attn_implementation="eager",
+    )
+    model.eval()
+    return tokenizer, model</code></pre>
+</figure>
+
+<p>對照原版 Colab 第 10 格：</p>
+
+<pre class="py">import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model_id = "google/gemma-2-2b-it"
+dtype = torch.float16
+
+# Load tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    device_map="cuda",
+    torch_dtype=dtype,
+)</pre>
+
+<p>兩者幾乎一樣，hw3.py 多了兩行：<code>attn_implementation="eager"</code>（下面的「現在的做法」框）與 <code>model.eval()</code>。逐項看：</p>
+
+<ul>
+<li><b><code>google/gemma-2-2b-it</code></b>：Hugging Face Hub 上的模型 id。<code>from_pretrained</code> 第一次會下載到 HF 快取，之後直接讀快取；本機快取裡這個模型佔 5.251 GB。<code>AutoTokenizer</code> 依模型的設定檔挑出 <code>GemmaTokenizerFast</code>，<code>AutoModelForCausalLM</code> 挑出 <code>Gemma2ForCausalLM</code>（「CausalLM」指只能看前面、一次預測下一個 token 的語言模型）。</li>
+<li><b><code>torch_dtype=torch.float16</code></b>：每個參數用 2 bytes 的 fp16 存。模型自己的 config.json 寫的是 bfloat16（另一種 2 bytes 的浮點格式，數值範圍較大、精度較低），這份作業跟原版 Colab 一樣用 fp16 載入。所以 2,614,341,888 個參數 × 2 bytes = 4.87 GiB（<a href="#params">0.8 節</a>）。</li>
+<li><b><code>device_map="cuda"</code></b>：載入時直接把權重放到 GPU。本機紀錄：<code>model dtype: torch.float16 device: cuda:0</code>，載入後 <code>torch.cuda.memory_allocated()</code> 是 4.87 GiB，PyTorch 實際向驅動程式保留（reserved）的是 5.06 GiB。</li>
+<li><b><code>model.eval()</code></b>：切換成推論模式。原版只在 Q6 的格子裡呼叫，hw3.py 統一在載入時呼叫一次。注意 <code>eval()</code> 不會關掉梯度計算；各題自己用 <code>torch.no_grad()</code>（例如 hw3.py:68、:140），Q7 的函式則加了 <code>@torch.no_grad()</code>。</li>
+</ul>
+
+<p>載入要多久：本機三次紀錄的 <code>load_model</code> 分別是 2.2 s、3.1 s、4.2 s（<code>logs/facts_env_model_tok.txt</code>、<code>facts_review1_shapes_q4steps_rescale26.txt</code>、<code>facts_review1_perq.txt</code>），都是模型已經在快取裡的情況。</p>
+
+<div class="note">
+<h4>現在的做法：明寫 <code>attn_implementation="eager"</code></h4>
+<p><code>attn_implementation</code> 選的是 attention 用哪一套實作：<code>eager</code> 是照公式一步一步用 PyTorch 運算算出 q·kᵀ、softmax 等中間結果（所以 attention 權重拿得到），<code>sdpa</code> 是呼叫 PyTorch 合併好的 <code>scaled_dot_product_attention</code>，比較快，但中間的權重不留下來。原版 Colab 沒寫這個參數，hw3.py:56 寫了，:55 的註解說明原因：「Gemma2 uses eager attention by default in transformers 4.47; Q6 needs attention weights」。</p>
+<ul>
+<li><b>不寫的話是什麼？</b>本機實測，transformers 4.47.0 不指定時，Gemma 2 用的就是 <code>eager</code>（<code>logs/facts_env_model_tok.txt</code> 的 <code>without attn_implementation: eager</code>）。所以寫不寫，行為相同。</li>
+<li><b>為什麼預設不是 SDPA？</b>transformers 4.47.0 的 <code>models/gemma2/modeling_gemma2.py:553–562</code>，<code>Gemma2PreTrainedModel._check_and_enable_sdpa</code> 會把預設的 <code>sdpa</code> 換成 <code>eager</code>，docstring 寫的是「SDPA reduces the model performance on Gemma2 because of the logits softcapping」。soft-capping 是 Gemma 2 在 attention 分數上多做的一步（<a href="#layer">0.6 節</a>），eager 實作在同檔 :185–188 做這一步。</li>
+<li><b>那為什麼還要寫？</b>不依賴預設值。第 7 章（Q6）要拿 <code>outputs.attentions</code> 畫 attention map，寫明之後，讀程式的人不必知道 transformers 內部的這段邏輯，就能確定走的是 eager 路徑。</li>
+</ul>
+<p>在本機核對上面的 transformers 原始碼，檔案在 <code>.venv/lib/python3.12/site-packages/transformers/models/gemma2/modeling_gemma2.py</code>。</p>
+</div>
+
+<p>版本的部分，<a href="index.html#env">目錄頁</a>已經說過 transformers 釘在 4.47.0、sae-lens 釘在 5.x。這一章的模型結構、行號都以 transformers 4.47.0 為準；換版本後 <code>modeling_gemma2.py</code> 的行號與部分行為可能不同。</p>
+
+<h2 id="arch">0.5　模型總覽：一次 forward 經過哪些站</h2>
+
+<p>Gemma-2-2b-it 的 config（<code>logs/facts_env_model_tok.txt</code>）裡跟結構有關的值：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>config 欄位</th><th>值</th><th>意思</th></tr></thead>
+<tbody>
+<tr><td><code>num_hidden_layers</code></td><td class="num">26</td><td>decoder block 的數量，<code>model.model.layers[0]</code> 到 <code>[25]</code></td></tr>
+<tr><td><code>hidden_size</code></td><td class="num">2304</td><td>每個 token 在層與層之間傳遞的向量長度</td></tr>
+<tr><td><code>intermediate_size</code></td><td class="num">9216</td><td>MLP 中間層的寬度（2304 的 4 倍）</td></tr>
+<tr><td><code>num_attention_heads</code> ／ <code>num_key_value_heads</code></td><td class="num">8 ／ 4</td><td>8 個 query head 共用 4 組 key／value（GQA）</td></tr>
+<tr><td><code>head_dim</code></td><td class="num">256</td><td>每個 head 的向量長度。注意 8 × 256 = 2048 <b>不等於</b> hidden_size 2304：Gemma 2 的 head 數 × head_dim 和 hidden_size 是分開設定的，所以 q_proj 是 2304 → 2048、o_proj 再 2048 → 2304</td></tr>
+<tr><td><code>vocab_size</code></td><td class="num">256000</td><td>詞表大小，也是 logits 最後一維的長度</td></tr>
+<tr><td><code>max_position_embeddings</code></td><td class="num">8192</td><td>位置編碼設計的最大長度</td></tr>
+<tr><td><code>sliding_window</code></td><td class="num">4096</td><td>sliding 層每個 token 最多往前看幾個位置</td></tr>
+<tr><td><code>attn_logit_softcapping</code></td><td class="num">50.0</td><td>attention 分數的 soft-cap</td></tr>
+<tr><td><code>final_logit_softcapping</code></td><td class="num">30.0</td><td>最後 logits 的 soft-cap</td></tr>
+<tr><td><code>query_pre_attn_scalar</code></td><td class="num">256</td><td>attention 分數除以 √256 = 16</td></tr>
+<tr><td><code>rope_theta</code></td><td class="num">10000</td><td>RoPE 位置編碼的基底</td></tr>
+<tr><td><code>rms_norm_eps</code></td><td class="num">1e-6</td><td>RMSNorm 防止除以零的小數</td></tr>
+<tr><td><code>hidden_activation</code></td><td><code>gelu_pytorch_tanh</code></td><td>MLP 的激活函數。GELU 是 ReLU 的平滑版本（負值不直接歸零，而是平滑地趨近 0），這裡用它的 tanh 近似公式</td></tr>
+<tr><td><code>tie_word_embeddings</code></td><td><code>True</code></td><td>輸出層 <code>lm_head</code> 與輸入的 embedding 共用權重</td></tr>
+</tbody>
+</table></div>
+
+<p>把這些值放回資料流裡，一次 forward 長這樣：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 300" role="img" aria-label="Gemma-2-2b-it 一次 forward 的整體架構：input_ids 經 embedding 乘 48、26 層 decoder、最後的 RMSNorm、與 embedding 共用權重的 lm_head、final soft-cap 30，得到 logits">
+  <defs>
+    <marker id="a0" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <rect x="20" y="40" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="110" y="70" text-anchor="middle" font-weight="700">input_ids</text>
+  <text class="s-sm" x="110" y="92" text-anchor="middle">(1, T) 個 token id</text>
+  <rect x="245" y="40" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="335" y="70" text-anchor="middle" font-weight="700">embed_tokens</text>
+  <text class="s-sm" x="335" y="92" text-anchor="middle">查表：256000 × 2304</text>
+  <rect x="470" y="40" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="560" y="70" text-anchor="middle" font-weight="700">× √2304 = 48</text>
+  <text class="s-sm" x="560" y="92" text-anchor="middle">hidden_states[0] 在這裡</text>
+  <rect x="703" y="32" width="180" height="72" rx="9" class="s-box"/>
+  <rect x="699" y="36" width="180" height="72" rx="9" class="s-box"/>
+  <rect x="695" y="40" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="785" y="70" text-anchor="middle" font-weight="700">26 層 decoder</text>
+  <text class="s-sm" x="785" y="92" text-anchor="middle">layers[0] … layers[25]</text>
+  <line x1="201" y1="76" x2="242" y2="76" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="426" y1="76" x2="467" y2="76" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="651" y1="76" x2="692" y2="76" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="785" y1="113" x2="785" y2="193" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <text class="s-sm" x="773" y="150" text-anchor="end">偶數層 sliding、奇數層 global</text>
+  <text class="s-sm" x="773" y="168" text-anchor="end">每層 (1, T, 2304) 進、(1, T, 2304) 出</text>
+  <rect x="695" y="196" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="785" y="226" text-anchor="middle" font-weight="700">model.norm</text>
+  <text class="s-sm" x="785" y="248" text-anchor="middle">最後的 RMSNorm</text>
+  <rect x="470" y="196" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="560" y="226" text-anchor="middle" font-weight="700">lm_head</text>
+  <text class="s-sm" x="560" y="248" text-anchor="middle">2304 → 256000</text>
+  <rect x="245" y="196" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="335" y="226" text-anchor="middle" font-weight="700">final soft-cap</text>
+  <text class="s-key" x="335" y="248" text-anchor="middle" style="fill: var(--accent-warm)">30·tanh(x/30)</text>
+  <rect x="20" y="196" width="180" height="72" rx="9" class="s-box"/>
+  <text class="s-lbl" x="110" y="226" text-anchor="middle" font-weight="700">logits</text>
+  <text class="s-sm" x="110" y="248" text-anchor="middle">(1, T, 256000)</text>
+  <line x1="694" y1="232" x2="653" y2="232" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="469" y1="232" x2="428" y2="232" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="244" y1="232" x2="203" y2="232" stroke="var(--accent)" stroke-width="2" marker-end="url(#a0)"/>
+  <line x1="360" y1="114" x2="540" y2="194" stroke="var(--accent-warm)" stroke-width="2" stroke-dasharray="6 5"/>
+  <text class="s-sm" x="470" y="146" text-anchor="start" style="fill: var(--accent-warm)">同一塊權重</text>
+  <text class="s-sm" x="20" y="292" text-anchor="start">T：這次輸入的 token 數。實線是資料流，虛線表示 embed_tokens 與 lm_head 共用同一塊 256000 × 2304 的矩陣。</text>
+</svg>
+<figcaption>圖 0.1 — 一次 forward 的八站。上排把 token id 變成向量並送進 26 層 decoder，下排把最後的向量變回 256000 個詞的分數。頭尾兩個矩陣是同一塊（tie_word_embeddings），logits 最後還會被 soft-cap 壓進 (−30, 30)。</figcaption>
+</figure>
+
+<p>逐站說明，括號裡是 transformers 4.47.0 <code>modeling_gemma2.py</code> 的行號：</p>
+
+<ol>
+<li><b>input_ids → embed_tokens</b>：每個 token id 到一張 256000 × 2304 的表裡查出一列，得到 (1, T, 2304)。</li>
+<li><b>× √2304</b>：Gemma 把 embedding 乘上 √hidden_size = √2304 = 48 才送進第一層（:740–741，<code>normalizer = torch.tensor(self.config.hidden_size**0.5, dtype=hidden_states.dtype)</code>）。本機實測 <code>hidden_states[0]</code> 和 <code>embed_tokens(ids) * sqrt(2304)</code> 逐元素完全相等（<code>torch.equal</code> 為 True）。</li>
+<li><b>26 層 decoder</b>：每一層輸入、輸出都是 (1, T, 2304)，內部結構見下一節。偶數層（0, 2, …, 24）是 sliding window 層，奇數層是 global 層（:440，<code>self.is_sliding = not bool(layer_idx % 2)</code>；實測 sliding 層的清單就是 0 到 24 的 13 個偶數）。</li>
+<li><b>model.norm</b>：26 層跑完之後再做一次 RMSNorm（:778）。</li>
+<li><b>lm_head</b>：一個 2304 → 256000 的線性層，把每個位置的向量變成 256000 個詞各自的分數。它的權重<b>就是</b> embed_tokens 的那張表：本機實測兩者的 <code>data_ptr()</code> 相同，也就是指向同一塊 GPU 記憶體。</li>
+<li><b>final soft-cap</b>：<code>logits / 30 → tanh → × 30</code>（:993–996）。tanh 的值域是 (−1, 1)，所以 logits 一定落在 (−30, 30)，大的值被「軟性地」壓扁，而不是硬截斷。本機用 Q7 那句 13 個 token 的句子實測，logits 絕對值最大是 26.16。</li>
+</ol>
+
+<p>第 2 章（Q2）看的 top-10 機率、第 4 章（Q4）的取樣，都是從最後一站的 logits 出發。</p>
+
+<h2 id="layer">0.6　一層之內：Gemma2DecoderLayer</h2>
+
+<p>26 層的結構完全相同（差別只在 sliding 或 global），所以畫一層就夠了：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 700" role="img" aria-label="Gemma2DecoderLayer 單層內部：residual stream 上兩個分支，attention 分支含 q k v 投影、RoPE、除以 16、soft-cap 50、mask、softmax、乘 v、o_proj，MLP 分支含 gate up down 與 GELU-tanh，每個分支前後各一個 RMSNorm">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent-warm)"/>
+    </marker>
+  </defs>
+  <!-- residual stream -->
+  <text class="s-sm" x="85" y="22" text-anchor="start">輸入 (1, T, 2304)：上一層的輸出（第 0 層的輸入是 embedding × 48）</text>
+  <line x1="70" y1="30" x2="70" y2="672" stroke="var(--accent-warm)" stroke-width="3" marker-end="url(#a2)"/>
+  <text class="s-sm" x="50" y="250" text-anchor="middle" transform="rotate(-90 50 250)" style="fill: var(--accent-warm)">residual stream</text>
+  <text class="s-sm" x="85" y="692" text-anchor="start">輸出 (1, T, 2304)：送進下一層</text>
+
+  <!-- attention branch -->
+  <line x1="70" y1="56" x2="117" y2="56" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="120" y="38" width="260" height="36" rx="7" class="s-box"/>
+  <text class="s-lbl" x="250" y="61" text-anchor="middle">input_layernorm</text>
+  <line x1="250" y1="75" x2="250" y2="95" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="120" y="98" width="760" height="250" rx="10" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <text class="s-lbl" x="135" y="120" font-weight="700">self_attn（Gemma2Attention）</text>
+  <text class="s-sm" x="865" y="120" text-anchor="end">偶數層 sliding（只看前 4096 個位置），奇數層 global</text>
+
+  <rect x="140" y="135" width="165" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="222" y="154" text-anchor="middle">q_proj</text>
+  <text class="s-sm" x="222" y="172" text-anchor="middle">2304→2048（8 head × 256）</text>
+  <rect x="320" y="135" width="165" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="402" y="154" text-anchor="middle">k_proj</text>
+  <text class="s-sm" x="402" y="172" text-anchor="middle">2304→1024（4 組 × 256）</text>
+  <rect x="500" y="135" width="165" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="582" y="154" text-anchor="middle">v_proj</text>
+  <text class="s-sm" x="582" y="172" text-anchor="middle">2304→1024（4 組 × 256）</text>
+
+  <line x1="222" y1="182" x2="222" y2="202" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <path d="M402,182 L402,193 L250,193 L250,202" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+
+  <rect x="140" y="205" width="130" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="205" y="224" text-anchor="middle">RoPE</text>
+  <text class="s-sm" x="205" y="242" text-anchor="middle">旋轉 q、k</text>
+  <rect x="285" y="205" width="130" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="350" y="224" text-anchor="middle">q·kᵀ ÷ 16</text>
+  <text class="s-sm" x="350" y="242" text-anchor="middle">16 = √256</text>
+  <rect x="430" y="205" width="130" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="495" y="224" text-anchor="middle" style="fill: var(--accent-warm)">50·tanh(s/50)</text>
+  <text class="s-sm" x="495" y="242" text-anchor="middle">attention soft-cap</text>
+  <rect x="575" y="205" width="130" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="640" y="224" text-anchor="middle">+ mask</text>
+  <text class="s-sm" x="640" y="242" text-anchor="middle">因果（＋sliding）</text>
+  <rect x="720" y="205" width="130" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="785" y="224" text-anchor="middle">softmax</text>
+  <text class="s-sm" x="785" y="242" text-anchor="middle">權重 (1, 8, T, T)</text>
+  <line x1="271" y1="228" x2="282" y2="228" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="416" y1="228" x2="427" y2="228" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="561" y1="228" x2="572" y2="228" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="706" y1="228" x2="717" y2="228" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+
+  <path d="M785,252 L785,263 L640,263 L640,272" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <path d="M582,182 L582,193 L567,193 L567,262 L600,262 L600,272" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+
+  <rect x="575" y="275" width="120" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="635" y="294" text-anchor="middle">× v</text>
+  <text class="s-sm" x="635" y="312" text-anchor="middle">加權平均</text>
+  <rect x="725" y="275" width="140" height="46" rx="7" class="s-box"/>
+  <text class="s-key" x="795" y="294" text-anchor="middle">o_proj</text>
+  <text class="s-sm" x="795" y="312" text-anchor="middle">2048 → 2304</text>
+  <line x1="696" y1="298" x2="722" y2="298" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+
+  <text class="s-sm" x="140" y="284" text-anchor="start">GQA：8 個 query head、4 組 k／v，每組給 2 個 query head 共用</text>
+  <text class="s-sm" x="140" y="303" text-anchor="start">拆成 head 之後（由 2048、1024 加 config 推出）：</text>
+  <text class="s-mono" x="140" y="321" text-anchor="start">q (1, 8, T, 256)   k, v (1, 4, T, 256)</text>
+
+  <line x1="795" y1="322" x2="795" y2="369" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="570" y="372" width="260" height="36" rx="7" class="s-box"/>
+  <text class="s-lbl" x="700" y="395" text-anchor="middle">post_attention_layernorm</text>
+  <line x1="569" y1="390" x2="85" y2="390" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <circle cx="70" cy="390" r="12" fill="var(--bg-panel)" stroke="var(--accent-warm)" stroke-width="2"/>
+  <text class="s-lbl" x="70" y="395" text-anchor="middle" font-weight="700">+</text>
+  <text class="s-sm" x="100" y="380" text-anchor="start">殘差相加</text>
+
+  <!-- MLP branch -->
+  <line x1="70" y1="440" x2="117" y2="440" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="120" y="422" width="260" height="36" rx="7" class="s-box"/>
+  <text class="s-lbl" x="250" y="445" text-anchor="middle">pre_feedforward_layernorm</text>
+  <line x1="250" y1="459" x2="250" y2="477" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="120" y="480" width="760" height="130" rx="10" fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+  <text class="s-lbl" x="135" y="502" font-weight="700">mlp（Gemma2MLP）</text>
+  <text class="s-mono" x="865" y="502" text-anchor="end">down(gelu_tanh(gate(x)) × up(x))</text>
+
+  <rect x="140" y="515" width="190" height="40" rx="7" class="s-box"/>
+  <text class="s-key" x="235" y="531" text-anchor="middle">gate_proj</text>
+  <text class="s-sm" x="235" y="548" text-anchor="middle">2304 → 9216</text>
+  <rect x="355" y="515" width="150" height="40" rx="7" class="s-box"/>
+  <text class="s-key" x="430" y="531" text-anchor="middle">GELU-tanh</text>
+  <text class="s-sm" x="430" y="548" text-anchor="middle">PytorchGELUTanh</text>
+  <rect x="140" y="563" width="190" height="40" rx="7" class="s-box"/>
+  <text class="s-key" x="235" y="579" text-anchor="middle">up_proj</text>
+  <text class="s-sm" x="235" y="596" text-anchor="middle">2304 → 9216</text>
+  <circle cx="545" cy="560" r="13" fill="var(--bg-panel)" stroke="var(--ok)" stroke-width="2"/>
+  <text class="s-lbl" x="545" y="565" text-anchor="middle" font-weight="700">×</text>
+  <rect x="600" y="540" width="200" height="40" rx="7" class="s-box"/>
+  <text class="s-key" x="700" y="556" text-anchor="middle">down_proj</text>
+  <text class="s-sm" x="700" y="573" text-anchor="middle">9216 → 2304</text>
+  <line x1="331" y1="535" x2="352" y2="535" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="506" y1="539" x2="533" y2="551" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="331" y1="583" x2="532" y2="567" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <line x1="559" y1="560" x2="597" y2="560" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <text class="s-sm" x="430" y="597" text-anchor="middle">逐元素相乘</text>
+
+  <line x1="700" y1="581" x2="700" y2="627" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <rect x="570" y="630" width="260" height="36" rx="7" class="s-box"/>
+  <text class="s-lbl" x="700" y="653" text-anchor="middle">post_feedforward_layernorm</text>
+  <line x1="569" y1="648" x2="85" y2="648" stroke="var(--accent)" stroke-width="2" marker-end="url(#a1)"/>
+  <circle cx="70" cy="648" r="12" fill="var(--bg-panel)" stroke="var(--accent-warm)" stroke-width="2"/>
+  <text class="s-lbl" x="70" y="653" text-anchor="middle" font-weight="700">+</text>
+  <text class="s-sm" x="100" y="638" text-anchor="start">殘差相加</text>
+</svg>
+<figcaption>圖 0.2 — 一層 Gemma2DecoderLayer。左邊的 residual stream 一路往下，兩個分支（attention、MLP）各自「先 norm、做事、再 norm」之後加回去，所以一層有四個 RMSNorm。attention 分支的特色是 GQA（4 組 k／v 給 8 個 query head 用）與 soft-cap 50；MLP 是 gate 經 GELU-tanh 後與 up 逐元素相乘，再由 down 投影回 2304。</figcaption>
+</figure>
+
+<p>圖裡的每一個方框，都對得上 <code>print(model.model.layers[0])</code> 印出來的子模組（<a href="#lab">0.6.3</a> 會逐行對照）。下面分三塊說明。</p>
+
+<h3 id="sandwich">0.6.1　「三明治」RMSNorm 與 residual stream</h3>
+
+<p>RMSNorm 是把向量除以它自己的均方根（root mean square），讓長度回到固定尺度，再乘上一組可學的權重；它比 LayerNorm 少了「減平均」這一步。Gemma 2 每一層用了<b>四個</b> RMSNorm，transformers 4.47.0 的 <code>Gemma2DecoderLayer.forward</code> 的後半（:488–495）寫成：</p>
+
+<pre class="py">        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = residual + hidden_states
+
+        residual = hidden_states
+        hidden_states = self.pre_feedforward_layernorm(hidden_states)
+        hidden_states = self.mlp(hidden_states)
+        hidden_states = self.post_feedforward_layernorm(hidden_states)
+        hidden_states = residual + hidden_states</pre>
+
+<p>前面還有 <code>residual = hidden_states</code>、<code>input_layernorm</code> 與 <code>self_attn</code> 這三步（:474–487）。所以每個分支都是「<code>input</code>／<code>pre</code> norm → 做事 → <code>post</code> norm → 加回 residual」，norm 把子層夾在中間，這就是「三明治」的意思。注意 <code>post_*</code> 那兩個 norm 作用在<b>子層的輸出</b>上，加回去之前；residual stream 本身在層與層之間不經過 norm，要到 26 層全部跑完、進入 <code>model.norm</code> 才 norm 一次。這一點在 <a href="#hidden-states">0.9 節</a>解讀 hidden state 的大小時會用到。</p>
+
+<h3 id="attn">0.6.2　Attention：GQA、除以 16、soft-cap 50、sliding window</h3>
+
+<ul>
+<li><b>q、k、v 投影</b>：<code>q_proj</code> 把 2304 投影成 2048 = 8 個 head × 256，<code>k_proj</code>、<code>v_proj</code> 只投影成 1024 = 4 組 × 256。</li>
+<li><b>GQA（grouped-query attention）</b>：8 個 query head 只配 4 組 key／value，每組 k、v 由 2 個 query head 共用。transformers 在算分數前用 <code>repeat_kv</code> 把 4 組複製成 8 組（:180–181）。好處是 k_proj、v_proj 的參數與 KV cache 都只要一半；<a href="#params">0.8 節</a>會算出省了多少參數。</li>
+<li><b>RoPE</b>：位置資訊不是加在 embedding 上，而是在每一層把 q、k 依位置旋轉一個角度（<code>Gemma2RotaryEmbedding</code>，<code>rope_theta</code> = 10000），讓 q·k 的值只跟兩個 token 的相對距離有關。</li>
+<li><b>除以 16</b>：分數是 q·kᵀ × <code>scaling</code>，<code>scaling = query_pre_attn_scalar ** -0.5</code> = 1/√256 = 1/16（:344、:183）。</li>
+<li><b>attention soft-cap 50</b>：分數再經過 <code>s / 50 → tanh → × 50</code>（:185–188），壓進 (−50, 50)。這和 <a href="#arch">0.5 節</a>最後 logits 的 soft-cap 是<b>兩個不同的地方、兩個不同的值</b>：attention 分數是 50，logits 是 30。</li>
+<li><b>mask</b>：因果 mask 讓每個 token 只能看到自己和前面的 token。偶數層另外加 sliding window：每個 token 最多只看前面 4096 個位置；奇數層（global）看全部。本作業的每一個 prompt 都遠短於 4096 個 token，所以這兩種層在這份作業裡的行為其實一樣。</li>
+<li><b>softmax → × v → o_proj</b>：softmax 後得到 attention 權重 (1, 8, T, T)，用它對 v 加權平均，8 個 head 的結果接回 2048 維，再由 <code>o_proj</code> 投影回 2304。第 7 章（Q6）畫的 heatmap，就是其中一層、一個 head 的那張 T × T 權重。</li>
+</ul>
+
+<h3 id="lab">0.6.3　動手看：print(model.model.layers[0])</h3>
+
+<div class="lab">
+<h4>印出第 0 層</h4>
+<p>本機用 repo 附的事實腳本印出第 0 層的結構（需要 GPU 與 HF 授權；在 repo 根目錄執行）。它會印出整份 config、逐層參數與下面這段結構，逐字紀錄在 <code>logs/facts_env_model_tok.txt</code> 的 <code>model</code> 段：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py model</pre>
+<p>下面這段結構，就是腳本裡那一行 <code>print(model.model.layers[0])</code> 的輸出；同一個 <code>model</code> 段還會做 <a href="#hidden-states">0.9 節</a>的 hidden_states 比對。</p>
+</div>
+
+<pre class="shell">Gemma2DecoderLayer(
+  (self_attn): Gemma2Attention(
+    (q_proj): Linear(in_features=2304, out_features=2048, bias=False) «1»
+    (k_proj): Linear(in_features=2304, out_features=1024, bias=False)
+    (v_proj): Linear(in_features=2304, out_features=1024, bias=False)
+    (o_proj): Linear(in_features=2048, out_features=2304, bias=False)
+    (rotary_emb): Gemma2RotaryEmbedding() «2»
+  )
+  (mlp): Gemma2MLP(
+    (gate_proj): Linear(in_features=2304, out_features=9216, bias=False)
+    (up_proj): Linear(in_features=2304, out_features=9216, bias=False)
+    (down_proj): Linear(in_features=9216, out_features=2304, bias=False)
+    (act_fn): PytorchGELUTanh() «3»
+  )
+  (input_layernorm): Gemma2RMSNorm((2304,), eps=1e-06) «4»
+  (post_attention_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+  (pre_feedforward_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+  (post_feedforward_layernorm): Gemma2RMSNorm((2304,), eps=1e-06)
+)</pre>
+<ol class="notes">
+<li><span class="mk">1</span>四個投影都是 <code>bias=False</code>，所以參數量就是 in × out，<a href="#params">0.8 節</a>直接拿來算。<code>q_proj</code> 輸出 2048、<code>k_proj</code>／<code>v_proj</code> 輸出 1024，就是 GQA 的 8 對 4。</li>
+<li><span class="mk">2</span><code>Gemma2RotaryEmbedding</code> 沒有可學的參數（括號裡是空的），它只依位置算出旋轉用的 cos、sin。</li>
+<li><span class="mk">3</span>激活函數是 <code>PytorchGELUTanh</code>，對應 config 的 <code>gelu_pytorch_tanh</code>。注意它掛在 <code>mlp</code> 底下，只作用在 <code>gate_proj</code> 的輸出上：transformers 4.47.0 的 <code>Gemma2MLP.forward</code>（:94–95）是 <code>self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))</code>。</li>
+<li><span class="mk">4</span>四個 <code>Gemma2RMSNorm</code>，每個一組 2304 個權重。印出的順序是模組註冊的順序，不是執行順序；執行順序見圖 0.2 與 <a href="#sandwich">0.6.1</a>。</li>
+</ol>
+
+<h2 id="shapes">0.7　各層的實際形狀</h2>
+
+<p>上面的形狀不是推算的。本機把 Q7 用的句子 <code>"Time travel will become a reality as technology continues to advance."</code> 餵進模型（含 <code>&lt;bos&gt;</code> 共 <b>T = 13</b> 個 token），在 <code>layers[0]</code> 與 <code>layers[1]</code> 的每個子模組上掛 forward hook（PyTorch 的 <code>module.register_forward_hook(f)</code>：每次這個模組做完 forward，就把它的輸入、輸出交給函式 <code>f</code>，不必改模型程式碼），印出輸入、輸出的形狀（<code>logs/facts_review1_shapes_q4steps_rescale26.txt</code>）。兩層的形狀完全相同，全部是 <code>torch.float16</code>：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>模組</th><th>輸入</th><th>輸出</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td><code>embed_tokens</code></td><td>(1, 13)</td><td>(1, 13, 2304)</td><td>token id 查表</td></tr>
+<tr><td><code>input_layernorm</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2304)</td><td>norm 不改形狀</td></tr>
+<tr><td><code>self_attn.q_proj</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2048)</td><td>8 個 head × 256</td></tr>
+<tr><td><code>self_attn.k_proj</code>／<code>v_proj</code></td><td>(1, 13, 2304)</td><td>(1, 13, 1024)</td><td>4 組 × 256</td></tr>
+<tr><td><code>self_attn.o_proj</code></td><td>(1, 13, 2048)</td><td>(1, 13, 2304)</td><td>8 個 head 接回來再投影</td></tr>
+<tr><td><code>post_attention_layernorm</code>、<code>pre_feedforward_layernorm</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2304)</td><td></td></tr>
+<tr><td><code>mlp.gate_proj</code>／<code>up_proj</code></td><td>(1, 13, 2304)</td><td>(1, 13, 9216)</td><td>MLP 中間層</td></tr>
+<tr><td><code>mlp.down_proj</code></td><td>(1, 13, 9216)</td><td>(1, 13, 2304)</td><td></td></tr>
+<tr><td><code>post_feedforward_layernorm</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2304)</td><td></td></tr>
+<tr><td>整個 <code>layers[i]</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2304)</td><td>一層進出形狀相同，才能疊 26 層</td></tr>
+<tr><td><code>model.norm</code></td><td>(1, 13, 2304)</td><td>(1, 13, 2304)</td><td>最後的 norm</td></tr>
+<tr><td><code>lm_head</code></td><td>(1, 13, 2304)</td><td>(1, 13, 256000)</td><td>logits</td></tr>
+</tbody>
+</table></div>
+
+<p>同一次 forward 打開 <code>output_attentions=True</code>、<code>output_hidden_states=True</code> 時的回傳值：</p>
+<ul>
+<li><code>outputs.attentions</code>：26 個（每層一個），每個 (1, 8, 13, 13)：batch 1、8 個 head、13 個 query 位置 × 13 個 key 位置。</li>
+<li><code>outputs.hidden_states</code>：<b>27 個</b>，每個 (1, 13, 2304)。為什麼是 27 而不是 26，見 <a href="#hidden-states">0.9 節</a>。</li>
+<li><code>outputs.logits</code>：(1, 13, 256000)，絕對值最大 26.16，沒有超過 final soft-cap 的 30。</li>
+<li><code>past_key_values</code>：一個 <code>HybridCache</code>，也就是 KV cache。第 7 章會用到它。</li>
+</ul>
+
+<div class="warn">
+<h4>這一個形狀是推出來的，不是量出來的</h4>
+<p>q、k、v 拆成 head 之後的 <b>(1, 8, T, 256)</b> 與 <b>(1, 4, T, 256)</b>，是在 attention 函式內部用 <code>view</code> 加 <code>transpose</code> 做出來的（transformers 4.47.0 <code>modeling_gemma2.py</code>:379–381），不經過任何子模組，forward hook 抓不到。表裡實測到的是 <code>q_proj</code> 輸出 2048、<code>k_proj</code>／<code>v_proj</code> 輸出 1024；再加上 config 的 <code>num_attention_heads</code> = 8、<code>num_key_value_heads</code> = 4、<code>head_dim</code> = 256，推出 2048 = 8 × 256、1024 = 4 × 256，拆開後就是這兩個形狀。</p>
+</div>
+
+<p>後面幾章會再看到這些形狀，只是 T 和 batch 換了：第 6 章（Q5）一次餵 6 句、padding 到 9 個 token，<code>hidden_states[-1]</code> 是 (6, 9, 2304)；第 7 章（Q6）逐步生成的第一步一次餵 3 個 token，每層的 attention 是 (1, 8, 3, 22)，22 是 KV cache 的長度；第 9 章（Q7）SAE 對 13 個 token 各輸出 16384 個 feature，形狀是 <code>[13, 16384]</code>。</p>
+
+<h2 id="params">0.8　參數量：手算 vs PyTorch</h2>
+
+<p>PyTorch 數出來的總數（<code>sum(p.numel() for p in model.parameters())</code>，<code>logs/facts_env_model_tok.txt</code>）：</p>
+
+<pre class="shell">params total 2,614,341,888; embed_tokens 589,824,000 (22.6%); non-embedding 2,024,517,888 «1»
+lm_head tied to embed_tokens: True «2»
+  layers.0.self_attn.q_proj.weight (2048, 2304) 4,718,592
+  layers.0.self_attn.k_proj.weight (1024, 2304) 2,359,296
+  layers.0.self_attn.v_proj.weight (1024, 2304) 2,359,296
+  layers.0.self_attn.o_proj.weight (2304, 2048) 4,718,592
+  layers.0.mlp.gate_proj.weight (9216, 2304) 21,233,664
+  layers.0.mlp.up_proj.weight (9216, 2304) 21,233,664
+  layers.0.mlp.down_proj.weight (2304, 9216) 21,233,664
+  layers.0.input_layernorm.weight (2304,) 2,304
+  layers.0.post_attention_layernorm.weight (2304,) 2,304
+  layers.0.pre_feedforward_layernorm.weight (2304,) 2,304
+  layers.0.post_feedforward_layernorm.weight (2304,) 2,304
+per layer 77,865,984; x26 = 2,024,515,584; final norm 2,304 «3»
+weights in fp16: 4.87 GiB; cuda allocated after load 4.87 GiB «4»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>總數 2,614,341,888，其中 embedding 佔 22.6%，其餘 2,024,517,888 個在 26 層與最後的 norm 裡。</li>
+<li><span class="mk">2</span><code>lm_head</code> 與 <code>embed_tokens</code> 指向同一塊記憶體。<code>model.parameters()</code> 對同一個參數只回傳一次，所以總數裡這張表只算一次。</li>
+<li><span class="mk">3</span>每層 77,865,984 個，26 層加最後的 norm，正好等於非 embedding 的數量。</li>
+<li><span class="mk">4</span>fp16 每個參數 2 bytes，參數算出來的大小與載入後 GPU 實際配置的大小一致。</li>
+</ol>
+
+<p>自己手算一次，每一列都是「形狀相乘」：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>部分</th><th>算式</th><th class="num">參數量</th></tr></thead>
+<tbody>
+<tr><td><code>q_proj</code></td><td>2048 × 2304</td><td class="num">4,718,592</td></tr>
+<tr><td><code>k_proj</code>、<code>v_proj</code></td><td>1024 × 2304，各一個</td><td class="num">2 × 2,359,296</td></tr>
+<tr><td><code>o_proj</code></td><td>2304 × 2048</td><td class="num">4,718,592</td></tr>
+<tr><td><b>attention 小計</b></td><td></td><td class="num"><b>14,155,776</b></td></tr>
+<tr><td><code>gate_proj</code>、<code>up_proj</code>、<code>down_proj</code></td><td>9216 × 2304，各一個</td><td class="num">3 × 21,233,664</td></tr>
+<tr><td><b>MLP 小計</b></td><td></td><td class="num"><b>63,700,992</b></td></tr>
+<tr><td>四個 RMSNorm</td><td>4 × 2304</td><td class="num">9,216</td></tr>
+<tr><td><b>每層合計</b></td><td>14,155,776 + 63,700,992 + 9,216</td><td class="num"><b>77,865,984</b></td></tr>
+<tr><td>26 層</td><td>26 × 77,865,984</td><td class="num">2,024,515,584</td></tr>
+<tr><td>最後的 <code>model.norm</code></td><td>2304</td><td class="num">2,304</td></tr>
+<tr><td><code>embed_tokens</code>（＝<code>lm_head</code>）</td><td>256000 × 2304</td><td class="num">589,824,000</td></tr>
+<tr><td><b>總計</b></td><td>2,024,515,584 + 2,304 + 589,824,000</td><td class="num"><b>2,614,341,888</b></td></tr>
+</tbody>
+</table></div>
+
+<p>手算與 PyTorch 完全一致。從這張表可以讀出三件事：</p>
+<ul>
+<li><b>MLP 是大宗</b>：每層 77,865,984 個參數裡，MLP 佔 63,700,992 個，約 82%；attention 只佔約 18%。</li>
+<li><b>共用權重省了一整張表</b>：如果 <code>lm_head</code> 另外有自己的 256000 × 2304，總數會變成 2,614,341,888 + 589,824,000 = 3,204,165,888（計算值）。所以算參數時 <code>lm_head</code> <b>不能</b>重複加。</li>
+<li><b>GQA 省下的</b>：如果 k、v 也和 q 一樣有 8 個 head，<code>k_proj</code>、<code>v_proj</code> 各是 2048 × 2304 = 4,718,592，每層多 2 × 2,359,296 = 4,718,592 個參數，26 層共多 122,683,392 個（計算值）。</li>
+</ul>
+
+<p>記憶體：2,614,341,888 × 2 bytes = 5,228,683,776 bytes，除以 2<sup>30</sup> 就是 4.87 GiB。HF 快取裡的 5.251 GB 是以 10<sup>9</sup> 為單位的 GB，和 5,228,683,776 bytes（約 5.23 GB）同一個數量級；多出來的部分是權重以外的檔案還是存檔格式的差異，本機沒有拆開看。<!-- TODO(本機實測): HF 快取裡 gemma-2-2b-it 各檔案的大小（safetensors 兩個 shard、tokenizer 等），說明 5.251 GB 與 5.23 GB 的差 --></p>
+
+<h2 id="hidden-states">0.9　hidden_states 的 27 個索引</h2>
+
+<p>這一節是第 6、8、9 章的前置知識，後面會一直回來查。呼叫模型時加上 <code>output_hidden_states=True</code>，回傳的 <code>outputs.hidden_states</code> 是一個長度 <b>27</b> 的 tuple。26 層為什麼有 27 個？看 transformers 4.47.0 <code>Gemma2Model.forward</code> 怎麼收集它們（:747–781 節錄）：</p>
+
+<pre class="py">        for decoder_layer in self.layers[: self.config.num_hidden_layers]:
+            if output_hidden_states:
+                all_hidden_states += (hidden_states,)
+            ...
+            hidden_states = layer_outputs[0]
+            ...
+        hidden_states = self.norm(hidden_states)
+
+        if output_hidden_states:
+            all_hidden_states += (hidden_states,)</pre>
+
+<p>迴圈在<b>進入</b>每一層之前先存一份目前的 hidden state，總共存 26 份；迴圈結束後，對最後的結果做 <code>self.norm</code>，<b>norm 之後</b>再存一份。所以：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 210" role="img" aria-label="hidden_states 的 27 個索引與 decoder block 的對應：索引 0 是 embedding 乘 48，索引 i 是 layers[i-1] 的輸出，layers[25] 的原始輸出不存，索引 26 是最後 norm 之後">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <text class="s-sm" x="450" y="30" text-anchor="middle">output_hidden_states=True：回傳 27 個，每個 (1, T, 2304)</text>
+  <rect x="20" y="60" width="120" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="80" y="90" text-anchor="middle">embed × 48</text>
+  <rect x="180" y="60" width="100" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="230" y="90" text-anchor="middle">layers[0]</text>
+  <rect x="320" y="60" width="100" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="370" y="90" text-anchor="middle">layers[1]</text>
+  <text class="s-lbl" x="455" y="90" text-anchor="middle">…</text>
+  <rect x="490" y="60" width="100" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="540" y="90" text-anchor="middle">layers[24]</text>
+  <rect x="630" y="60" width="100" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="680" y="90" text-anchor="middle">layers[25]</text>
+  <rect x="770" y="60" width="100" height="50" rx="8" class="s-box"/>
+  <text class="s-lbl" x="820" y="90" text-anchor="middle">model.norm</text>
+  <line x1="141" y1="85" x2="177" y2="85" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="281" y1="85" x2="317" y2="85" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="421" y1="85" x2="440" y2="85" stroke="var(--accent)" stroke-width="2"/>
+  <line x1="470" y1="85" x2="487" y2="85" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="591" y1="85" x2="627" y2="85" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="731" y1="85" x2="767" y2="85" stroke="var(--accent)" stroke-width="2" marker-end="url(#a3)"/>
+  <line x1="871" y1="85" x2="892" y2="85" stroke="var(--accent)" stroke-width="2"/>
+  <circle cx="160" cy="85" r="4" fill="var(--accent-warm)"/>
+  <circle cx="300" cy="85" r="4" fill="var(--accent-warm)"/>
+  <circle cx="430" cy="85" r="4" fill="var(--accent-warm)"/>
+  <circle cx="479" cy="85" r="4" fill="var(--accent-warm)"/>
+  <circle cx="609" cy="85" r="4" fill="var(--accent-warm)"/>
+  <circle cx="884" cy="85" r="4" fill="var(--accent-warm)"/>
+  <text class="s-key" x="160" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[0]</text>
+  <text class="s-key" x="300" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[1]</text>
+  <text class="s-key" x="428" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[2]</text>
+  <text class="s-key" x="481" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[24]</text>
+  <text class="s-key" x="609" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[25]</text>
+  <text class="s-sm" x="749" y="135" text-anchor="middle" style="fill: var(--bad)">不存</text>
+  <text class="s-key" x="880" y="135" text-anchor="middle" style="fill: var(--accent-warm)">[26]</text>
+  <text class="s-sm" x="160" y="155" text-anchor="middle">embedding</text>
+  <text class="s-sm" x="300" y="155" text-anchor="middle">block 0 輸出</text>
+  <text class="s-sm" x="609" y="155" text-anchor="middle">block 24 輸出</text>
+  <text class="s-sm" x="896" y="155" text-anchor="end">norm 之後</text>
+  <text class="s-sm" x="20" y="192" text-anchor="start">Q7 的 hidden_states[20] ＝ block 19 的輸出（第 8 章）</text>
+  <text class="s-sm" x="880" y="192" text-anchor="end">Q5 的 hidden_states[-1] ＝ [26]（第 6 章）</text>
+</svg>
+<figcaption>圖 0.3 — 27 個索引落在資料流的哪裡。索引 i（1 到 25）是 layers[i−1] 的輸出，比 block 編號大 1；layers[25] 的原始輸出沒有被存下來，[26] 是它經過最後 norm 的結果。</figcaption>
+</figure>
+
+<div class="tablewrap"><table>
+<thead><tr><th>索引</th><th>內容</th><th>本機驗證（<code>torch.equal</code>）</th></tr></thead>
+<tbody>
+<tr><td><code>[0]</code></td><td>embedding × √2304（進第一層之前）</td><td><code>hidden_states[0] == embed_tokens * sqrt(2304): True</code></td></tr>
+<tr><td><code>[i]</code>，1 ≤ i ≤ 25</td><td><code>layers[i−1]</code> 的輸出（block 編號 0 起算）</td><td>i = 1、20、21、25 都是 <code>True</code></td></tr>
+<tr><td><code>[26]</code></td><td><b>不是</b> <code>layers[25]</code> 的原始輸出，而是它經過 <code>model.norm</code> 之後</td><td><code>== output of layers[25]: False</code>；<code>== norm(output of layers[25]): True</code></td></tr>
+</tbody>
+</table></div>
+
+<p>驗證的方法（<code>docs/tools/hw03_facts.py</code> 的 <code>model</code> 段，也就是 0.6.3 那條指令；結果與下面的範數表都在 <code>logs/facts_env_model_tok.txt</code>）：在每一層掛 forward hook 記下輸出，再和 <code>hidden_states</code> 逐一比對。這裡用的句子是較短的 <code>"Time travel will become a reality."</code>，不是 0.7 節那句 13 個 token 的。記住兩條就不會搞錯：</p>
+<ul>
+<li><b>索引比 block 編號大 1</b>。要拿「block 20 的輸出」，要寫 <code>hidden_states[21]</code>。第 8 章（Q7）會看到程式在這裡差了一：Q7 的 SAE 是在 block 20 的輸出上訓練的，Q7.2–7.3 算最大 activation 的函式卻寫死拿 <code>hidden_states[sae.cfg.hook_layer]</code>（hw3.py:393，<code>hook_layer</code> 是 20），也就是 block 19 的輸出，不受任何旗標控制。Q7.4–7.6 則用旗標 <code>--sae-layer-idx</code>（預設 24），它同樣是索引，不是 block 編號。</li>
+<li><b>最後一個是 norm 過的</b>。<code>hidden_states[-1]</code> 就是 <code>[26]</code>，它的尺度跟 [25] 差很多。下表是同一句話裡每個位置向量的 L2 範數（長度），「其他 token」是除了 <code>&lt;bos&gt;</code> 以外各位置的平均：</li>
+</ul>
+
+<div class="tablewrap"><table>
+<thead><tr><th>索引</th><th class="num">[0]</th><th class="num">[1]</th><th class="num">[5]</th><th class="num">[10]</th><th class="num">[15]</th><th class="num">[20]</th><th class="num">[21]</th><th class="num">[24]</th><th class="num">[25]</th><th class="num">[26]</th></tr></thead>
+<tbody>
+<tr><td>其他 token 平均</td><td class="num">85.9</td><td class="num">80.1</td><td class="num">91.6</td><td class="num">184.7</td><td class="num">291.7</td><td class="num">397.2</td><td class="num">430.3</td><td class="num">591.7</td><td class="num">740.2</td><td class="num">104.4</td></tr>
+<tr><td><code>&lt;bos&gt;</code></td><td class="num">200.0</td><td class="num">367.9</td><td class="num">1030.1</td><td class="num">1902.2</td><td class="num">2849.9</td><td class="num">3731.5</td><td class="num">3807.3</td><td class="num">4157.9</td><td class="num">4244.0</td><td class="num">98.7</td></tr>
+</tbody>
+</table></div>
+
+<p>residual stream 在層與層之間沒有被 norm（<a href="#sandwich">0.6.1</a>），每一層都往上加東西，所以範數從 [1] 的約 80 一路長到 [25] 的約 740；到了 [26] 經過最後的 norm，又回到約 100。第 6 章（Q5）用 [26] 做句子向量，第 9 章（Q7）把只在 block 20 輸出上校正過的 SAE 拿去量別的索引（Q7.4–7.6 預設量 [24]，Q7.7–7.9 逐一量 [0] 到 [26]），都要記得這個尺度差異。</p>
+
+<p>另一個值得先記下的現象：<code>&lt;bos&gt;</code> 的範數在 [5] 到 [20] 大約是其他 token 的 10 倍（[5] 約 11 倍、[20] 約 9 倍），之後倍數變小（[25] 約 6 倍），norm 之後的 [26] 兩者就差不多了。第 7 章「大家都注意 <code>&lt;bos&gt;</code>」（attention sink）與第 8 章「<code>&lt;bos&gt;</code> 有很大的 SAE activation」，和這件事可能是同一個現象的不同面向；這是推論，本機沒有直接證明三者的因果關係。</p>
+
+<h2 id="time-mem">0.10　每一題要多久、要多少 GPU 記憶體</h2>
+
+<p>本機在同一個 process 裡載入模型一次，<code>torch.manual_seed(0)</code>、全部預設旗標，依序跑 Q1–Q7，和 <code>hw3.py --seed 0</code> 的流程相同，分別記下每題的秒數與 GPU 記憶體（<code>logs/facts_review1_perq.txt</code>）。載入模型後是 allocated 4.87 GiB、reserved 5.06 GiB。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>題</th><th class="num">秒數</th><th class="num">峰值 allocated</th><th class="num">跑完後 allocated</th><th>備註</th></tr></thead>
+<tbody>
+<tr><td>Q1</td><td class="num">10.7 s</td><td class="num">4.96 GiB</td><td class="num">4.95 GiB</td><td>含從快取載入評分模型；評分模型跑在 CPU</td></tr>
+<tr><td>Q2</td><td class="num">0.8 s</td><td class="num">5.08 GiB</td><td class="num">4.95 GiB</td><td></td></tr>
+<tr><td>Q3</td><td class="num">0.0 s</td><td class="num">4.95 GiB</td><td class="num">4.95 GiB</td><td>只做 tokenize，不經過模型</td></tr>
+<tr><td>Q4</td><td class="num"><b>23.8 s</b></td><td class="num">4.97 GiB</td><td class="num">4.95 GiB</td><td>最慢：top-k、top-p 各生成 20 句</td></tr>
+<tr><td>Q5</td><td class="num">0.5 s</td><td class="num">5.02 GiB</td><td class="num">4.95 GiB</td><td></td></tr>
+<tr><td>Q6</td><td class="num">0.7 s</td><td class="num">4.96 GiB</td><td class="num">4.95 GiB</td><td></td></tr>
+<tr><td>Q7</td><td class="num">2.5 s</td><td class="num"><b>5.26 GiB</b></td><td class="num">5.24 GiB</td><td>含從快取載入 SAE；SAE 留在 GPU 上</td></tr>
+<tr><td>合計</td><td class="num">39.0 s</td><td></td><td></td><td>不含載入模型</td></tr>
+</tbody>
+</table></div>
+
+<ul>
+<li><b>時間</b>：七題合計 39.0 s，Q4 一題就佔了 23.8 s。<code>.venv/bin/python HW03/hw3.py --seed 0</code> 整條指令從頭到尾是 45.7 s，多出來的是 import 套件、載入模型等。只想快速試某一題，用 <code>--q</code> 跳過 Q4 最省時間。</li>
+<li><b>記憶體峰值</b>：最高是 Q7 的 5.26 GiB，任何一題都只比模型本身的 4.87 GiB 多不到 0.4 GiB。Q7 跑完後多出約 0.29 GiB，是 SAE 本身：75,532,544 個 float32 參數（<code>logs/facts_q4_q7.txt</code>，第 8 章細看）≈ 0.28 GiB。</li>
+<li><b>評分模型在 CPU</b>：Q1 的 <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> 在 hw3.py:89 載入時沒有 <code>.to(DEVICE)</code>，<code>calculate_coherence</code>（hw3.py:65–70）的輸入也沒有搬到 GPU，所以它整個跑在 CPU 上，不佔 GPU 記憶體。第 1 章會再看這個函式。</li>
+<li><b>Q1 之後一直多出來的一點</b>：Q1 跑完後，allocated 從 4.87 GiB 變成 4.95 GiB，其中 0.054 GiB 是 <code>model.generate</code> 留在 <code>model._cache</code> 的 HybridCache（同一份 log 每題那一行的 <code>model._cache 0.054 GiB (max_cache_len 544)</code>）。它會被後面的題目沿用，這正是第 5 章「設了 seed 為什麼還不一定一樣」的主角，這裡先不展開。</li>
+</ul>
+
+<p>那需要多大的 GPU？本機用的是 23.9 GiB 的卡，遠超過需要。依上表的峰值 5.26 GiB，再加上 PyTorch 自己保留、沒有分配出去的部分（載入後 reserved 比 allocated 多約 0.2 GiB），<b>推論</b>約 6 GiB 顯示記憶體的 GPU 就跑得動這份作業。這是從紀錄推出來的，本機沒有在 6 GiB 的卡上實際跑過。</p>
+
+<h2 id="pitfalls">0.11　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把兩個 soft-cap 混在一起</h4>
+<dl>
+<dt>症狀</dt><dd>說「logits 被 cap 在 50」或「attention 分數 cap 在 30」。</dd>
+<dt>後果</dt><dd>解讀 Q2 的 logit 數值（例如 24.125）或 Q6 的 attention 時，對不上上限。</dd>
+<dt>正解</dt><dd class="fix">attention 分數是 <code>attn_logit_softcapping</code> = 50，在每一層的 attention 裡；最後的 logits 是 <code>final_logit_softcapping</code> = 30，在 lm_head 之後。實測 logits 最大絕對值 26.16 &lt; 30。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 lm_head 再算一次</h4>
+<dl>
+<dt>症狀</dt><dd>手算總參數得到 3,204,165,888，和 PyTorch 的 2,614,341,888 對不上。</dd>
+<dt>後果</dt><dd>多算了一張 256000 × 2304 的表，也會高估記憶體。</dd>
+<dt>正解</dt><dd class="fix"><code>tie_word_embeddings</code> 為 True，<code>lm_head</code> 與 <code>embed_tokens</code> 是同一塊記憶體，只算一次。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 hidden_states 的索引當成 block 編號</h4>
+<dl>
+<dt>症狀</dt><dd>想拿 block 20 的輸出，寫成 <code>hidden_states[20]</code>。</dd>
+<dt>後果</dt><dd>拿到的是 block 19 的輸出；Q7 正是這樣差了一層（第 8 章）。</dd>
+<dt>正解</dt><dd class="fix">block k 的輸出是 <code>hidden_states[k+1]</code>；<code>[0]</code> 是 embedding × 48，<code>[26]</code> 是最後 norm 之後。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為評分模型也在 GPU 上</h4>
+<dl>
+<dt>症狀</dt><dd>看到 Q1 要 10.7 s，以為是 GPU 慢；或替評分模型預留 GPU 記憶體。</dd>
+<dt>後果</dt><dd>錯估瓶頸與需要的顯示記憶體。</dd>
+<dt>正解</dt><dd class="fix">評分模型（cross-encoder）跑在 CPU，hw3.py 沒有把它搬上 GPU。Q1 的 10.7 s 還包含從快取載入它的時間。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 <code>--q</code> 會照題號排序</h4>
+<dl>
+<dt>症狀</dt><dd>下 <code>--q 4 1</code>，以為會先跑 Q1。</dd>
+<dt>後果</dt><dd>題目間共用同一個模型物件，順序不同，前一題留下的狀態就不同，Q4 的取樣結果可能跟著變（第 5 章）。</dd>
+<dt>正解</dt><dd class="fix"><code>for q in args.q</code> 照你寫的順序跑；要和書中紀錄比對，用和紀錄相同的指令。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>在 WSL 裡沿用 Windows 的 HF 登入</h4>
+<dl>
+<dt>症狀</dt><dd>Windows 那邊登入過 Hugging Face，WSL 裡跑 hw3.py 仍然下載不到模型。</dd>
+<dt>後果</dt><dd>卡在授權，以為授權還沒核准。</dd>
+<dt>正解</dt><dd class="fix">token 存在 WSL 自己的 <code>~/.cache/huggingface/token</code>，在 WSL 裡再 <code>.venv/bin/hf auth login</code> 一次，或設 <code>HF_TOKEN</code>。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>hw3.py 的骨架：<code>QUESTIONS</code> 把題號對到 <code>q1</code>…<code>q7</code>，<code>main</code> 解析旗標、設 seed、登入 HF、<b>載入一次</b>模型，再照 <code>--q</code> 的順序逐題呼叫；圖一律存到 <code>HW03/outputs/</code>。</li>
+<li>每題的旗標與預設值見 <a href="#flags">0.3 節的總表</a>；<code>--num-samples</code> 至少 2，<code>--sae-layer-idx</code> 是 hidden_states 的索引。</li>
+<li><code>load_model</code> 用 fp16、<code>device_map="cuda"</code>、<code>eval()</code> 載入 <code>google/gemma-2-2b-it</code>，佔 4.87 GiB；<code>attn_implementation="eager"</code> 在 transformers 4.47 本來就是預設，寫明是為了 Q6。</li>
+<li>Gemma-2-2b-it：embedding × 48 → 26 層（偶數 sliding、奇數 global）→ 最後 norm → 與 embedding 共用權重的 lm_head → soft-cap 30。每層四個 RMSNorm、GQA 8 對 4、head_dim 256、attention soft-cap 50、MLP 9216。</li>
+<li>總參數 2,614,341,888 = 26 × 77,865,984 + 2,304 + 589,824,000，手算與 PyTorch 一致。</li>
+<li><code>hidden_states</code> 有 27 個：[0] 是 embedding × 48，[i] 是 block i−1 的輸出，[26] 是最後 norm 之後。</li>
+<li>七題合計 39.0 s，Q4 最慢；GPU 記憶體峰值 5.26 GiB（Q7）。</li>
+</ul>
+<p>下一章從 Q1 開始：同一個問題，套不套 chat template，模型看到的 token 與回答有什麼不同。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. Q7 預設用 <code>hidden_states[24]</code>。它是哪一個 decoder block 的輸出？如果要拿「最後一個 block（layers[25]）未經 norm 的輸出」，該用哪個索引？</summary>
+<p><code>hidden_states[24]</code> 是 <code>layers[23]</code>（block 23，0 起算）的輸出，因為索引比 block 編號大 1。<code>layers[25]</code> 的原始輸出<b>不在</b> hidden_states 裡：<code>[26]</code> 是它經過 <code>model.norm</code> 之後的結果，<code>[25]</code> 則是 <code>layers[24]</code> 的輸出。要拿 layers[25] 的原始輸出，只能自己在 <code>layers[25]</code> 掛 forward hook。</p>
+</details>
+
+<details class="quiz"><summary>2. 有人把 embed_tokens、lm_head 和 26 層、最後 norm 的參數全部加起來，得到 3,204,165,888，和 PyTorch 印的 2,614,341,888 不同。差在哪裡？</summary>
+<p>差 589,824,000，正好是一張 256000 × 2304 的表。<code>tie_word_embeddings</code> 為 True，<code>lm_head</code> 與 <code>embed_tokens</code> 是同一塊記憶體（實測 <code>data_ptr</code> 相同），<code>model.parameters()</code> 只回傳一次，所以 PyTorch 的總數只算一次。</p>
+</details>
+
+<details class="quiz"><summary>3. Q2 印出的 logit 有 24.125、25.312 這類數值。Gemma-2-2b-it 的 logits 有可能是 35 嗎？attention 分數（softmax 之前）有可能是 60 嗎？</summary>
+<p>都不可能。logits 在 lm_head 之後經過 <code>30·tanh(x/30)</code>，值域是 (−30, 30)；attention 分數在每層經過 <code>50·tanh(s/50)</code>，值域是 (−50, 50)。兩個上限不同：logits 是 30、attention 是 50。實測一句 13 個 token 的話，logits 絕對值最大是 26.16。</p>
+</details>
+
+<details class="quiz"><summary>4. 執行 <code>.venv/bin/python HW03/hw3.py --q 6 3</code>：模型載入幾次？哪一題先跑？圖存到哪裡、檔名是什麼？</summary>
+<p>模型只在 <code>main</code> 裡載入一次（hw3.py:514）。照 <code>--q</code> 給的順序，先跑 Q6 再跑 Q3。Q6 用預設 <code>--layer-idx 10 --head-idx 7</code>，圖存到 <code>HW03/outputs/q6_attention_L10_H7.png</code>；Q3 沒有圖。</p>
+</details>
+
+<details class="quiz"><summary>5. 每一層的 k_proj 只輸出 1024 維，q_proj 卻輸出 2048 維。8 個 query head 要算 attention 時，各自的 key 從哪裡來？</summary>
+<p>這是 GQA：1024 = 4 組 × 256，只有 4 組 key／value。transformers 用 <code>repeat_kv</code> 把每組複製給 2 個 query head 共用，湊成 8 組再算 q·kᵀ。這讓每層的 k_proj、v_proj 參數各少一半，26 層共省 122,683,392 個參數（計算值）。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>Gemma Team, <i>Gemma 2: Improving Open Language Models at a Practical Size</i>, 2024, <a href="https://arxiv.org/abs/2408.00118">arXiv:2408.00118</a>：Gemma 2 的技術報告，sliding／global 交替、soft-capping、GQA 等設計的出處。</li>
+<li>Hugging Face 模型頁 <a href="https://huggingface.co/google/gemma-2-2b-it">google/gemma-2-2b-it</a>：授權、config.json 與權重檔。</li>
+<li>transformers v4.47.0 的 <a href="https://github.com/huggingface/transformers/blob/v4.47.0/src/transformers/models/gemma2/modeling_gemma2.py">modeling_gemma2.py</a>：本章引用的行號都以這個版本為準。</li>
+<li>Ainslie et al., <i>GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</i>, 2023, <a href="https://arxiv.org/abs/2305.13245">arXiv:2305.13245</a>。</li>
+<li>Su et al., <i>RoFormer: Enhanced Transformer with Rotary Position Embedding</i>, 2021, <a href="https://arxiv.org/abs/2104.09864">arXiv:2104.09864</a>：RoPE。</li>
+<li>Zhang &amp; Sennrich, <i>Root Mean Square Layer Normalization</i>, 2019, <a href="https://arxiv.org/abs/1910.07467">arXiv:1910.07467</a>：RMSNorm。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 全書大綱</a><span class="disabled">第 1 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
