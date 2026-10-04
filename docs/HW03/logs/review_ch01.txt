@@ -1,0 +1,29 @@
+
+load_model 2.9s
+
+==================== review_ch01 ====================
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+--- with template, hw3.py: generate(max_new_tokens=512, do_sample=False)
+  new tokens 240, last token '<end_of_turn>', coherence 6.0734
+  response: "Supervised and unsupervised learning are two fundamental types of machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them. \n\n**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.\n\n**Key differences:**\n\n* **Labeling:** Supervised uses labeled data, unsupervised doesn't.\n* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.\n* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction. \n\n\nBoth types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data."
+--- with template, no do_sample: generate(max_new_tokens=512)
+  new tokens 240, last token '<end_of_turn>', coherence 6.0734
+  response: "Supervised and unsupervised learning are two fundamental types of machine learning. \n\n**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them. \n\n**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.\n\n**Key differences:**\n\n* **Labeling:** Supervised uses labeled data, unsupervised doesn't.\n* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.\n* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction. \n\n\nBoth types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data."
+  identical to hw3.py: True
+--- with template, Colab TODO without max_new_tokens: generate(do_sample=False)
+  new tokens 20, last token '**', coherence 4.0107
+  response: 'Supervised and unsupervised learning are two fundamental types of machine learning. \n\n**Supervised learning**'
+--- without template, hw3.py: generate(max_new_tokens=512, do_sample=False)
+  new tokens 136, last token '<end_of_turn>', coherence 4.2210
+  response: '**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels) to train models.\n* **Goal:** Predict the output for new, unseen data.\n* **Examples:** Image classification, spam detection, predicting house prices.\n\n**Unsupervised Learning:**\n\n* **Unlabeled data:** Uses data without known outputs to discover patterns.\n* **Goal:** Explore data, identify clusters, or reduce dimensionality.\n* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.\n\n\nIn essence, supervised learning learns from labeled examples to make predictions, while unsupervised learning explores unlabeled data to uncover hidden structures and relationships.'
+--- without template, no do_sample: generate(max_new_tokens=512)
+  new tokens 136, last token '<end_of_turn>', coherence 4.2210
+  response: '**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels) to train models.\n* **Goal:** Predict the output for new, unseen data.\n* **Examples:** Image classification, spam detection, predicting house prices.\n\n**Unsupervised Learning:**\n\n* **Unlabeled data:** Uses data without known outputs to discover patterns.\n* **Goal:** Explore data, identify clusters, or reduce dimensionality.\n* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.\n\n\nIn essence, supervised learning learns from labeled examples to make predictions, while unsupervised learning explores unlabeled data to uncover hidden structures and relationships.'
+  identical to hw3.py: True
+--- without template, Colab TODO without max_new_tokens: generate(do_sample=False)
+  new tokens 20, last token ')', coherence -2.8643
+  response: '**Supervised Learning:**\n\n* **Labeled data:** Uses data with known outputs (labels)'
+generation_config.max_length 20 max_new_tokens None
+system role: jinja2.exceptions.TemplateError: System role not supported
+two user turns: jinja2.exceptions.TemplateError: Conversation roles must alternate user/assistant/user/assistant/...
+[review_ch01 took 22.3s]

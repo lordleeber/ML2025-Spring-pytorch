@@ -655,7 +655,7 @@ footer.chap-footer {
 {% endif %}</pre>
 <ol class="notes">
 <li><span class="mk">1</span><b>開頭先放一個 <code>&lt;bos&gt;</code></b>。<code>bos_token</code> 就是 <code>&lt;bos&gt;</code> 這個字串。template 產生的字串本身就以 <code>&lt;bos&gt;</code> 開頭，這是 <a href="#r1">1.7 節</a>雙 <code>&lt;bos&gt;</code> 的起點。</li>
-<li><span class="mk">2</span><b>不支援 system role</b>。很多聊天模型可以在最前面放一則 <code>{"role": "system", ...}</code> 給整段對話下指示；Gemma 的 template 一看到就丟出例外。要給這類指示，只能寫進第一則 user 訊息裡。（這是從 template 原文讀出來的，本機沒有實際觸發過這個例外。）</li>
+<li><span class="mk">2</span><b>不支援 system role</b>。很多聊天模型可以在最前面放一則 <code>{"role": "system", ...}</code> 給整段對話下指示；Gemma 的 template 一看到就丟出例外。要給這類指示，只能寫進第一則 user 訊息裡。本機實測丟出的是 <code>jinja2.exceptions.TemplateError: System role not supported</code>（<code>logs/review_ch01.txt</code>）。</li>
 <li><span class="mk">3</span><b>user 與 assistant 必須交替</b>。<code>loop.index0</code> 是從 0 起算的訊息編號：偶數則必須是 user、奇數則必須不是 user。兩則 user 連在一起，或第一則就是 assistant，都會丟出例外。第 2 章的多輪對話就是靠這條規則一來一往地接下去。</li>
 <li><span class="mk">4</span><b>assistant 改名為 <code>model</code></b>。你在 Python 裡寫 <code>"role": "assistant"</code>，進到 prompt 裡變成 <code>model</code>。所以 Gemma 的 prompt 裡只會看到 <code>user</code> 與 <code>model</code> 兩種角色。</li>
 <li><span class="mk">5</span><b>每則訊息的固定形狀</b>：<code>&lt;start_of_turn&gt;</code> + 角色 + 換行 + 內容 + <code>&lt;end_of_turn&gt;</code> + 換行。Jinja 的 filter（<code>| trim</code>）比 <code>+</code> 先結合，所以 <code>trim</code> 只作用在 <code>message['content']</code> 上：內容頭尾的空白與換行會被去掉。第 2 章會看到這個 <code>trim</code> 把模型回答尾巴的 <code>' \n'</code> 吃掉。</li>
@@ -826,11 +826,38 @@ Please tell me about the key differences between supervised learning and unsuper
 
 <p>「可以重現」的範圍是同一台機器、同一套軟體版本。換一張 GPU 或換版本，fp16 運算的最後幾位可能不同，只要某一步前兩名的分數夠接近，argmax 就可能翻過去，後面的回答整段改寫（推論，本機只有一張 GPU，沒有跨機比較過）。這也是為什麼投影片 p.12 的填空題寫「Error with 0.5 is accepted」，允許分數有誤差。</p>
 
+<p>本機還量到一個更意外的前提：<b>同一台機器上，前一次 <code>generate</code> 留下的 KV cache 長度也會改變 greedy 的結果</b>。<code>generate</code> 會把 KV cache 留在 <code>model._cache</code>，下一次呼叫只要長度夠用就沿用（<a href="ch00.html#dispatch">第 0 章 0.2.2 節</a>）。Q1 先跑有 template 的那條路，配置了 32 + 512 = 544 格；接著沒有 template 的那條路只需要 23 + 512 = 535 格，於是沿用那 544 格。把沒有 template 的那條路換成各種 cache 長度單獨跑（<code>docs/tools/hw03_q1_cache.py</code>，<code>logs/review_ch01_cache.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>沒有 template 那條路用的 cache</th><th class="num">新 token</th><th class="num">字數</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>544 格（hw3.py 的順序：沿用有 template 那次留下的）</td><td class="num">138</td><td class="num">87</td><td class="num">5.0104</td></tr>
+<tr><td>535 格（單獨跑，自己配置）</td><td class="num">136</td><td class="num">85</td><td class="num">4.2210</td></tr>
+<tr><td>600 格、1024 格</td><td class="num">136</td><td class="num">85</td><td class="num">4.2210</td></tr>
+</tbody>
+</table></div>
+
+<p>兩個版本從第 30 個新 token 開始分岔。那一步在 535 格之下，<code>▁outputs</code> 和 <code>▁the</code> 的 logit 都是 17.875，完全同分，argmax 選了 <code>▁the</code>；在 544 格之下，<code>▁outputs</code> 是 17.8906，多了一格 fp16 的精度，argmax 就選它。cache 長度不同時，前 30 步每一步 logits 的最大差異都在 0.05 以內（第 0、1 步完全相同）：平常不影響誰是第一名，碰到同分才翻過去。為什麼 544 格會算出不同的數值、而 600 與 1024 格不會，本機沒有追。</p>
+
+<p>所以「可以重現」更精確的說法是：<b>同一台機器、同一套版本、同樣的呼叫順序</b>。hw3.py 照原版 Colab 的順序（先有 template、再沒有 template，共用同一個模型物件），所以本書的 5.0104 是照作業流程跑會得到的數字；只跑沒有 template 的那條路，會得到 4.2210，兩者差 0.79，超過投影片允許的 0.5。原版 Colab 也是同一個順序、同一個 transformers 版本，推論會有同樣的沿用行為，但 Colab 的 GPU 不同，數值本來就可能不同。有 template 的那條路在 hw3.py 裡是第一次 <code>generate</code>，用的是它自己的 544 格，不受影響（換成 600 格是 6.0616，1024 格仍是 6.0734）。</p>
+
 <p>那不寫 <code>do_sample=False</code> 會怎樣？這要看 <code>generation_config</code>：它是模型附帶的一份「<code>generate</code> 的預設參數」（從模型的 <code>generation_config.json</code> 讀進來，掛在 <code>model.generation_config</code> 上），呼叫 <code>generate</code> 時沒傳的參數就從這裡拿，這裡也沒寫的，再用 transformers 的 <code>GenerationConfig</code> 類別內建的預設值。本機印出的內容是（<code>logs/facts_env_model_tok.txt</code> 第 47 行，事實腳本 <code>model</code> 段的輸出，逐字）：</p>
 
 <pre class="shell">generation_config: {'cache_implementation': 'hybrid', 'pad_token_id': 0, 'bos_token_id': 2, 'eos_token_id': [1, 107], '_from_model_config': True, 'transformers_version': '4.47.0'}</pre>
 
-<p>裡面沒有 <code>do_sample</code>，所以會用 <code>GenerationConfig</code> 類別的預設值 <code>False</code>，不寫應該也是 greedy（推論，本機沒有實際拿掉 <code>do_sample=False</code> 跑過）。明寫的好處是不依賴模型附的設定檔。同理，原版的 TODO 若完全不給長度，<code>generate</code> 會落到 transformers 預設的長度上限，而不是 512（推論，本機沒有測）。<!-- TODO(本機實測): 原版 TODO 只寫 model.generate(input_ids, do_sample=False)、不給 max_new_tokens 時，Q1 兩條路各生成幾個新 token、有沒有警告、coherence 是多少 --></p>
+<p>裡面沒有 <code>do_sample</code>，所以會用 <code>GenerationConfig</code> 類別的預設值 <code>False</code>。本機實測拿掉 <code>do_sample=False</code>、其他不變，兩條路生成的 token 與用 <code>do_sample=False</code> 時逐一相同（同樣的 cache 長度下比較，<code>logs/review_ch01.txt</code>）：不寫也是 greedy。明寫的好處是不依賴模型附的設定檔。</p>
+
+<p>長度就不一樣了。原版 Colab 的 <code>generate_text_from_prompt</code> 沒有 <code>max_new_tokens</code> 參數，TODO 若只寫 <code>model.generate(input_ids, do_sample=False)</code>，本機實測（<code>logs/review_ch01.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>只寫 <code>do_sample=False</code>、不給長度</th><th class="num">新 token</th><th>最後一個 token</th><th class="num">coherence</th></tr></thead>
+<tbody>
+<tr><td>有 template</td><td class="num">20</td><td><code>**</code></td><td class="num">4.0107</td></tr>
+<tr><td>沒有 template</td><td class="num">20</td><td><code>)</code></td><td class="num">−2.8643</td></tr>
+</tbody>
+</table></div>
+
+<p>兩條路都只生成 20 個新 token，句子寫到一半就斷了，分數也掉很多，沒有 template 的甚至是負的。<code>generation_config</code> 沒有 <code>max_length</code>，所以用 <code>GenerationConfig</code> 類別的預設 20；transformers 4.47 看到「長度是預設值」時，會把它解讀成「20 個<b>新</b> token」，加上 prompt 長度當上限（<code>transformers/generation/utils.py:1471–1473</code>）。這次執行<b>沒有印出任何警告</b>，很容易以為程式正常。所以 hw3.py 把 <code>max_new_tokens</code> 加成函式參數、預設 512（<code>--max-new-tokens</code>，<a href="ch00.html#flags">第 0 章旗標表</a>）。</p>
 
 <h3 id="stop">1.3.2　為什麼會停在 &lt;end_of_turn&gt;</h3>
 
@@ -997,7 +1024,7 @@ In summary, supervised learning relies on labeled data to learn a mapping from i
 <li><b>回答的形狀不同</b>：套 template 時，模型寫出一段對著人說話的回答（總起、比喻、條列、總結）；不套時，模型寫出一份條列筆記。長度差將近一倍（240 對 138 個新 token）。</li>
 <li><b>「Answer in 200 words」兩條路都沒做到</b>：172 與 87，都不到 200，沒套 template 的連一半都不到。2B 的小模型對字數指令的服從度有限。</li>
 <li><b>沒有 template，模型最後還是吐了 <code>&lt;end_of_turn&gt;</code></b>：prompt 裡根本沒有任何 <code>&lt;start_of_turn&gt;</code>，模型仍用對話格式的結束記號收尾。IT 模型在微調時學到「回答完就寫 <code>&lt;end_of_turn&gt;</code>」，這個習慣不需要 template 提醒。也因為這樣，沒套 template 那條路也在 138 個 token 就停了，沒有一路寫到 512。</li>
-<li><b>這一次，有 template 的分數比較高</b>：6.0734 對 5.0104，差 1.063（計算值）。</li>
+<li><b>這一次，有 template 的分數比較高</b>：6.0734 對 5.0104，差 1.063（計算值）。沒有 template 的 5.0104 是照 hw3.py 的順序、沿用前一次 KV cache 得到的；那條路單獨跑是 4.2210（<a href="#greedy">1.3.1 節</a>），有 template 一樣比較高。</li>
 </ul>
 
 <p>不能從這裡推出的是「套 template 一定比較好」。這是<b>一個問題、一個評分器、一次 greedy</b> 的結果；評分器是搜尋相關性模型，分數沒有校準過的尺度（<a href="#logit">1.5.2 節</a>）。我們也不知道評分器為什麼給上面那段比較高：可能是比較長、比較完整，也可能是它直接寫了題目裡的「key differences」幾個字，這些都是猜測，本機沒有做實驗把它們分開。下一節的單 <code>&lt;bos&gt;</code> 版本就是一個反例：它沒有「Key differences」標題、也比較短，分數卻比 hw3.py 的版本還高一點。</p>
@@ -1023,10 +1050,12 @@ apply_chat_template(tokenize=True): len 31, first 3 ['&lt;bos&gt;', '&lt;start_o
 <thead><tr><th>條件</th><th class="num">prompt token</th><th class="num">新 token</th><th class="num">字數</th><th class="num">評分器 token</th><th class="num">coherence</th></tr></thead>
 <tbody>
 <tr><td>雙 <code>&lt;bos&gt;</code>（hw3.py）</td><td class="num">32</td><td class="num">240</td><td class="num">172</td><td class="num">285</td><td class="num">6.0734</td></tr>
-<tr><td>單 <code>&lt;bos&gt;</code>（事實腳本的實驗）</td><td class="num">31</td><td class="num">161</td><td class="num">127</td><td class="num">204</td><td class="num">6.1188</td></tr>
+<tr><td>單 <code>&lt;bos&gt;</code>（事實腳本的實驗，沿用 544 格 cache）</td><td class="num">31</td><td class="num">161</td><td class="num">127</td><td class="num">204</td><td class="num">6.1188</td></tr>
+<tr><td>單 <code>&lt;bos&gt;</code>（自己配置 543 格 cache）</td><td class="num">31</td><td class="num">149</td><td class="num">116</td><td class="num">187</td><td class="num">6.3992</td></tr>
 </tbody>
 </table></div>
-<p>開頭幾乎一樣（「two fundamental <b>approaches</b> in machine learning」對「two fundamental <b>types</b> of machine learning」），接著就分岔了：單 <code>&lt;bos&gt;</code> 的版本沒有比喻、沒有「Key differences」條列，兩段散文加一句「In essence」總結。多一個 token、而且是放在最前面的 <code>&lt;bos&gt;</code>，就足以讓 greedy 的回答換一條路走。分數差 0.0454（計算值），在投影片允許的 0.5 誤差之內。</p>
+<p>開頭幾乎一樣（「two fundamental <b>approaches</b> in machine learning」對「two fundamental <b>types</b> of machine learning」），接著就分岔了：單 <code>&lt;bos&gt;</code> 的版本沒有比喻、沒有「Key differences」條列，兩段散文加一句「In essence」總結。多一個 token、而且是放在最前面的 <code>&lt;bos&gt;</code>，就足以讓 greedy 的回答換一條路走。</p>
+<p>表中單 <code>&lt;bos&gt;</code> 有兩列，原因是 <a href="#greedy">1.3.1 節</a>的 cache 長度效應：事實腳本是在雙 <code>&lt;bos&gt;</code> 那次之後跑的，沿用了 544 格，得到 161 個 token、6.1188；自己配置 31 + 512 = 543 格時，第 76 個新 token 開始不同，得到 149 個 token、6.3992（<code>logs/review_ch01_cache.txt</code>，這兩列都是實驗，不是 hw3.py 的輸出）。兩列的結論一樣：<b>回答內容換了</b>，分數和雙 <code>&lt;bos&gt;</code> 的 6.0734 相差 0.05 到 0.33（計算值）。上面描述的文字是 161 個 token 那一版。</p>
 <p><b>為什麼保留</b>：hw3.py 的 docstring（hw3.py:11–12）說「Everything else (including quirks like the double &lt;bos&gt; in Q1/Q2) is kept identical to the Colab so results match the TA reference answers」，:76 的註解也寫明「a chat-template prompt ends up with two &lt;bos&gt;」。作業要和助教的參考答案比對，所以照原版保留。</p>
 <p><b>正確的寫法</b>（二選一）：</p>
 <pre class="py"># 1) 字串已經有 &lt;bos&gt;，tokenize 時不要再加
@@ -1093,7 +1122,7 @@ input_ids = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_pr
 <h4>給 Gemma 加一則 system 訊息</h4>
 <dl>
 <dt>症狀</dt><dd><code>chat = [{"role": "system", ...}, {"role": "user", ...}]</code>。</dd>
-<dt>後果</dt><dd>依 template 原文，<code>apply_chat_template</code> 會丟出 <code>System role not supported</code> 的例外（本機沒有實際觸發過）。</dd>
+<dt>後果</dt><dd><code>apply_chat_template</code> 丟出 <code>jinja2.exceptions.TemplateError: System role not supported</code>（本機實測，<code>logs/review_ch01.txt</code>）。連續兩則 user 訊息則是 <code>Conversation roles must alternate user/assistant/user/assistant/...</code>。</dd>
 <dt>正解</dt><dd class="fix">Gemma 的 template 只接受 user／assistant 交替。要下指示，寫進第一則 user 訊息。</dd>
 </dl>
 </div>
@@ -1101,7 +1130,7 @@ input_ids = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_pr
 <h4>改用單 &lt;bos&gt; 之後，拿分數去對助教的答案</h4>
 <dl>
 <dt>症狀</dt><dd>修掉雙 <code>&lt;bos&gt;</code>，回答和 hw3.py 的整段不同。</dd>
-<dt>後果</dt><dd>本機這一題的分數只差 0.0454，但回答內容換了一套；其他依賴生成內容的地方就對不上了。</dd>
+<dt>後果</dt><dd>本機這一題的分數差 0.05 到 0.33（看 cache 長度，<a href="#r1">1.7 節</a>），回答內容換了一套；其他依賴生成內容的地方就對不上了。</dd>
 <dt>正解</dt><dd class="fix">交作業時照原版（雙 <code>&lt;bos&gt;</code>）跑；想知道正確寫法的效果，另外跑一份對照，像 <a href="#r1">1.7 節</a>那樣分開記錄。</dd>
 </dl>
 </div>
@@ -1111,11 +1140,11 @@ input_ids = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_pr
 <h4>本章小結</h4>
 <ul>
 <li>Gemma 的 chat template：開頭 <code>{{ bos_token }}</code>；不支援 system role；user／assistant 必須交替；assistant 改名 <code>model</code>；每則訊息是 <code>&lt;start_of_turn&gt;</code> + 角色 + 換行 + <code>trim</code> 過的內容 + <code>&lt;end_of_turn&gt;</code> + 換行；<code>add_generation_prompt</code> 補上 <code>&lt;start_of_turn&gt;model\n</code>。</li>
-<li>Q1 的 TODO 是一行 <code>model.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)</code>。greedy 沒有亂數，同一台機器上可以完全重現；<code>generation_config</code> 的 <code>eos_token_id</code> 是 <code>[1, 107]</code>，所以兩條路都停在 <code>&lt;end_of_turn&gt;</code>。</li>
+<li>Q1 的 TODO 是一行 <code>model.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)</code>。greedy 沒有亂數，同一台機器、同樣的呼叫順序可以完全重現；但前一次 <code>generate</code> 留下的 KV cache 長度會改變 fp16 的數值，碰到同分就換答案（沒有 template 那條路：沿用 544 格是 5.0104，單獨跑是 4.2210）。不給 <code>max_new_tokens</code> 只會生成 20 個新 token，而且沒有警告；<code>generation_config</code> 的 <code>eos_token_id</code> 是 <code>[1, 107]</code>，所以兩條路都停在 <code>&lt;end_of_turn&gt;</code>。</li>
 <li><code>generate</code> 的輸出包含 prompt。有 template 用 <code>split("model\n")</code>、沒有用 <code>split("words.")</code> 切出回答，兩者都假設回答裡不會出現切點。</li>
 <li>評分器 <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> 一次讀「問題、回答」這一對，輸出一個沒有上下限的相關性 logit，不是機率；這次的輸入 285 與 189 個 token，沒碰到 512 的截斷。</li>
 <li>本機實測：有 template 240 個新 token、6.0734；沒有 template 138 個新 token、5.0104。回答形狀一個是完整回答、一個是條列筆記；兩者都沒寫到 200 字；沒套 template 也用 <code>&lt;end_of_turn&gt;</code> 收尾。這是一題、一個評分器、一次 greedy 的證據。</li>
-<li>R1：有 template 時 input_ids 是 <code>[2, 2, 106, …]</code> 共 32 個；單 <code>&lt;bos&gt;</code> 是 31 個，事實腳本實驗得到 161 個新 token、6.1188，回答內容不同。hw3.py 為了和助教答案一致而保留。</li>
+<li>R1：有 template 時 input_ids 是 <code>[2, 2, 106, …]</code> 共 32 個；單 <code>&lt;bos&gt;</code> 是 31 個，實驗得到 149 或 161 個新 token、6.3992 或 6.1188（看 cache 長度），回答內容都和 hw3.py 不同。hw3.py 為了和助教答案一致而保留。</li>
 </ul>
 <p>下一章是 Q2：同一套 template 拿來做多輪對話，chat_history 一輪一輪把 prompt 接長，並且不再直接 <code>generate</code>，而是先看模型對下一個 token 的機率分布。</p>
 </div>

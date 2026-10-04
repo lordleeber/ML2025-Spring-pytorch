@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -637,7 +637,55 @@ def rescale26_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
-SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
+# Review of ch01: what the Colab TODO does without max_new_tokens / do_sample, chat_template errors
+def review_ch01_facts(tokenizer, model):
+    import warnings
+
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    section("review_ch01")
+    sm = AutoModelForSequenceClassification.from_pretrained(hw3.SCORING_MODEL_ID)
+    st = AutoTokenizer.from_pretrained(hw3.SCORING_MODEL_ID)
+    question = "Please tell me about the key differences between supervised learning and unsupervised learning. Answer in 200 words."
+    prompt_t = tokenizer.apply_chat_template([{"role": "user", "content": question}], tokenize=False, add_generation_prompt=True)
+
+    def run(prompt, label, **kw):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(DEVICE)  # as hw3.py:77 (double <bos>)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            out = model.generate(input_ids, **kw)
+        new = out[0, input_ids.shape[1]:]
+        text = tokenizer.decode(out[0], skip_special_tokens=True)
+        resp = (text.split("model\n")[-1] if prompt is prompt_t else text.split(question.split(" ")[-1])[-1]).strip("\n").strip()
+        score = hw3.calculate_coherence(question, resp, sm, st)
+        print(f"--- {label}: generate({', '.join(f'{k}={v}' for k, v in kw.items())})")
+        print(f"  new tokens {len(new)}, last token {tokenizer.convert_ids_to_tokens(int(new[-1]))!r}, coherence {score:.4f}")
+        for x in w:
+            print(f"  python warning: {x.category.__name__}: {x.message}")
+        print(f"  response: {resp!r}")
+        return new
+
+    for prompt, name in [(prompt_t, "with template"), (question, "without template")]:
+        model._cache = None  # start every run from a fresh KV cache (see R10)
+        ref = run(prompt, f"{name}, hw3.py", max_new_tokens=512, do_sample=False)
+        model._cache = None
+        a = run(prompt, f"{name}, no do_sample", max_new_tokens=512)
+        print(f"  identical to hw3.py: {torch.equal(ref, a)}")
+        model._cache = None
+        run(prompt, f"{name}, Colab TODO without max_new_tokens", do_sample=False)
+    print("generation_config.max_length", model.generation_config.max_length, "max_new_tokens", model.generation_config.max_new_tokens)
+
+    for label, chat in [("system role", [{"role": "system", "content": "Be brief."}, {"role": "user", "content": question}]),
+                        ("two user turns", [{"role": "user", "content": "Hi"}, {"role": "user", "content": question}])]:
+        try:
+            tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+            print(f"{label}: no error")
+        except Exception as e:
+            print(f"{label}: {type(e).__module__}.{type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+SECTIONS =["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
 def main():
@@ -652,7 +700,8 @@ def main():
         print(f"load_model {time.time() - t0:.1f}s")
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
-              "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts}
+              "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
+              "review_ch01": review_ch01_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

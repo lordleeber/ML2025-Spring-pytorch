@@ -1,0 +1,61 @@
+=== with template, double <bos> (hw3.py): prompt 32 tokens, fresh cache would be 544
+  cache 544: new tokens 240, words 172, scorer tokens 285, coherence 6.0734
+  response (fresh cache):
+Supervised and unsupervised learning are two fundamental types of machine learning. 
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, making predictions on new, unseen data. Think of it like teaching a child with labeled examples: you show them pictures of cats and dogs, and they learn to distinguish between them. 
+
+**Unsupervised learning**, on the other hand, uses unlabeled data. The model learns patterns and structures within the data without explicit guidance. It's like letting a child explore a room full of toys and discover patterns on their own. Examples include clustering similar items or finding hidden relationships in data.
+
+**Key differences:**
+
+* **Labeling:** Supervised uses labeled data, unsupervised doesn't.
+* **Goal:** Supervised aims to predict outputs, unsupervised aims to discover patterns.
+* **Applications:** Supervised: classification, regression, supervised tasks; Unsupervised: clustering, anomaly detection, dimensionality reduction. 
+
+
+Both types are powerful tools with their own strengths and weaknesses, and the choice depends on the specific problem and available data.
+  cache 544: new tokens 240, words 172, scorer tokens 285, coherence 6.0734
+  cache 600: new tokens 240, words 172, scorer tokens 285, coherence 6.0616
+  cache 1024: new tokens 240, words 172, scorer tokens 285, coherence 6.0734
+  cache 600 vs fresh: first differing new token #234: '▁available' vs '▁data'
+=== with template, single <bos>: prompt 31 tokens, fresh cache would be 543
+  cache 543: new tokens 149, words 116, scorer tokens 187, coherence 6.3992
+  response (fresh cache):
+Supervised and unsupervised learning are two fundamental approaches in machine learning. 
+
+**Supervised learning** involves training a model on labeled data, where each input has a corresponding output. The model learns to map inputs to outputs, enabling it to predict outputs for new, unseen inputs. Examples include image classification and spam detection.
+
+**Unsupervised learning**, on the other hand, operates on unlabeled data. The model aims to discover hidden patterns, structures, and relationships within the data without explicit guidance. Examples include clustering customers based on purchasing behavior and anomaly detection in network traffic.
+
+In essence, supervised learning relies on labeled data to learn a mapping function, while unsupervised learning explores unlabeled data to uncover inherent structures and patterns.
+  cache 544: new tokens 161, words 127, scorer tokens 204, coherence 6.1188
+  cache 600: new tokens 161, words 127, scorer tokens 204, coherence 6.1188
+  cache 1024: new tokens 161, words 127, scorer tokens 204, coherence 6.1188
+  cache 544 vs fresh: first differing new token #76: '▁operates' vs '▁uses'
+  cache 600 vs fresh: first differing new token #76: '▁operates' vs '▁uses'
+  cache 1024 vs fresh: first differing new token #76: '▁operates' vs '▁uses'
+=== without template (hw3.py): prompt 23 tokens, fresh cache would be 535
+  cache 535: new tokens 136, words 85, scorer tokens 187, coherence 4.2210
+  response (fresh cache):
+**Supervised Learning:**
+
+* **Labeled data:** Uses data with known outputs (labels) to train models.
+* **Goal:** Predict the output for new, unseen data.
+* **Examples:** Image classification, spam detection, predicting house prices.
+
+**Unsupervised Learning:**
+
+* **Unlabeled data:** Uses data without known outputs to discover patterns.
+* **Goal:** Explore data, identify clusters, or reduce dimensionality.
+* **Examples:** Customer segmentation, anomaly detection, dimensionality reduction.
+
+
+In essence, supervised learning learns from labeled examples to make predictions, while unsupervised learning explores unlabeled data to uncover hidden structures and relationships.
+  cache 544: new tokens 138, words 87, scorer tokens 189, coherence 5.0104
+  cache 600: new tokens 136, words 85, scorer tokens 187, coherence 4.2210
+  cache 1024: new tokens 136, words 85, scorer tokens 187, coherence 4.2210
+  cache 544 vs fresh: first differing new token #30: '▁the' vs '▁outputs'
+without template, max |logit diff| per step (cache 535 vs 544), steps 0-30: [0.0, 0.0, 0.0469, 0.0469, 0.0469, 0.0312, 0.0312, 0.0312, 0.0469, 0.0391, 0.0312, 0.0312, 0.0391, 0.0391, 0.0312, 0.0312, 0.0469, 0.0469, 0.0469, 0.0312, 0.0391, 0.0312, 0.0312, 0.0312, 0.0312, 0.0469, 0.0469, 0.0469, 0.0312, 0.0312, 0.0469]
+step 30 top-2 under cache 535: [('▁outputs', 17.875), ('▁the', 17.875)]
+step 30 top-2 under cache 544: [('▁outputs', 17.8906), ('▁the', 17.875)]

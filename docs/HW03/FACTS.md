@@ -224,6 +224,7 @@
 10. **`--seed` 只能讓「同一條指令」重現**：
     - `.venv/bin/python HW03/hw3.py --q 4 --seed 0` 的 top-k 20 句，與 facts 腳本以 seed 0 重跑的結果逐句相同。
     - 但 `hw3.py --seed 0`（全部題目，Q1–Q3 先跑）的 Q4 和只跑 `--q 4 --seed 0` 不同：top-k 第 13 句不一樣，self-BLEU 是 0.2020 vs 0.2029。
+    - 同一個效應也讓 Q1 沒有 template 那條路的 greedy 結果改變（見「ch01 審稿補測」）。
     - **原因已實測確認**（見「大綱審稿補測（第 1 輪）」的 R10 一節）：Q1 沒有動到亂數狀態。差別來自 `model.generate` 把 HybridCache 留在 `model._cache` 重複使用；Q1 留下長度 544 的 cache，Q4 就用 544 格而不是 62 格算，數值差一點點，翻掉了一次取樣。
     - 教材不要宣稱「設了 seed 就一定一樣」。
 
@@ -306,6 +307,7 @@
   - 22,713,601 個參數，num_labels 1，`model_max_length` 512，**跑在 CPU**（程式沒有 `.to("cuda")`）。
   - 它輸出的是 (question, answer) 這一對的相關性 logit，沒有上下限，不是機率。
 - **greedy（`do_sample=False`）可以完全重現**：全程跑兩次，數字一樣。
+  - **但前提是呼叫順序相同**：沒有 template 的 5.0104、單 `<bos>` 的 6.1188 都是沿用前一次 generate 留下的 544 格 KV cache 得到的；自己配置 cache 時是 4.2210、6.3992。見「ch01 審稿補測」。
 
   | 條件 | 新 token 數 | 停在 | 秒數 | 回答字數 | 評分器 token 數 | coherence |
   |---|---|---|---|---|---|---|
@@ -685,7 +687,7 @@
 - **TODO 註解寫「Q1.1 ~ 1.4」**（Colab 第 15 格、hw3.py:79），投影片只有三小題。
 - **事實腳本 q1 段的計數方式**（docs/tools/hw03_facts.py:152–167）：「words」是 `len(resp.split())`（條列的 `*` 也算一段）；「scorer tokens」是 `len(st(q, resp, truncation=True).input_ids)`，含評分器自己的特殊 token。
 - **Q1 留下的 cache 544 是第一次 generate 配置的**：第二次（沒有 template）只需 23 + 512 = 535 格，沿用既有的 544 格 cache（機制見「ch05 R10 的原因」）。
-- **generation_config**（logs/facts_env_model_tok.txt 第 47 行，model 段）沒有 `do_sample`、`max_length`，所以不寫時用 `GenerationConfig` 類別預設值（do_sample=False）。「原版 TODO 不給 max_new_tokens 會怎樣」沒有量，ch01 標了 TODO。
+- **generation_config**（logs/facts_env_model_tok.txt 第 47 行，model 段）沒有 `do_sample`、`max_length`，所以不寫時用 `GenerationConfig` 類別預設值（do_sample=False）。「原版 TODO 不給 max_new_tokens 會怎樣」本機已量，見「ch01 審稿補測」。
 - **ch01 第一次交代的名詞**：greedy、Jinja、`add_generation_prompt`、`generation_config`、cross-encoder／bi-encoder、BERT 類（encoder-only）、MS MARCO、MiniLM／蒸餾、logit vs 機率（sigmoid 計算值 6.0734 → 0.9977、5.0104 → 0.9934）。
 - **ch00 沒有特殊 token 表**：`<start_of_turn>`=106 等 id 是在 ch01 1.1.1 第一次列出的。
 
@@ -710,6 +712,33 @@
   - 總計 5,250,585,819 bytes = 5.251 GB。
 - **沒有量、教材改寫成「本機沒有測」的**：sm_120 上用非 cu128 torch wheel 的錯誤訊息；清空快取後第一次的下載時間。
 
+## ch01 審稿補測（本機，2026-10-04；logs/review_ch01.txt、logs/review_ch01_cache.txt）
+
+- **Q1 的 greedy 結果取決於 KV cache 的長度**（`docs/tools/hw03_q1_cache.py`）：
+  - `generate` 把 HybridCache 留在 `model._cache`，長度夠就沿用（R10 的機制）。hw3.py 的 q1 先跑有 template（32 + 512 = 544 格），沒有 template 那次只需要 23 + 512 = 535 格，於是沿用 544 格。
+  - 同一個 prompt、預先放好不同長度的 cache，`max_new_tokens=512, do_sample=False`：
+
+    | 路徑 | 自己配置（不沿用） | 544 格 | 600 格 | 1024 格 |
+    |---|---|---|---|---|
+    | 有 template、雙 `<bos>`（hw3.py） | 544：240 token／172 字／6.0734 | 同左 | 240／172／**6.0616**（第 234 個新 token 不同） | 240／172／6.0734 |
+    | 有 template、單 `<bos>` | 543：**149 token／116 字／評分器 187 token／6.3992** | 161／127／6.1188 | 161／127／6.1188 | 161／127／6.1188 |
+    | 沒有 template（hw3.py） | 535：**136 token／85 字／評分器 187 token／4.2210** | 138／87／5.0104 | 136／85／4.2210 | 136／85／4.2210 |
+
+  - hw3.py 的 5.0104 與 facts 腳本的 6.1188 都是「沿用 544 格」的數字。照作業順序跑，沒有 template 就是 5.0104；單獨跑是 4.2210，差 0.79，超過投影片允許的 0.5。
+  - 沒有 template 那條路在第 30 個新 token 分岔：535 格之下 `▁outputs` 與 `▁the` 的 logit 都是 17.875（同分），argmax 選了 `▁the`；544 格之下 `▁outputs` 是 17.8906。
+  - 前 30 步每一步 logits 的最大差異：第 0、1 步是 0，之後 0.03–0.05（fp16 在 18 附近的精度是 0.0156）。
+  - 為什麼 544 會不同、600 與 1024 不會：沒有追，教材不要解釋。
+  - 原版 Colab 也是同一個順序、transformers 4.47.0，推論會有同樣的沿用行為；Colab 的 GPU 不同，數值本來就可能不同。
+- **拿掉 `do_sample=False`**（只給 `max_new_tokens=512`）：兩條路生成的 token 與 hw3.py 的寫法逐一相同（同樣的 cache 長度下比較）。不寫也是 greedy。
+- **原版 TODO 不給長度**（`model.generate(input_ids, do_sample=False)`）：
+  - 有 template：20 個新 token，最後一個是 `**`，coherence 4.0107；沒有 template：20 個新 token，最後一個是 `)`，coherence −2.8643。
+  - 沒有印出任何警告（Python warnings 與 stderr 都沒有）。
+  - `model.generation_config.max_length` 是 20、`max_new_tokens` 是 None。transformers 4.47 `generation/utils.py:1471–1473`：長度是預設值 20 時，上限改成「prompt 長度 + 20」，所以是 20 個新 token。
+- **chat_template 的例外**（`apply_chat_template`）：
+  - 有 system 訊息：`jinja2.exceptions.TemplateError: System role not supported`。
+  - 連續兩則 user：`jinja2.exceptions.TemplateError: Conversation roles must alternate user/assistant/user/assistant/...`。
+- **沒有量的**：跨 GPU 時 argmax 是否翻轉（本機只有一張 GPU），ch01 維持推論。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
@@ -731,6 +760,8 @@
 - neuronpedia_feature_10004.json：Neuronpedia API 的原始回應。
 - facts_review1_shapes_q4steps_rescale26.txt、facts_review1_perq.txt、facts_review1_ptit.txt：`docs/tools/hw03_facts.py shapes q4steps rescale26`、`perq`、`ptit` 的輸出（大綱審稿補測第 1 輪）。
 - review_ch00_errors.txt：ch00 審稿補測（未登入、沒有 CUDA、`--help`、sae-lens 6.53.0、快取檔案大小）。
+- review_ch01.txt：`hw03_facts.py review_ch01` 的輸出（拿掉 do_sample、不給長度、chat_template 例外）。
+- review_ch01_cache.txt：`docs/tools/hw03_q1_cache.py` 的輸出（Q1 三條路 × cache 長度）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 
