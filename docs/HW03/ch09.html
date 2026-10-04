@@ -1024,7 +1024,10 @@ exit=1</pre>
 <pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch09
 .venv/bin/python docs/tools/hw03_facts.py rescale26</pre>
 <p>第一條的輸出格式就是 <code>logs/facts_pre_ch09.txt</code>：prompt c 與 prompt a 各 27 行，每行是 <code>[索引] FVU … L0 … 10004 max … at '…'</code>，可以拿來對圖 9.3。第二條就是 <code>logs/facts_review1_shapes_q4steps_rescale26.txt</code> 的 rescale26 段：三行 feature 10004 的值（<code>[25]</code>、<code>[26]</code>、放大後的 <code>[26]</code>），以及範數兩行與 cosine 一行，對 9.6 節的表與那三行。</p>
-<p><b>4. 旗標的邊界</b>（在 repo 根目錄）：跑 <code>.venv/bin/python HW03/hw3.py --q 7 --token-idx 13</code>，先看到 Q7.1–7.6 的正常輸出，最後是 9.8 節的 <code>IndexError</code>；緊接著輸入 <code>echo $?</code>（印出上一個指令的結束碼），應該印出 1。改成 <code>.venv/bin/python HW03/hw3.py --q 7 --token-idx 0</code> 會畫 <code>&lt;bos&gt;</code> 的那一條，存成 <code>q7_layer_activations_tok0.png</code>。事實腳本在 <code>[21]</code> 上量到 <code>&lt;bos&gt;</code> 是 30.95（第 8 章 R6 的同一個值），所以 hw3.py 印出的那一行預期有 <code>L21:30.95</code>；這一條指令本機沒有跑過。<!-- TODO(本機實測): hw3.py --q 7 --token-idx 0 印出的 <bos> 逐層數值（facts_q4_q7.txt 的 q7 段有 prompt c 每個 token × 每個索引的表，<bos> 那一列 [21] 是 31.0；確認 hw3.py 印出的 L21 與它一致） --></p>
+<p><b>4. 旗標的邊界</b>（在 repo 根目錄）：跑 <code>.venv/bin/python HW03/hw3.py --q 7 --token-idx 13</code>，先看到 Q7.1–7.6 的正常輸出，最後是 9.8 節的 <code>IndexError</code>；緊接著輸入 <code>echo $?</code>（印出上一個指令的結束碼），應該印出 1。改成 <code>.venv/bin/python HW03/hw3.py --q 7 --token-idx 0</code> 會畫 <code>&lt;bos&gt;</code> 的那一條，存成 <code>q7_layer_activations_tok0.png</code>。事實腳本在 <code>[21]</code> 上量到 <code>&lt;bos&gt;</code> 是 30.95（第 8 章 R6 的同一個值），本機照字面跑過這一條（<code>logs/run_q7_token0.txt</code>），印出的那一行是：</p>
+<pre class="shell">Token 0 = '&lt;bos&gt;', activations per layer:
+  L0:0.00, L1:0.00, L2:0.00, L3:0.00, L4:0.00, L5:0.00, L6:0.00, L7:0.00, L8:0.00, L9:9.56, L10:12.09, L11:15.35, L12:18.18, L13:22.22, L14:25.07, L15:26.21, L16:31.54, L17:32.02, L18:33.55, L19:33.08, L20:31.74, L21:30.95, L22:29.68, L23:28.24, L24:22.60, L25:15.31, L26:0.00</pre>
+<p><code>L21:30.95</code> 與事實腳本一致；<code>&lt;bos&gt;</code> 在索引 0–8 與 26 都是 0，9–25 非零、在 18 達到最高。結束碼 0，圖存成 <code>HW03/outputs/q7_layer_activations_tok0.png</code>。</p>
 </div>
 
 <h2 id="pitfalls">9.11　常見錯誤</h2>

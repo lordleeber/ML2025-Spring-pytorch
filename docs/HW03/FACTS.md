@@ -1117,6 +1117,10 @@
 - **ch09 標為推論或沒有跑過的**：「越深的層處理越複雜」是投影片引的一般說法，本機沒有驗證；換用各層 SAE 要改 `load_sae` 的 `sae_id`（沒做過）；[26] 方向改變的來源；`--token-idx 0` 的逐層輸出沒有用 hw3.py 跑過（9.10 第 4 步寫的預期 `L21:30.95` 來自事實腳本的 [21] 值；標了 TODO）。
 - **ch09 第一次交代的名詞**：逐 token／逐層 activation、FVU 的 U 形曲線、「Layer」軸 = hidden_states 索引、rescale（放大到 [25] 的範數）、cosine 的方向比較。
 
+## ch09 審稿補測（本機，2026-10-04；logs/run_q7_token0.txt）
+
+- `hw3.py --q 7 --token-idx 0`：`Token 0 = '<bos>', activations per layer:` L0–L8 0.00、L9 9.56、L10 12.09、L11 15.35、L12 18.18、L13 22.22、L14 25.07、L15 26.21、L16 31.54、L17 32.02、L18 33.55、L19 33.08、L20 31.74、L21 30.95、L22 29.68、L23 28.24、L24 22.60、L25 15.31、L26 0.00；結束碼 0，存成 HW03/outputs/q7_layer_activations_tok0.png。與「Q7 實測」的 `<bos>` 一列一致。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1162,6 +1166,7 @@
 - review_ch08.txt：ch08 審稿補測（照 8.9 節改 hw3.py 複本跑 `--q 7` 的三種組合）。
 - facts_pre_ch09.txt：`hw03_facts.py pre_ch09` 的輸出（SAE 在每一個 hidden_states 索引上的 FVU、L0、feature 10004 最大值）。
 - run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
+- run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
