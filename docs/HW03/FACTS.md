@@ -919,6 +919,18 @@
 - **split() 不拆標點**：`education.` 是一個詞，和 `education` 不同。
 - **不給 --seed 連跑兩次**（`hw3.py --q 4`，logs/review_ch05_noseed.txt）：第 1 次 0.2128／0.4758，第 2 次 0.2857／0.5076，句子也不同。原版 Colab 不設 seed，所以每次執行的分數都不一樣。
 
+## ch05 寫作時查證的事項（雲端，2026-10-04）
+
+- **R10 的現象逐句比對**（本書用 diff 比 run_seed0.txt 與 run_q4_seed0.txt 的 Q4 段）：40 句裡只有 top-k 第 13 句不同（run_q4_seed0.txt 第 23 行 vs run_seed0.txt 第 165 行），兩句前 5 個詞相同、第 6 個詞 `an`／`a` 起分岔；top-p 20 句逐句相同。
+- **p=0.6 的 98 對 BLEU = 1（計算值拆解）**：run_q4_seed0 top-p 的 8 種句子出現次數是 10、3、2、1、1、1、1、1；10 × 9 + 3 × 2 + 2 × 1 = 98 個有序句對。
+- **手算 BLEU**（第 0 句 → 第 2 句）：幾何平均 (0.8333 × 0.7273 × 0.6 × 0.4444)^(1/4) ≈ 0.634，BP exp(1 − 14/12) ≈ 0.8465，乘積 0.5367，與工具一致。
+- **nltk 原始碼沒有逐行引用**：`sentence_bleu` 的預設 weights、`modified_precision`、`brevity_penalty`、零精確度換成極小值的位置，ch05 留了 TODO（需要本機 .venv 的 nltk 3.10.3）。`SmoothingFunction().method1` 的行為（計數為 0 的那一階加 epsilon）是依 nltk 文件描述，沒有逐行查。
+- **6.22e-155 與 sys.float_info.min 並列的用意**：ch05 寫成推論（說明它不是浮點下溢，而是 nltk 刻意換進去的小數）。
+- **hw03_selfbleu.py 數警告的寫法**：第 65–66 行 `warnings.catch_warnings(record=True)` + `warnings.simplefilter("always")`。
+- **ch05 標為推論、沒有實測的**：`--q 4 1 --seed 0` 與 `--q 4 --seed 0` 相同；Colab／notebook 裡重跑 Q4 格子不一定重現；原版不設 seed 是投影片問「哪個高」而不問數字的理由。
+- **ch00 0.1 節「那一對的 BLEU 記為 0」**：實際是極小值（例如 6.22e-155），ch05 5.2.2 有交代；ch00 那句可以改成「等同 0（實際是極小值，第 5 章）」。
+- **ch05 第一次交代的名詞**：BLEU、hypothesis／reference、n-gram、修正精確度、幾何平均、brevity penalty、smoothing（`SmoothingFunction`）、self-BLEU、有序／無序句對、Python `warnings` 的預設過濾。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
