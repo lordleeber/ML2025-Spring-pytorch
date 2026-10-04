@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 章　Q2 多輪對話：prompt 怎麼長大、下一個 token 怎麼選 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  figure.fig img { display: block; max-width: 100%; margin: 0 auto; border-radius: 6px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch01.html">← 第 1 章</a><span class="disabled">第 3 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 2 章　Q2 多輪對話：prompt 怎麼長大、下一個 token 怎麼選</h1>
+  <p class="chap-lead">第 1 章只問了一句話。這一章連問三句：「說一個彩虹的顏色」「再說一個」「再說一個」。模型沒有記憶，每一輪都要把前面所有對話重新排成一個 prompt 交給它，所以 prompt 一輪比一輪長。每一輪在讓模型回答之前，hw3.py 先看一眼它對「下一個 token」的機率分布，印出前 10 名、畫成一張圖。三輪下來，已經講過的顏色機率一路往下掉。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">多輪對話就是把 <code>chat_history</code> 整串交給 chat template：本機三輪的 prompt 是 27、59、82 個 token。每一輪先做一次 forward 取最後一個位置的 logits、轉 fp32 做 softmax、列出 top-10，再另外呼叫 <code>generate</code> 生成回答，把回答塞回 <code>chat_history</code>。模型三輪依序回 Indigo、Orange、Green；講過的顏色在後面幾輪的機率大幅下降。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:114–118（<code>Q2_TURNS</code>）、:121–165（<code>q2</code>）。</li>
+    <li>本章的實測數字來自 <code>logs/run_seed0.txt</code> 的 Q2 段（hw3.py 的實際輸出）、<code>logs/facts_q1_q2.txt</code>（事實腳本 <code>docs/tools/hw03_facts.py</code> 的輸出，多了 token id、logit 與 fp16 對照）與 <code>logs/review_ch02_q2.txt</code>（<code>--interactive</code> 的逐字紀錄）。</li>
+    <li>chat template 的全文、特殊 token、雙 <code>&lt;bos&gt;</code> 在第 1 章講過，這一章只回指：<a href="ch01.html#template-text">1.1.2 節</a>、<a href="ch01.html#special-tokens">1.1.1 節</a>、<a href="ch01.html#r1">1.7 節</a>。</li>
+  </ul>
+</div>
+
+<h2 id="task">2.1　這一題要觀察什麼</h2>
+
+<p>投影片 p.14 的題目是「Observe the response from the following multi-turn conversation. You should check the possibility of the model response and the format of the prompt inputted to the model」：觀察一段多輪對話裡模型的回答，看兩件事，<b>模型對回答的機率</b>，以及<b>每一輪實際送進模型的 prompt 格式</b>。對話是固定的三句使用者輸入：</p>
+
+<figure class="listing"><figcaption>hw3.py:114–118 — Q2_TURNS：投影片 p.14 的三句話</figcaption>
+<pre class="py"><code>Q2_TURNS = [
+    "Name a color in a rainbow, please just answer in a word without any emoji.",
+    "That's great! Now, could you tell me another color that I can find in a rainbow?",
+    "Could you continue and name yet another color from the rainbow?",
+]</code></pre>
+</figure>
+
+<p>p.15 的三小題（配分合計 1 分）：(1) 填出第三輪完整的 chat template 格式 prompt（0.4 分）；(2) 第一輪機率最高的第一個 token 是什麼（0.2 分）；(3) 從一組敘述裡選出<b>錯誤</b>的那一個（0.4 分，選擇題）。第 3 小題的敘述不在投影片與 Colab 裡，這本書不編；前兩題要的東西，本章會列出本機實測的結果與跑出它的方法，但不把它寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）。</p>
+
+<h3 id="vs-colab">2.1.1　原版 Colab 是互動式的</h3>
+
+<p>原版 Colab 第 19 格（前面第 18 格是「## Q2: Multi-turn conversations」的標題格）是一個無窮迴圈，等你自己打字（原版 Colab 第 19 格，節錄迴圈的前半）：</p>
+
+<pre class="py">chat_history = []
+round = 0
+print("Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)")
+
+while True:
+    user_input = input("You: ")
+    if user_input.lower() == "exit":
+        print("Chatbot: Goodbye!")
+        break
+
+    round += 1
+    chat_history.append({"role": "user", "content": user_input})
+    chat_template_format_prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)</pre>
+
+<p>學生要照投影片的三句話一句一句打進去。這就是 <a href="ch00.html#skeleton">第 0 章 0.2 節</a>那段 docstring 留到這一章的那一條差異：「Q2 replays the 3 conversation turns from the HW3 slides (use <code>--interactive</code> to chat)」。hw3.py 預設把三句話寫死在 <code>Q2_TURNS</code> 裡自動跑完，加 <code>--interactive</code> 才回到原版的打字模式（<a href="#interactive">2.7 節</a>）：</p>
+
+<figure class="listing"><figcaption>hw3.py:121–137 — q2 的前半：輸入從哪裡來、chat_history 怎麼累積</figcaption>
+<pre class="py" data-hot="124,126,128,129,132,133,135"><code>def q2(tokenizer, model, args):
+    if args.interactive:
+        print("Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)")
+        turns = iter(lambda: input("You: "), "exit")
+    else:
+        turns = Q2_TURNS
+
+    chat_history = []
+    for round_idx, user_input in enumerate(turns, start=1):
+        if not args.interactive:
+            print(f"You: {user_input}")
+        chat_history.append({"role": "user", "content": user_input})
+        chat_template_format_prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+        ######################## (Q2.1 ~ 2.3) ########################
+        print(f"=== Prompt with chat template format inputted to the model on round {round_idx} ===\n{chat_template_format_prompt}")
+        print("===============================================")
+        ###################################################################</code></pre>
+</figure>
+
+<p>兩種模式共用同一個迴圈：<code>turns</code> 在預設模式是一個 list，在互動模式是一個「每次呼叫 <code>input()</code>」的迭代器（<a href="#interactive">2.7 節</a>）。迴圈本體不管輸入從哪來。預設模式下使用者沒有真的打字，所以 :130–131 自己把那句話印成 <code>You: ...</code>，讓輸出看起來和互動模式一樣。這一題沒有 TODO 要填，:134 那行註解標的「(Q2.1 ~ 2.3)」是在提醒「看這裡印出來的 prompt 就能回答前幾小題」。</p>
+
+<h2 id="history">2.2　chat_history 怎麼累積</h2>
+
+<p>關鍵是這一句：<b>模型沒有記憶</b>。Gemma 每一次 forward 都只看這次送進去的 token；上一輪它說過什麼，除非這一輪的 prompt 裡寫著，否則它不知道。所以「多輪對話」在程式裡的樣子是：把到目前為止的所有對話存在一個 list 裡，每一輪都把整個 list 重新排成一個 prompt。</p>
+
+<p><code>chat_history</code> 就是那個 list。每一輪做兩次 append：</p>
+
+<ol>
+<li>:132 先 append 使用者這一輪的話 <code>{"role": "user", ...}</code>；</li>
+<li>:165（<a href="#generate">2.6 節</a>）模型回答完，再 append <code>{"role": "assistant", ...}</code>。</li>
+</ol>
+
+<p>所以 :133 每一輪交給 <code>apply_chat_template</code> 的 list 都是「user、assistant、user、assistant、……、user」，長度 1、3、5，最後一則永遠是 user。這正好滿足 Gemma template 的規則：user 與 assistant 必須交替、從 user 開始（<a href="ch01.html#template-text">第 1 章 1.1.2 節</a> «3»）；<code>assistant</code> 會被改名為 <code>model</code>；<code>add_generation_prompt=True</code> 在最後補上 <code>&lt;start_of_turn&gt;model\n</code>，等模型開口。順序如果亂掉（例如連續 append 兩則 user），template 會丟出 <code>Conversation roles must alternate</code> 的例外（第 1 章的常見錯誤格網）。</p>
+
+<p>本機量到三輪 prompt 轉成 token 後的長度（<code>logs/facts_q1_q2.txt</code>，每輪的 <code>prompt tokens</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>輪</th><th class="num">chat_history 則數</th><th class="num">prompt token 數</th><th class="num">比上一輪多</th><th>開頭 3 個 token</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="num">1</td><td class="num">27</td><td class="num"></td><td><code>['&lt;bos&gt;', '&lt;bos&gt;', '&lt;start_of_turn&gt;']</code></td></tr>
+<tr><td>2</td><td class="num">3</td><td class="num">59</td><td class="num">32</td><td>同上</td></tr>
+<tr><td>3</td><td class="num">5</td><td class="num">82</td><td class="num">23</td><td>同上</td></tr>
+</tbody>
+</table></div>
+
+<p>每一輪的開頭都是兩個 <code>&lt;bos&gt;</code>：<a href="ch01.html#r1">第 1 章 1.7 節</a>的 R1 在這裡原樣重現，因為 :139 用的是同一種寫法（template 字串已經有一個，<code>tokenizer(...)</code> 又加一個）。印出來的 prompt 一樣只看得到一個。</p>
+
+<p>第 1 輪的 27 個可以拆成：兩個 <code>&lt;bos&gt;</code>、<code>&lt;start_of_turn&gt;</code> <code>user</code> <code>\n</code> 3 個、第一句話 17 個（事實腳本 <code>tok</code> 段的輸出 <code>logs/facts_env_model_tok.txt</code>，第 1 章用過的同一份，把這句話單獨切成 17 個 token）、結尾的 <code>&lt;end_of_turn&gt;</code> <code>\n</code> <code>&lt;start_of_turn&gt;</code> <code>model</code> <code>\n</code> 5 個，合計 2 + 3 + 17 + 5 = 27（和<a href="ch01.html#prompt-string">第 1 章</a>拆 32 個的方法相同）。第 2、3 輪多出來的 32 與 23 個 token，是「上一輪模型的回答」加上「這一輪使用者的話與包裝它的特殊 token」；本機把第 2、3 輪多出來的 token 逐一列了出來（<code>logs/review_ch02.txt</code>）：第 2 輪多的 32 個是 <code>['Indigo', '&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'user', '\n', 'That', "'", 's', '▁great', …, '?', '&lt;end_of_turn&gt;', '\n', '&lt;start_of_turn&gt;', 'model', '\n']</code>，也就是回答 3 個加上新的 user 段 29 個；第 3 輪多的 23 個是 <code>Orange</code>、<code>&lt;end_of_turn&gt;</code>、<code>\n</code> 3 個加上 20 個。下面這張圖照比例畫出來。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 290" role="img" aria-label="三輪 prompt 的 token 數照比例畫成三條：第 1 輪 27 個；第 2 輪是第 1 輪的 27 個、回填的 Indigo 3 個、新的 user 那一段 29 個，共 59 個；第 3 輪再加上回填的 Orange 3 個與新的 user 那一段 20 個，共 82 個">
+  <text class="s-sm" x="20" y="24" text-anchor="start">每 1 個 token 畫 9 px；斜線填色的部分是上一輪就有的、原封不動的前綴</text>
+  <text class="s-lbl" x="20" y="72" text-anchor="start" font-weight="700">第 1 輪</text>
+  <rect x="110" y="52" width="243" height="30" rx="4" style="fill: var(--accent); fill-opacity: 0.55"/>
+  <text class="s-sm" x="231" y="72" text-anchor="middle" style="fill: var(--fg)">user 第 1 句 + model\n</text>
+  <text class="s-key" x="362" y="72" text-anchor="start">27</text>
+
+  <text class="s-lbl" x="20" y="142" text-anchor="start" font-weight="700">第 2 輪</text>
+  <rect x="110" y="122" width="243" height="30" rx="4" style="fill: var(--accent); fill-opacity: 0.25"/>
+  <rect x="353" y="122" width="27" height="30" rx="4" style="fill: var(--accent-warm); fill-opacity: 0.75"/>
+  <rect x="380" y="122" width="261" height="30" rx="4" style="fill: var(--accent); fill-opacity: 0.55"/>
+  <text class="s-sm" x="231" y="142" text-anchor="middle" style="fill: var(--fg)">第 1 輪的 27 個</text>
+  <text class="s-sm" x="510" y="142" text-anchor="middle" style="fill: var(--fg)">user 第 2 句 + model\n</text>
+  <text class="s-key" x="650" y="142" text-anchor="start">59</text>
+  <text class="s-sm" x="366" y="172" text-anchor="middle" style="fill: var(--accent-warm)">Indigo 回填</text>
+
+  <text class="s-lbl" x="20" y="222" text-anchor="start" font-weight="700">第 3 輪</text>
+  <rect x="110" y="202" width="531" height="30" rx="4" style="fill: var(--accent); fill-opacity: 0.25"/>
+  <rect x="641" y="202" width="27" height="30" rx="4" style="fill: var(--accent-warm); fill-opacity: 0.75"/>
+  <rect x="668" y="202" width="180" height="30" rx="4" style="fill: var(--accent); fill-opacity: 0.55"/>
+  <text class="s-sm" x="375" y="222" text-anchor="middle" style="fill: var(--fg)">第 2 輪的 59 個</text>
+  <text class="s-sm" x="758" y="222" text-anchor="middle" style="fill: var(--fg)">user 第 3 句 + model\n</text>
+  <text class="s-key" x="856" y="222" text-anchor="start">82</text>
+  <text class="s-sm" x="654" y="252" text-anchor="middle" style="fill: var(--accent-warm)">Orange 回填</text>
+  <text class="s-sm" x="20" y="280" text-anchor="start">藍：使用者那一段（含 template 的特殊 token）；黃：上一輪模型的回答，以 Indigo／Orange、&lt;end_of_turn&gt;、\n 的形式回到 prompt 裡</text>
+</svg>
+<figcaption>圖 2.1 — 三輪 prompt 一層一層長大。總長 27、59、82 是本機實測；每一段的長度也是實測（<code>logs/review_ch02.txt</code>）：回填的回答 3 個 token（顏色名 1 個 + <code>&lt;end_of_turn&gt;</code> + <code>\n</code>），新的 user 那一段 29、20 個。上一輪 prompt 的 token 序列逐一相同，原封不動成為下一輪的前綴（本機逐 token 比對過）。</figcaption>
+</figure>
+
+<p>圖上最值得注意的是：<b>上一輪的整個 prompt，原封不動地成為下一輪 prompt 的開頭</b>。prompt 只會往後長，不會改寫前面的部分。第 0 章與補充章講的 KV cache 原則上可以利用這一點，把前綴算過的 k、v 留著，下一輪只算新增的 token；但 hw3.py 沒有這樣做，每一輪都從第一個 token 重新算起（<a href="#forward">2.4 節</a>）。對三句話的對話來說，這點重複不值得處理；對話很長時，「每一輪重算整段」的成本會隨著輪數累積（推論，本機沒有量多輪對話的時間）。</p>
+
+<h2 id="round3">2.3　第三輪的完整 prompt，與 trim 做的事</h2>
+
+<p>:135 每一輪都把 prompt 原樣印出來。第三輪的長這樣（<code>logs/run_seed0.txt</code> 第 96–110 行，逐字；行尾的 «N» 是本書加的標記）：</p>
+
+<pre class="shell">You: Could you continue and name yet another color from the rainbow?
+=== Prompt with chat template format inputted to the model on round 3 ===
+&lt;bos&gt;&lt;start_of_turn&gt;user  «1»
+Name a color in a rainbow, please just answer in a word without any emoji.&lt;end_of_turn&gt;
+&lt;start_of_turn&gt;model
+Indigo&lt;end_of_turn&gt;  «2»
+&lt;start_of_turn&gt;user
+That's great! Now, could you tell me another color that I can find in a rainbow?&lt;end_of_turn&gt;
+&lt;start_of_turn&gt;model
+Orange&lt;end_of_turn&gt;  «3»
+&lt;start_of_turn&gt;user
+Could you continue and name yet another color from the rainbow?&lt;end_of_turn&gt;
+&lt;start_of_turn&gt;model  «4»
+
+===============================================</pre>
+<ol class="notes">
+<li><span class="mk">1</span>開頭只印出一個 <code>&lt;bos&gt;</code>；模型實際收到兩個（<a href="#history">2.2 節</a>的表、<a href="ch01.html#r1">第 1 章 1.7 節</a>）。</li>
+<li><span class="mk">2</span>第 1 輪模型的回答。<code>chat_history</code> 裡存的 role 是 <code>assistant</code>，template 把它改寫成 <code>model</code>。</li>
+<li><span class="mk">3</span>第 2 輪模型的回答，同樣的格式。</li>
+<li><span class="mk">4</span><code>add_generation_prompt=True</code> 補上的 <code>&lt;start_of_turn&gt;model</code> 加換行。下一行空白就是那個換行，<code>print</code> 再把分隔線印在下一行。</li>
+</ol>
+
+<p>現在看 «2» 的細節。第 1 輪模型實際生成的是 4 個 token：<code>['Indigo', '▁', '\n', '&lt;end_of_turn&gt;']</code>（<code>logs/facts_q1_q2.txt</code> 的 <code>generated ids [173209, 235248, 108, 107]</code>）。<code>▁</code> 在這裡是一個單獨的空白（id 235248，<code>▁</code> 這個記號第 3 章詳談）。:163 decode 時 <code>skip_special_tokens=True</code> 拿掉 <code>&lt;end_of_turn&gt;</code>，所以 <code>response</code> 是 <code>'Indigo \n'</code>：顏色、一個空白、一個換行。:165 把這個字串原樣存進 <code>chat_history</code>。</p>
+
+<p>可是第 3 輪的 prompt 裡寫的是 <code>Indigo&lt;end_of_turn&gt;</code>，空白和換行都不見了。去掉它們的是 template 裡的 <code>message['content'] | trim</code>（<a href="ch01.html#template-text">第 1 章 1.1.2 節</a> «5»）：<code>trim</code> 把內容頭尾的空白與換行全部去掉，再接上 <code>&lt;end_of_turn&gt;</code>。所以：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>階段</th><th>Indigo 那一段長什麼樣</th></tr></thead>
+<tbody>
+<tr><td>模型生成的 token</td><td><code>Indigo</code> <code>▁</code> <code>\n</code> <code>&lt;end_of_turn&gt;</code></td></tr>
+<tr><td>:163 decode 後、存進 <code>chat_history</code></td><td><code>'Indigo \n'</code></td></tr>
+<tr><td>下一輪經過 template 的 <code>| trim</code></td><td><code>Indigo&lt;end_of_turn&gt;\n</code></td></tr>
+</tbody>
+</table></div>
+
+<p>換句話說，<b>模型在下一輪看到的「自己上一輪說的話」，和它當時真正生成的不完全一樣</b>：中間少了空白與換行。這是 template 的設計，讓每一則訊息的格式都乾淨一致。它對回答有沒有影響，本機沒有做「不 trim」的對照（推論：只差兩個空白字元，影響應該很小，但沒有量）。</p>
+
+<p>Q2.1 要的就是這一段 prompt。要注意的是，它取決於前兩輪模型實際的回答；換一台機器、換一個版本，前兩輪只要回了別的顏色，第三輪的 prompt 就跟著不同（<a href="#s5">2.8 節</a>）。</p>
+
+<h2 id="forward">2.4　下一個 token 的機率：一次額外的 forward</h2>
+
+<p>印完 prompt，hw3.py 不是直接 <code>generate</code>，而是先自己跑一次 forward，看模型對「下一個 token」的完整機率分布：</p>
+
+<figure class="listing"><figcaption>hw3.py:139–153 — 一次 forward、取最後一個位置、softmax、top-10</figcaption>
+<pre class="py" data-hot="139,141,143,144,147,150"><code>        inputs = tokenizer(chat_template_format_prompt, return_tensors="pt").to(DEVICE)
+        with torch.no_grad():
+            outputs_p = model(**inputs)
+
+        last_token_logits = outputs_p.logits[:, -1, :]
+        probs = torch.nn.functional.softmax(last_token_logits.float(), dim=-1)
+
+        top_k = 10
+        top_probs, top_indices = torch.topk(probs, top_k)
+        top_probs = top_probs.cpu().squeeze().numpy()
+        top_indices = top_indices.cpu().squeeze().numpy()
+        top_tokens = [tokenizer.decode([idx]) for idx in top_indices]
+        print("Top-10 next tokens:")
+        for t, p in zip(top_tokens, top_probs):
+            print(f"  {t!r:&gt;16}  {p:.4f}")</code></pre>
+</figure>
+
+<p>逐行看資料怎麼流：</p>
+
+<ul>
+<li><b>:139</b>：這次 <code>tokenizer(...)</code> 的結果整個留著（叫 <code>inputs</code>），不只取 <code>.input_ids</code>。它像一個 dict，裝著 <code>input_ids</code> 與 <code>attention_mask</code>（標出哪些位置是真的 token；這裡只有一句，全部是 1），<code>.to(DEVICE)</code> 把裡面每個 tensor 都搬到 GPU。</li>
+<li><b>:141</b>：<code>model(**inputs)</code> 把 dict 的每個 key 當具名參數傳進去，做<b>一次</b> forward，不生成任何東西。回傳物件的 <code>.logits</code> 形狀是 (1, T, 256000)：T 個位置，每個位置對 256000 個 token 各一個分數（<a href="ch00.html#arch">第 0 章 0.5 節</a>；這些分數已經過 final soft-cap，落在 (−30, 30)）。</li>
+<li><b>:143</b>：<code>[:, -1, :]</code> 只取<b>最後一個位置</b>，形狀 (1, 256000)。causal LM 在位置 i 的輸出是「看完前 i 個 token 之後，對第 i+1 個 token 的預測」；最後一個位置是 prompt 結尾的 <code>\n</code>（<code>&lt;start_of_turn&gt;model\n</code> 的那個換行），它的預測就是「模型回答的第一個 token」。其他位置的預測都是在猜 prompt 裡已經寫好的下一個字，這一題不需要。</li>
+<li><b>:144</b>：softmax 把 256000 個分數變成加總為 1 的機率。先 <code>.float()</code> 轉成 fp32，下一小節說明。</li>
+<li><b>:147–150</b>：<code>torch.topk</code> 取機率最大的 10 個與它們的 id，<code>tokenizer.decode([idx])</code> 把每個 id 個別轉回字串。</li>
+<li><b>:152–153</b>：<code>{t!r:&gt;16}</code> 用 <code>repr</code> 印出字串（帶引號，前後的空白看得見），靠右對齊 16 格。</li>
+</ul>
+
+<p><b>這次 forward 和後面的 <code>generate</code> 是兩次獨立的計算</b>。:141 算出的機率只拿來印表、畫圖；:162 的 <code>generate</code> 會把同一個 prompt 從頭再算一次，才開始生成（<a href="#generate">2.6 節</a>）。兩者用的 KV cache 也不同：:141 沒有傳 cache，模型 forward 時會自己建一份剛好 prompt 長度的 HybridCache（<a href="ch00b.html#hybrid">補充章 K.4 節</a>）；<code>generate</code> 則照<a href="ch00b.html#reuse">補充章 K.8 節</a>的規則準備 cache。<a href="ch00b.html#numerics">補充章 K.8.1 節</a>說過，cache 長度不同時 fp16 的最後幾位可能不同，所以「top-10 表的第 1 名」和「<code>generate</code> 生成的第一個 token」在數學上該一致，實際上要碰到前兩名幾乎同分時才可能不一致（推論）。本機三輪都一致：表的第 1 名是 Indigo、Orange、Green，生成的第一個 token 也是。</p>
+
+<h3 id="fp32">2.4.1　為什麼先轉 fp32</h3>
+
+<p>原版 Colab 第 19 格直接在 fp16 的 logits 上做 softmax（<code>probs = torch.nn.functional.softmax(last_token_logits, dim=-1)</code>）；hw3.py:144 多了 <code>.float()</code>。fp16 只有約 3 位十進位有效數字，256000 個機率加總、又要印到小數第 4 位，用 fp32 比較保險。實際差多少？事實腳本把兩種都算了一次（<code>logs/facts_q1_q2.txt</code>，第 3 輪的前 5 名，逐字）：</p>
+
+<pre class="shell">   13936        'Green' fp32 0.5125  fp16-softmax 0.5127  logit 24.625
+   33157       'Yellow' fp32 0.2659  fp16-softmax 0.2659  logit 23.969
+    5200          'Red' fp32 0.0978  fp16-softmax 0.0978  logit 22.969
+  107712       'Violet' fp32 0.0786  fp16-softmax 0.0786  logit 22.750
+   48876       'Purple' fp32 0.0212  fp16-softmax 0.0211  logit 21.438</pre>
+
+<p>三輪 30 個數字裡，兩者最多差 0.0002（第 3 輪的 Green），排名完全相同。對這一題來說兩種寫法結論一樣；hw3.py 用 fp32，所以本章所有的機率都是 fp32 softmax 的結果。注意每一行最後的 <code>logit</code> 才是模型輸出的原始分數，前面的 0.5125 這類數字是 softmax 之後的<b>機率</b>，兩者不要混用。</p>
+
+<h2 id="top10">2.5　三輪 top-10 怎麼變</h2>
+
+<p>hw3.py 每一輪印出的表（<code>logs/run_seed0.txt</code> 第 55–65、81–91、111–121 行）整理成一張，數字是 fp32 softmax 之後的機率：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th class="num">名次</th><th>第 1 輪</th><th class="num">機率</th><th>第 2 輪</th><th class="num">機率</th><th>第 3 輪</th><th class="num">機率</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><b>Indigo</b></td><td class="num">0.3068</td><td><b>Orange</b></td><td class="num">0.4887</td><td><b>Green</b></td><td class="num">0.5125</td></tr>
+<tr><td class="num">2</td><td>Green</td><td class="num">0.2624</td><td>Green</td><td class="num">0.2168</td><td>Yellow</td><td class="num">0.2659</td></tr>
+<tr><td class="num">3</td><td>Red</td><td class="num">0.2012</td><td>Violet</td><td class="num">0.1689</td><td>Red</td><td class="num">0.0978</td></tr>
+<tr><td class="num">4</td><td>Orange</td><td class="num">0.1320</td><td>Red</td><td class="num">0.0255</td><td>Violet</td><td class="num">0.0786</td></tr>
+<tr><td class="num">5</td><td>Violet</td><td class="num">0.0409</td><td>Purple</td><td class="num">0.0175</td><td>Purple</td><td class="num">0.0212</td></tr>
+<tr><td class="num">6</td><td>Blue</td><td class="num">0.0226</td><td>Blue</td><td class="num">0.0115</td><td>Blue</td><td class="num">0.0063</td></tr>
+<tr><td class="num">7</td><td>orange</td><td class="num">0.0080</td><td>Yellow</td><td class="num">0.0113</td><td>Gold</td><td class="num">0.0044</td></tr>
+<tr><td class="num">8</td><td>Purple</td><td class="num">0.0056</td><td>orange</td><td class="num">0.0063</td><td>Scarlet</td><td class="num">0.0021</td></tr>
+<tr><td class="num">9</td><td>green</td><td class="num">0.0042</td><td>Teal</td><td class="num">0.0059</td><td>Ver</td><td class="num">0.0012</td></tr>
+<tr><td class="num">10</td><td>indigo</td><td class="num">0.0036</td><td><code>' Orange'</code></td><td class="num">0.0056</td><td>Magenta</td><td class="num">0.0008</td></tr>
+<tr><td></td><td>top-10 合計</td><td class="num">0.9873</td><td></td><td class="num">0.9580</td><td></td><td class="num">0.9906</td></tr>
+</tbody>
+</table></div>
+
+<p>top-10 合計（<code>logs/facts_q1_q2.txt</code>）接近 1：剩下約 1–4% 的機率分給其他 255,990 個 token。也就是說，模型幾乎確定下一個字是某個顏色名稱，只是在顏色之間猶豫。從表上讀得出來的現象：</p>
+
+<ul>
+<li><b>講過的顏色機率大幅下降</b>。Indigo 第 1 輪是第 1 名（0.3068），第 2、3 輪都<b>掉出前 10</b>；Orange 第 2 輪是第 1 名（0.4887），第 3 輪也掉出前 10（第 1 輪它是第 4 名 0.1320）。</li>
+<li><b>沒講過的往上爬</b>。Green 從第 1 輪的第 2 名（0.2624）變成第 3 輪的第 1 名（0.5125）；Yellow 第 1 輪不在前 10，第 2 輪第 7 名（0.0113），第 3 輪第 2 名（0.2659）。</li>
+<li><b>第 1 名越來越篤定</b>。第 1 名的機率 0.3068 → 0.4887 → 0.5125。第 1 輪前三名（Indigo、Green、Red）相當接近，第 3 輪 Green 一個就超過一半。</li>
+<li><b>大小寫是不同的 token</b>。<code>orange</code>、<code>green</code>、<code>indigo</code> 這些小寫版本各自佔一個位置，機率都很小。</li>
+<li><b><code>Orange</code> 和 <code>' Orange'</code> 也是兩個不同的 token</b>。第 2 輪第 1 名的 <code>'Orange'</code> 是 id 36565，第 10 名的 <code>' Orange'</code>（前面多一個空白）是 id 20723（<code>logs/facts_q1_q2.txt</code>）。同一個字前面有沒有空白就是不同的 token，第 3 章（Q3）會詳細講。</li>
+</ul>
+
+<p>為什麼講過的顏色會掉下去？最直接的解釋是：模型從對話裡讀到「another color」「yet another color」，又看到自己前面說過 Indigo、Orange，所以避開它們。這是<b>推論</b>。本機只量到「已經講過的顏色機率下降」這個現象，沒有做實驗把原因分開，例如把第 2 輪的使用者句子改成不含「another」、或把回填的 Indigo 換成別的顏色，看機率怎麼變。</p>
+
+<p>還有一點：第 3 輪第 9 名的 <code>Ver</code> 不是一個完整的顏色名稱，而是 Vermilion（朱紅色）的開頭：tokenizer 把 <code>Vermilion</code> 切成 <code>['Ver', 'm', 'ilion']</code> 三塊；本機把 <code>Ver</code>（id 3016）接在第 3 輪 prompt 後面再算一次，下一個 token 第 1 名是 <code>m</code>（0.7436），greedy 接下去正是 <code>m</code>、<code>ilion</code>（<code>logs/review_ch02.txt</code>）。這也說明 top-10 列的是 <b>token</b>，不是「字」。</p>
+
+<p>hw3.py 每一輪也把這張表畫成一張橫條圖，存到 <code>HW03/outputs/</code>：</p>
+
+<figure class="listing"><figcaption>hw3.py:155–160 — 畫 top-10 橫條圖</figcaption>
+<pre class="py" data-hot="156,160"><code>        plt.figure(figsize=(10, 5))
+        sns.barplot(x=top_probs, y=top_tokens, hue=top_tokens, palette="coolwarm", legend=False)
+        plt.xlabel("Probability")
+        plt.ylabel("Token")
+        plt.title(f"Top Token Probabilities for Next Word (round {round_idx})")
+        save_fig(f"q2_round{round_idx}_top_tokens.png")</code></pre>
+</figure>
+
+<p><code>sns</code> 是 seaborn（建立在 matplotlib 上的統計繪圖套件）。<code>barplot</code> 的 <code>x</code> 給數值、<code>y</code> 給類別，就畫成橫條圖，一個類別一條。<code>hue</code> 指定「依哪個欄位上色」：這裡設成 token 字串本身，每條都是不同的類別，於是 <code>palette="coolwarm"</code> 依類別出現的順序（也就是名次）從藍到紅各給一個顏色；<code>legend=False</code> 不畫圖例，因為 y 軸已經寫了名稱。原版 Colab 第 19 格是 <code>sns.barplot(x=top_probs, y=top_tokens, palette="coolwarm")</code>，沒有 <code>hue</code>。seaborn 0.13 對「給了 palette 卻沒給 hue」會印出警告；hw3.py 加了 <code>hue=top_tokens, legend=False</code>，圖一樣、不再警告。<code>plt.show()</code> 改成 <code>save_fig</code>，見 <a href="ch00.html#outputs">第 0 章 0.2.3 節</a>。下面三張是本機 <code>hw3.py --seed 0</code> 的實際輸出：</p>
+
+<figure class="fig">
+<img src="img/q2_round1_top_tokens.png" alt="第 1 輪 top-10 橫條圖：Indigo 約 0.31 最高，其次 Green、Red、Orange，之後的 Violet、Blue、orange、Purple、green、indigo 都很短">
+<figcaption>圖 2.2 — 第 1 輪的 top-10（hw3.py 輸出 <code>q2_round1_top_tokens.png</code>）。前三名 Indigo、Green、Red 相當接近。</figcaption>
+</figure>
+
+<figure class="fig">
+<img src="img/q2_round2_top_tokens.png" alt="第 2 輪 top-10 橫條圖：Orange 約 0.49 最高，其次 Green、Violet；最下面又有一條 Orange，是前面帶空白的另一個 token">
+<figcaption>圖 2.3 — 第 2 輪的 top-10（<code>q2_round2_top_tokens.png</code>）。最上面與最下面的兩條都標著「Orange」：最下面那條其實是 <code>' Orange'</code>，標籤前面的空白在圖上看不出來，要對照文字輸出。Indigo 已經不在圖上。</figcaption>
+</figure>
+
+<figure class="fig">
+<img src="img/q2_round3_top_tokens.png" alt="第 3 輪 top-10 橫條圖：Green 約 0.51 最高，其次 Yellow 約 0.27，之後 Red、Violet、Purple、Blue、Gold、Scarlet、Ver、Magenta">
+<figcaption>圖 2.4 — 第 3 輪的 top-10（<code>q2_round3_top_tokens.png</code>）。Green 超過一半；Indigo、Orange 都不在圖上。</figcaption>
+</figure>
+
+<p>讀這三張圖時要注意兩件事。第一，<b>x 軸的刻度每張不同</b>：matplotlib 依當輪最大值自動決定範圍，第 1 輪到約 0.3、第 2、3 輪到約 0.5，不能光比條的長度跨輪比較，要看數字。第二，<b>顏色代表名次，不代表顏色名稱</b>：<code>coolwarm</code> 調色盤依照條的順序從藍排到紅，Green 在第 1 輪是第二條、第 3 輪是第一條，顏色就不同。</p>
+
+<h2 id="generate">2.6　生成與回填</h2>
+
+<figure class="listing"><figcaption>hw3.py:162–165 — 生成回答、切出新 token、存回 chat_history</figcaption>
+<pre class="py" data-hot="162,163,165"><code>        outputs = model.generate(**inputs, max_new_tokens=200, pad_token_id=tokenizer.eos_token_id, do_sample=False)
+        response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        print(f"Chatbot: {response}\n")
+        chat_history.append({"role": "assistant", "content": response})</code></pre>
+</figure>
+
+<p>這四行與原版 Colab 第 19 格的最後幾行幾乎一樣（原版印 <code>f"Chatbot: {response}"</code>，hw3.py 多印一個空行）。逐行看：</p>
+
+<ul>
+<li><b>:162</b>：greedy（<code>do_sample=False</code>），最多 200 個新 token。<code>**inputs</code> 把 <code>input_ids</code> 與 <code>attention_mask</code> 一起傳進去。<code>pad_token_id=tokenizer.eos_token_id</code> 指定補位用 id 1；這裡只有一句、不需要補位，所以實際沒有作用（推論）。<b>沒有傳 <code>eos_token_id</code></b>，所以停止條件照模型的 <code>generation_config</code>：遇到 id 1（<code>&lt;eos&gt;</code>）或 107（<code>&lt;end_of_turn&gt;</code>）就停（<a href="ch01.html#stop">第 1 章 1.3.2 節</a>）。</li>
+<li><b>:163</b>：<code>outputs[0][inputs.input_ids.shape[1]:]</code> 用 prompt 的長度把輸出切開，只留新生成的 token 再 decode。這就是<a href="ch01.html#extract">第 1 章 1.4 節</a>說的「切 token 而不是切字串」：不管回答裡有沒有 <code>model\n</code> 或其他字串，都切得準。</li>
+<li><b>:165</b>：把 decode 後的字串以 <code>assistant</code> 的身分存回 <code>chat_history</code>，下一輪的 prompt 就會包含它（<a href="#round3">2.3 節</a>的 trim）。</li>
+</ul>
+
+<p>本機三輪各生成的 token（<code>logs/facts_q1_q2.txt</code>）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>輪</th><th>生成的 id</th><th>對應的 token</th><th><code>response</code></th><th>印出來</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>[173209, 235248, 108, 107]</code></td><td><code>['Indigo', '▁', '\n', '&lt;end_of_turn&gt;']</code></td><td><code>'Indigo \n'</code></td><td><code>Chatbot: Indigo </code></td></tr>
+<tr><td>2</td><td><code>[36565, 235248, 108, 107]</code></td><td><code>['Orange', '▁', '\n', '&lt;end_of_turn&gt;']</code></td><td><code>'Orange \n'</code></td><td><code>Chatbot: Orange </code></td></tr>
+<tr><td>3</td><td><code>[13936, 235248, 108, 107]</code></td><td><code>['Green', '▁', '\n', '&lt;end_of_turn&gt;']</code></td><td><code>'Green \n'</code></td><td><code>Chatbot: Green </code></td></tr>
+</tbody>
+</table></div>
+
+<p>三輪都是 4 個 token 就停：顏色名、一個空白、一個換行、<code>&lt;end_of_turn&gt;</code>。題目說「just answer in a word without any emoji」，模型照做了。<code>max_new_tokens=200</code> 遠遠沒碰到。因為 <code>response</code> 尾巴有 <code>' \n'</code>，再加上 :164 的 <code>\n</code>，log 裡每輪的 <code>Chatbot:</code> 之後會多出兩個空行（<code>logs/run_seed0.txt</code> 第 67–69 行）。</p>
+
+<div class="note">
+<h4>Q2 接在 Q1 後面跑，會不會被 KV cache 影響？</h4>
+<p>第 1 章的 Q1 碰過這件事：沒有 template 的那條路沿用了前一次留下的 544 格 cache，greedy 的回答就和單獨跑時不同（<a href="ch01.html#greedy">第 1 章 1.3.1 節</a>、<a href="ch00b.html#reuse">補充章 K.8 節</a>）。Q2 的 <code>generate</code> 也一樣：<code>hw3.py --seed 0</code> 時，三輪分別只需要 27 + 200、59 + 200、82 + 200 格，都比 Q1 留下的 544 格短，所以沿用 544 格；單獨跑 <code>--q 2</code> 時則各自配置剛好的長度。本機比對了 <code>--q 2</code> 單獨跑、<code>--q 1 2</code>、<code>--seed 0</code> 全部題目一起跑三種情況，Q2 段的輸出（三輪 prompt、top-10 表、回答）忽略空白行後逐字相同（<code>logs/review_ch02_q2.txt</code> 最後一行）。每輪只生成 4 個 token，這一次沒有碰到前兩名幾乎同分的步驟。所以本章的數字不管怎麼跑都一樣，這是實測結果，不是保證。</p>
+</div>
+
+<h2 id="interactive">2.7　--interactive：自己打字聊天</h2>
+
+<p>:124 的 <code>iter(lambda: input("You: "), "exit")</code> 是 Python 內建 <code>iter</code> 的兩參數形式：<code>iter(函式, 哨兵值)</code> 會做出一個迭代器，每次被要下一個值時就呼叫一次函式，<b>函式回傳的值等於哨兵值時就停止</b>。所以 <code>for</code> 迴圈每轉一圈就 <code>input("You: ")</code> 一次，你打 <code>exit</code> 迴圈就結束，其他任何字串都會變成這一輪的 <code>user_input</code>。</p>
+
+<p>在 repo 根目錄執行：</p>
+
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 2 --interactive</pre>
+
+<p>想不打字、直接重現本機的這次錄製，可以用管線把 <code>Q2_TURNS</code> 的三句話加一行 <code>exit</code> 餵給它（<code>printf '%s\n' A B …</code> 把每個參數印成一行，<code>|</code> 把這些行當成 hw3.py 的鍵盤輸入；最後的 <code>echo "exit=$?"</code> 印出 hw3.py 的結束碼）：</p>
+
+<pre class="shell cmd">printf '%s\n' "Name a color in a rainbow, please just answer in a word without any emoji." "That's great! Now, could you tell me another color that I can find in a rainbow?" "Could you continue and name yet another color from the rainbow?" exit | .venv/bin/python HW03/hw3.py --q 2 --interactive; echo "exit=$?"</pre>
+
+<p>log 第 1 行記的指令把三句話縮寫成 <code>&lt;Q2_TURNS 的三句話，各一行&gt;</code>，上面是展開後的寫法；本機照字面重跑過這一行，輸出與下面的錄製逐字相同（空行除外），結束碼同樣是 0。錄下的輸出如下（<code>logs/review_ch02_q2.txt</code> 第 5–30 行與第 79–84 行，中間第 2、3 輪省略；本機路徑已改成相對路徑；«N» 是本書加的標記）：</p>
+
+<pre class="shell">############################## Q2 ##############################
+Chatbot: Hello! How can I assist you today? (Type 'exit' to quit)  «1»
+You: The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.  «2»
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+=== Prompt with chat template format inputted to the model on round 1 ===
+&lt;bos&gt;&lt;start_of_turn&gt;user
+Name a color in a rainbow, please just answer in a word without any emoji.&lt;end_of_turn&gt;
+&lt;start_of_turn&gt;model
+
+===============================================
+Top-10 next tokens:
+          'Indigo'  0.3068
+           'Green'  0.2624
+             'Red'  0.2012
+          'Orange'  0.1320
+          'Violet'  0.0409
+            'Blue'  0.0226
+          'orange'  0.0080
+          'Purple'  0.0056
+           'green'  0.0042
+          'indigo'  0.0036
+[saved] HW03/outputs/q2_round1_top_tokens.png
+Chatbot: Indigo
+
+
+You: === Prompt with chat template format inputted to the model on round 2 ===  «3»
+…
+         'Magenta'  0.0008
+[saved] HW03/outputs/q2_round3_top_tokens.png
+Chatbot: Green
+
+
+You: exit=0  «4»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>互動模式才有的開場白（hw3.py:123）。預設模式不印這行。</li>
+<li><span class="mk">2</span><b>管線輸入不會回顯</b>：程式印出 <code>You: </code> 等你輸入，但管線送進去的那一行不會顯示在畫面上，所以 <code>You: </code> 後面直接接著下一個輸出，這裡剛好是 stderr（標準錯誤輸出：程式印警告與錯誤的另一個管道，和一般輸出 stdout 一起顯示在終端機上，本機的錄製兩者都收）的 HybridCache deprecation 訊息（可以忽略，<a href="ch00.html#env">第 0 章 0.1 節</a>）。在終端機裡自己打字時，你打的字會出現在 <code>You: </code> 後面，按 Enter 才換行。另外，互動模式不會再印一次 <code>You: 你的句子</code>（:130–131 只在預設模式印）。</li>
+<li><span class="mk">3</span>第 2 輪同理：<code>You: </code> 後面接的是第 2 輪的 prompt 標題。第 2、3 輪的 prompt、top-10 表、回答與預設模式逐字相同，三輪依序是 Indigo、Orange、Green。</li>
+<li><span class="mk">4</span>第 4 次 <code>input()</code> 讀到 <code>exit</code>，迴圈結束，程式正常退出。後面的 <code>exit=0</code> <b>不是 hw3.py 印的</b>：這是本機錄製時，程式結束後另外印出的結束碼；因為管線送進去的 <code>exit</code> 沒有回顯，它就接在 <code>You: </code> 後面。0 代表正常結束。</li>
+</ol>
+
+<p>和原版 Colab 第 19 格比，結束的規則不一樣：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>原版 Colab 第 19 格</th><th>hw3.py <code>--interactive</code></th></tr></thead>
+<tbody>
+<tr><td>怎麼判斷結束</td><td><code>user_input.lower() == "exit"</code></td><td>回傳值和哨兵值 <code>"exit"</code> 完全相同</td></tr>
+<tr><td>打 <code>Exit</code>、<code>EXIT</code></td><td>結束（先轉小寫）</td><td>不結束，會被當成一句話送進模型（由程式碼讀出，本機沒有實測）</td></tr>
+<tr><td>打 <code>exit </code>（後面多一個空白）</td><td>不結束</td><td>不結束（同上，由程式碼讀出）</td></tr>
+<tr><td>結束時</td><td>印 <code>Chatbot: Goodbye!</code></td><td>什麼都不印，直接進下一題</td></tr>
+</tbody>
+</table></div>
+
+<p>還有一種結束方式：<b>不打 <code>exit</code>，直接結束輸入</b>（EOF，end of file：輸入來源告訴程式「沒有更多資料了」）。在終端機裡是按 Ctrl-D，用管線時是資料送完。本機只餵第一句話、不給 <code>exit</code>（把上面那條指令的 <code>printf</code> 只留第一句、拿掉 <code>exit</code>），第 1 輪照常跑完（top-10 表、圖、<code>Chatbot: Indigo</code> 都有），第 2 次 <code>input()</code> 讀不到東西就丟出例外（<code>logs/review_ch02_q2.txt</code> 第 114–125 行，逐字；路徑已改成相對路徑）：</p>
+
+<pre class="shell">You: Traceback (most recent call last):
+  File "HW03/hw3.py", line 521, in &lt;module&gt;
+    main()
+  File "HW03/hw3.py", line 517, in main
+    QUESTIONS[q](tokenizer, model, args)
+  File "HW03/hw3.py", line 129, in q2
+    for round_idx, user_input in enumerate(turns, start=1):
+  File "HW03/hw3.py", line 124, in &lt;lambda&gt;
+    turns = iter(lambda: input("You: "), "exit")
+                         ^^^^^^^^^^^^^^
+EOFError: EOF when reading a line
+exit=1</pre>
+
+<p><code>EOFError</code> 一路往上傳出 <code>main</code>，程式以結束碼 1 結束（最後一行同樣是錄製時印的結束碼）。已經跑完的輪次輸出不受影響、圖也已經存檔，但如果你用 <code>--q 2 3</code> 想接著跑 Q3，Q3 就不會跑了。要正常離開，打 <code>exit</code>。</p>
+
+<h2 id="s5">2.8　xxxx：讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：S5 投影片的 Model output 寫的是 xxxx</h4>
+<p>（S5 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡第 5 條「投影片與程式不一致」的編號。）</p>
+<p><b>投影片寫的</b>：p.14 的「Conversation History」列出三輪，使用者的三句話寫得清清楚楚，模型的三句回答卻都是 <code>Model 1st output : xxxx.</code>、<code>Model 2nd output : xxxx.</code>、<code>Model 3rd output : xxxx.</code>。</p>
+<p><b>實際上</b>：本機模型三輪依序回 <code>Indigo</code>、<code>Orange</code>、<code>Green</code>（<a href="#generate">2.6 節</a>）。</p>
+<p><b>為什麼投影片不能先寫出來</b>：xxxx 不是投影片偷懶，而是寫不出來。第 2 輪的 prompt 包含第 1 輪的回答，第 3 輪的 prompt 包含前兩輪的回答（<a href="#history">2.2 節</a>）。所以第 3 輪 prompt 長什麼樣，<b>取決於模型前兩輪實際說了什麼</b>；而 Q2.1 要你填的正是第 3 輪的完整 prompt。投影片能固定的只有使用者那三句話，模型那幾格只能留給你自己跑出來。</p>
+<p><b>這對你的意義</b>：</p>
+<ul>
+<li>Q2.1 的答案不能從投影片抄，一定要看程式 :135 印出的第 3 輪 prompt。</li>
+<li>它對執行環境敏感。greedy 在同一台機器、同一套版本、同樣的呼叫順序下可以重現（<a href="ch01.html#greedy">第 1 章 1.3.1 節</a>）；換了 GPU 或版本，只要某一輪前兩名的分數被 fp16 的誤差翻過去，那一輪就會回別的顏色，第 3 輪的 prompt 跟著不同（推論，本機只有一張 GPU）。本機第 1 輪前兩名 Indigo 與 Green 的 logit 是 24.125 與 23.969（<code>logs/facts_q1_q2.txt</code>），差 0.156，約 10 格 fp16 精度（fp16 相鄰兩個可表示的數之間的間距，在 16 到 32 之間是 0.0156，見<a href="ch00b.html#numerics">補充章 K.8.1 節</a>；計算值），不算非常接近。</li>
+<li>回答也決定 top-10 的內容：第 2、3 輪的機率表是在「模型已經回了 Indigo（和 Orange）」的前提下算的。</li>
+</ul>
+<p><b>順帶回指 R1</b>：三輪的 prompt 開頭都是兩個 <code>&lt;bos&gt;</code>，印出來卻只看得到一個（<a href="#history">2.2 節</a>），成因與正確寫法都和 Q1 相同，見<a href="ch01.html#r1">第 1 章 1.7 節</a>。和 Q1 一樣，hw3.py 為了和助教的參考答案一致而保留。</p>
+<p>改成單 <code>&lt;bos&gt;</code>（<code>tokenizer(..., add_special_tokens=False)</code>，三輪的 prompt 變成 26、58、81 個 token）會怎樣？本機實測（<code>logs/review_ch02.txt</code>，每輪的 <code>generate</code> 都從新的 cache 開始），<b>三輪的回答整個不同</b>：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>輪</th><th>雙 <code>&lt;bos&gt;</code>（hw3.py）第 1、2 名</th><th>單 <code>&lt;bos&gt;</code> 第 1、2 名</th><th>回答（雙 → 單）</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Indigo 0.3068、Green 0.2624</td><td>Red 0.2591、Green 0.2434（Indigo 0.2182 第 3）</td><td>Indigo → <b>Red</b></td></tr>
+<tr><td>2</td><td>Orange 0.4887、Green 0.2168</td><td>Orange 0.8286、Green 0.0887</td><td>Orange → Orange</td></tr>
+<tr><td>3</td><td>Green 0.5125、Yellow 0.2659</td><td>Yellow 0.8378、Green 0.1479</td><td>Green → <b>Yellow</b></td></tr>
+</tbody>
+</table></div>
+<p>第 1 輪多一個 <code>&lt;bos&gt;</code> 就讓前三名換了順序，回答從 Indigo 變成 Red；第 2、3 輪的 prompt 裡回填的是 Red，後面跟著改變。這正好是上面 S5 的例子：第 3 輪的 prompt 取決於前兩輪的回答，前面一個 token 不同，Q2.1 要填的 prompt 就不同。單 <code>&lt;bos&gt;</code> 版本第 2 輪的前 10 名裡已經沒有 Red，和雙 <code>&lt;bos&gt;</code> 版本裡 Indigo 掉出前 10 是同一個現象。</p>
+</div>
+
+<h2 id="lab">2.9　動手做：自己跑 Q2</h2>
+
+<div class="lab">
+<h4>只跑 Q2</h4>
+<p>在 repo 根目錄執行（需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 2</pre>
+<p>Q2 全程 greedy，不需要 <code>--seed</code>。輸出依序是：Q2 分隔線 → 每一輪 <code>You: ...</code>、那一輪的完整 prompt、分隔線、<code>Top-10 next tokens:</code> 表、<code>[saved] .../HW03/outputs/q2_roundN_top_tokens.png</code>、<code>Chatbot: ...</code>，共三輪。第 1 輪中間會夾一到兩條 HybridCache 的 deprecation 訊息（<code>'batch_size' argument</code> 與 <code>'batch_size' attribute</code> 兩種寫法，stderr，可以忽略；<code>--seed 0</code> 全部一起跑時，其中一條已經在 Q1 印過）。<code>[saved]</code> 那一行印的是你機器上的絕對路徑。和 <a href="#top10">2.5 節</a>比對：在相同的 GPU 與套件版本下，三輪的表應該逐字相同，回答是 Indigo、Orange、Green，<code>HW03/outputs/</code> 多出三張圖。數字有些微差異，多半是 GPU 或版本不同；如果某一輪回了別的顏色，後面幾輪的 prompt 與表都會跟著不同（<a href="#s5">2.8 節</a>）。</p>
+<p>想自己聊，加 <code>--interactive</code>（<a href="#interactive">2.7 節</a>），打 <code>exit</code>（全小寫、單獨一行）結束：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 2 --interactive</pre>
+<p>想看 token id、logit 與 fp16 softmax 的對照（<a href="#fp32">2.4.1 節</a>那張），用 repo 附的事實腳本（同樣在 repo 根目錄）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py q2</pre>
+<p>它同樣要載入模型（需要 GPU 與 HF 授權），結果印在終端機，不會寫進或覆寫 <code>logs/</code>。輸出格式就是 <code>logs/facts_q1_q2.txt</code> 的 q2 段，可以拿 2.4.1 節那五行對照（例如第 3 輪 Green：fp32 0.5125、fp16 0.5127、logit 24.625）：每輪的 prompt token 數與開頭 3 個 token、prompt 的 <code>repr</code>、top-10（id、token、fp32 機率、fp16 機率、logit）、生成的 id 與 token。</p>
+</div>
+
+<h2 id="pitfalls">2.10　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>把 top-10 的數字當成 logit</h4>
+<dl>
+<dt>症狀</dt><dd>說「Indigo 的分數是 0.3068」，或拿 24.125 當機率。</dd>
+<dt>後果</dt><dd>兩種量混在一起，跨輪比較、和 Q4 的取樣機率對照時都會錯。</dd>
+<dt>正解</dt><dd class="fix">hw3.py 印的是 fp32 softmax 之後的<b>機率</b>（加總為 1）；logit 是 softmax 之前的分數（Indigo 24.125），只在事實腳本的輸出裡有。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為模型記得上一輪</h4>
+<dl>
+<dt>症狀</dt><dd>每一輪只把新的那句話送進模型，或忘了把回答 append 回 <code>chat_history</code>。</dd>
+<dt>後果</dt><dd>模型看不到前面的對話，「another color」可能又回 Indigo；prompt 也和作業要的不同。</dd>
+<dt>正解</dt><dd class="fix">每一輪都把完整的 <code>chat_history</code>（user 與 assistant 交替）交給 <code>apply_chat_template</code>；回答以 <code>assistant</code> 的身分 append 回去。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 top-10 表和 generate 是同一次計算</h4>
+<dl>
+<dt>症狀</dt><dd>認為 <code>generate</code> 會「從 top-10 裡挑」，或以為表的數字就是生成時用的機率。</dd>
+<dt>後果</dt><dd>看不出 Q2 每一輪其實把 prompt 算了兩次；碰到前兩名幾乎同分時，也不會想到兩者可能不一致。</dd>
+<dt>正解</dt><dd class="fix">:141 的 <code>model(**inputs)</code> 只為了印表畫圖；:162 的 <code>generate</code> 自己從頭再算一次，cache 長度也不同。本機三輪兩者的第 1 名都一致。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>跨輪比較條的長度與顏色</h4>
+<dl>
+<dt>症狀</dt><dd>看圖說「第 1 輪的 Indigo 和第 3 輪的 Green 差不多長」，或用顏色追同一個顏色名稱。</dd>
+<dt>後果</dt><dd>x 軸範圍每張不同（約 0.3 與 0.5），顏色依名次分配；圖上的比較會誤導。</dd>
+<dt>正解</dt><dd class="fix">跨輪比較看文字輸出的數字；圖只用來看單輪內的分布形狀。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>在圖上把 Orange 和 ' Orange' 當成同一個</h4>
+<dl>
+<dt>症狀</dt><dd>第 2 輪的圖有兩條「Orange」，以為是重複或 bug。</dd>
+<dt>後果</dt><dd>誤判資料或程式出錯。</dd>
+<dt>正解</dt><dd class="fix">它們是 id 36565 與 20723 兩個 token，後者前面帶空白；文字輸出用 <code>repr</code> 印，才看得出 <code>' Orange'</code> 的空白。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>互動模式打 Exit 或直接 Ctrl-D</h4>
+<dl>
+<dt>症狀</dt><dd>打 <code>Exit</code> 結果模型回了一句話；或按 Ctrl-D 看到 <code>EOFError</code>。</dd>
+<dt>後果</dt><dd>多跑一輪；或程式以結束碼 1 結束，<code>--q</code> 後面的題目都沒跑。</dd>
+<dt>正解</dt><dd class="fix">hw3.py 只認單獨一行、全小寫的 <code>exit</code>（原版 Colab 不分大小寫）。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>模型沒有記憶。多輪對話是每一輪把完整的 <code>chat_history</code>（user、assistant 交替，最後一則是 user）交給 chat template，上一輪的 prompt 原封不動成為下一輪的前綴；本機三輪是 27、59、82 個 token，每一輪都是雙 <code>&lt;bos&gt;</code>（R1）。</li>
+<li>模型生成的是 <code>Indigo</code> <code>▁</code> <code>\n</code> <code>&lt;end_of_turn&gt;</code>，存進 <code>chat_history</code> 的是 <code>'Indigo \n'</code>，template 的 <code>| trim</code> 把它變成下一輪 prompt 裡的 <code>Indigo&lt;end_of_turn&gt;</code>。</li>
+<li>每一輪先做一次 forward，取 <code>logits[:, -1, :]</code>，轉 fp32 做 softmax，列出 top-10；和原版的 fp16 softmax 最多差 0.0002，排名不變。這次 forward 和之後的 <code>generate</code> 是兩次計算。</li>
+<li>三輪 top-10 的第 1 名依序是 Indigo 0.3068、Orange 0.4887、Green 0.5125；講過的顏色在後面幾輪掉出前 10。「模型避開重複」是推論。<code>Orange</code> 與 <code>' Orange'</code> 是兩個 token。</li>
+<li>每輪生成 4 個 token 就停在 <code>&lt;end_of_turn&gt;</code>；:163 用 prompt 長度切 token 取回答。接在 Q1 後面沿用 544 格 cache，實測輸出不受影響。</li>
+<li><code>--interactive</code> 用 <code>iter(input, "exit")</code> 讀輸入：只認全小寫的 <code>exit</code>；沒有 <code>exit</code> 就結束輸入會 <code>EOFError</code>、結束碼 1。</li>
+<li>S5：投影片的 xxxx 寫不出來，因為後兩輪的 prompt 取決於前面的回答。</li>
+</ul>
+<p>下一章是 Q3：不再生成任何東西，只把一句話交給 tokenizer，看它被切成哪些 token、各是什麼 id。本章遇到的 <code>▁</code>、<code>Orange</code> 與 <code>' Orange'</code>，會在那裡講清楚。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. 第 2 輪的 prompt 是 59 個 token，比第 1 輪多 32 個。這 32 個裡有哪些部分？哪些是第 1 輪生成的時候才知道的？</summary>
+<p>多出來的是：第 1 輪模型的回答（經過 <code>trim</code> 的 <code>Indigo</code>，加上 <code>&lt;end_of_turn&gt;</code> 與換行），以及第 2 輪使用者那一段（<code>&lt;start_of_turn&gt;user\n</code>、那句話、<code>&lt;end_of_turn&gt;\n</code>、補上的 <code>&lt;start_of_turn&gt;model\n</code>）。第 1 輪的 <code>&lt;start_of_turn&gt;model\n</code> 已經在第 1 輪的 27 個裡。只有 <code>Indigo</code> 是生成之後才知道的；本機逐 token 列出這 32 個：回答 3 個（<code>Indigo</code>、<code>&lt;end_of_turn&gt;</code>、<code>\n</code>）加上使用者那一段 29 個（圖 2.1）。</p>
+</details>
+
+<details class="quiz"><summary>2. 模型第 1 輪生成的是 <code>'Indigo \n'</code>，為什麼第 2 輪 prompt 裡寫的是 <code>Indigo&lt;end_of_turn&gt;</code>？</summary>
+<p>chat template 對每則訊息的內容做 <code>| trim</code>，把頭尾的空白與換行去掉，再接上 <code>&lt;end_of_turn&gt;</code>。<code>chat_history</code> 裡存的仍是 <code>'Indigo \n'</code>，只是排成 prompt 時被修整了。</p>
+</details>
+
+<details class="quiz"><summary>3. hw3.py:143 為什麼取 <code>logits[:, -1, :]</code>，而不是 <code>logits[:, 0, :]</code>？</summary>
+<p>causal LM 在位置 i 的 logits 是「看完前 i 個 token 之後，對下一個 token 的預測」。最後一個位置是 prompt 結尾 <code>&lt;start_of_turn&gt;model\n</code> 的換行，它的預測才是「模型回答的第一個 token」。位置 0 是第一個 <code>&lt;bos&gt;</code>，它的預測是「序列開頭之後的第一個字」，跟這一輪的問題無關。</p>
+</details>
+
+<details class="quiz"><summary>4. 第 2 輪的 top-10 同時有 <code>'Orange'</code>（0.4887）與 <code>' Orange'</code>（0.0056）。如果要算「模型想回 Orange 的總機率」，可以只看第一個嗎？</summary>
+<p>不行，它們是兩個不同的 token（id 36565 與 20723），機率是分開算的；小寫的 <code>orange</code>（0.0063）也是另一個 token。要算「回 Orange 這個字」的總機率，至少要把這幾個 token 加起來，而且還有 top-10 以外、本機沒有列出的寫法。這也說明 top-10 列的是 token，不是字。</p>
+</details>
+
+<details class="quiz"><summary>5. 為什麼投影片 p.14 的模型回答只能寫 xxxx？如果你的機器第 1 輪回了 Green，Q2.1 要填的 prompt 會差在哪裡？</summary>
+<p>後兩輪的 prompt 包含模型前面的回答，回答要跑了才知道。第 1 輪回 Green 的話，第 2、3 輪 prompt 裡 <code>&lt;start_of_turn&gt;model</code> 後面那一行就是 <code>Green&lt;end_of_turn&gt;</code>；而且第 2 輪的機率是在「已經說過 Green」的前提下算的，第 2 輪的回答很可能也不同，第 3 輪的 prompt 會連帶改變。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>transformers v4.47.0 文件 <a href="https://huggingface.co/docs/transformers/v4.47.0/en/chat_templating">Chat templates</a>：多輪對話的 <code>messages</code> 格式與 <code>add_generation_prompt</code>。</li>
+<li>Python 文件 <a href="https://docs.python.org/3/library/functions.html#iter">iter()</a>：兩參數形式 <code>iter(callable, sentinel)</code> 的定義。</li>
+<li>PyTorch 文件 <a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.softmax.html">torch.nn.functional.softmax</a> 與 <a href="https://pytorch.org/docs/stable/generated/torch.topk.html">torch.topk</a>。</li>
+<li>seaborn 文件 <a href="https://seaborn.pydata.org/generated/seaborn.barplot.html">seaborn.barplot</a>：<code>hue</code> 與 <code>palette</code> 的關係。</li>
+<li>Hugging Face 模型頁 <a href="https://huggingface.co/google/gemma-2-2b-it">google/gemma-2-2b-it</a>：模型卡裡的對話格式範例。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch01.html">← 第 1 章</a><span class="disabled">第 3 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>

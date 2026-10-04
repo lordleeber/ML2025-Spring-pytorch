@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -877,6 +877,57 @@ def kvcache_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch02 review: prompt segments, forward-only cache, single <bos>, the 'Ver' token
+def review_ch02_facts(tokenizer, model):
+    section("review_ch02")
+
+    def prompts(bos):
+        hist, rows = [], []
+        for u in hw3.Q2_TURNS:
+            hist.append({"role": "user", "content": u})
+            p = tokenizer.apply_chat_template(hist, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer(p, return_tensors="pt", add_special_tokens=(bos == 2)).to(DEVICE)
+            with torch.no_grad():
+                fwd = model(**inputs)
+            probs = torch.softmax(fwd.logits[:, -1, :].float(), -1)
+            tp, ti = torch.topk(probs, 10)
+            model._cache = None  # fresh generate cache, as in a standalone --q 2
+            out = model.generate(**inputs, max_new_tokens=200, pad_token_id=tokenizer.eos_token_id, do_sample=False)
+            new = out[0][inputs.input_ids.shape[1]:]
+            resp = tokenizer.decode(new, skip_special_tokens=True)
+            rows.append((inputs, fwd, list(zip(ti[0].tolist(), tp[0].tolist())), new, resp))
+            hist.append({"role": "assistant", "content": resp})
+        return rows
+
+    dbl = prompts(2)
+    ids = [r[0].input_ids[0].tolist() for r in dbl]
+    for r in range(1, 3):
+        prefix = ids[r][:len(ids[r - 1])] == ids[r - 1]
+        added = tokenizer.convert_ids_to_tokens(ids[r][len(ids[r - 1]):])
+        print(f"round {r + 1}: previous prompt is a token prefix: {prefix}; {len(added)} added tokens: {added}")
+    pkv = dbl[0][1].past_key_values
+    print(f"forward without cache returns {type(pkv).__name__}, max_cache_len {getattr(pkv, 'max_cache_len', None)}, prompt {ids[0].__len__()}")
+
+    one = prompts(1)
+    for r, (d, o) in enumerate(zip(dbl, one), 1):
+        print(f"--- round {r}: single <bos> prompt tokens {o[0].input_ids.shape[1]} (double {d[0].input_ids.shape[1]})")
+        for (di, dp), (oi, op) in zip(d[2], o[2]):
+            print(f"  double {tokenizer.decode([di])!r:>12} {dp:.4f}   single {tokenizer.decode([oi])!r:>12} {op:.4f}")
+        print(f"  generated: double {tokenizer.convert_ids_to_tokens(d[3].tolist())} {d[4]!r}; single {tokenizer.convert_ids_to_tokens(o[3].tolist())} {o[4]!r}")
+
+    ver = tokenizer.encode("Ver", add_special_tokens=False)
+    print(f"'Ver' ids {ver}; Vermilion -> {tokenizer.tokenize('Vermilion')}")
+    x = torch.cat([dbl[2][0].input_ids, torch.tensor([ver], device=DEVICE)], 1)
+    with torch.no_grad():
+        probs = torch.softmax(model(x).logits[0, -1].float(), -1)
+    tp, ti = torch.topk(probs, 5)
+    print("after round-3 prompt + 'Ver', top-5 next:", [(tokenizer.decode([i]), round(p, 4)) for i, p in zip(ti.tolist(), tp.tolist())])
+    model._cache = None
+    out = model.generate(x, attention_mask=torch.ones_like(x), max_new_tokens=8, pad_token_id=tokenizer.eos_token_id, do_sample=False)
+    print("greedy continuation:", tokenizer.convert_ids_to_tokens(out[0, x.shape[1]:].tolist()))
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -893,7 +944,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

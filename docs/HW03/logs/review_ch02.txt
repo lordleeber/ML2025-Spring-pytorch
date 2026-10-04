@@ -1,0 +1,56 @@
+load_model 3.2s
+
+==================== review_ch02 ====================
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+round 2: previous prompt is a token prefix: True; 32 added tokens: ['Indigo', '<end_of_turn>', '\n', '<start_of_turn>', 'user', '\n', 'That', "'", 's', '▁great', '!', '▁Now', ',', '▁could', '▁you', '▁tell', '▁me', '▁another', '▁color', '▁that', '▁I', '▁can', '▁find', '▁in', '▁a', '▁rainbow', '?', '<end_of_turn>', '\n', '<start_of_turn>', 'model', '\n']
+round 3: previous prompt is a token prefix: True; 23 added tokens: ['Orange', '<end_of_turn>', '\n', '<start_of_turn>', 'user', '\n', 'Could', '▁you', '▁continue', '▁and', '▁name', '▁yet', '▁another', '▁color', '▁from', '▁the', '▁rainbow', '?', '<end_of_turn>', '\n', '<start_of_turn>', 'model', '\n']
+forward without cache returns HybridCache, max_cache_len 27, prompt 27
+--- round 1: single <bos> prompt tokens 26 (double 27)
+  double     'Indigo' 0.3068   single        'Red' 0.2591
+  double      'Green' 0.2624   single      'Green' 0.2434
+  double        'Red' 0.2012   single     'Indigo' 0.2182
+  double     'Orange' 0.1320   single     'Orange' 0.1896
+  double     'Violet' 0.0409   single     'Violet' 0.0430
+  double       'Blue' 0.0226   single       'Blue' 0.0203
+  double     'orange' 0.0080   single     'orange' 0.0082
+  double     'Purple' 0.0056   single     'Purple' 0.0041
+  double      'green' 0.0042   single     'Yellow' 0.0024
+  double     'indigo' 0.0036   single      'green' 0.0023
+  generated: double ['Indigo', '▁', '\n', '<end_of_turn>'] 'Indigo \n'; single ['Red', '▁', '\n', '<end_of_turn>'] 'Red \n'
+--- round 2: single <bos> prompt tokens 58 (double 59)
+  double     'Orange' 0.4887   single     'Orange' 0.8286
+  double      'Green' 0.2168   single      'Green' 0.0887
+  double     'Violet' 0.1689   single     'Indigo' 0.0228
+  double        'Red' 0.0255   single     'orange' 0.0201
+  double     'Purple' 0.0175   single     'Yellow' 0.0130
+  double       'Blue' 0.0115   single       'Blue' 0.0095
+  double     'Yellow' 0.0113   single    ' Orange' 0.0061
+  double     'orange' 0.0063   single     'Violet' 0.0056
+  double       'Teal' 0.0059   single     'Purple' 0.0019
+  double    ' Orange' 0.0056   single    ' orange' 0.0016
+  generated: double ['Orange', '▁', '\n', '<end_of_turn>'] 'Orange \n'; single ['Orange', '▁', '\n', '<end_of_turn>'] 'Orange \n'
+--- round 3: single <bos> prompt tokens 81 (double 82)
+  double      'Green' 0.5125   single     'Yellow' 0.8378
+  double     'Yellow' 0.2659   single      'Green' 0.1479
+  double        'Red' 0.0978   single     'yellow' 0.0081
+  double     'Violet' 0.0786   single    ' Yellow' 0.0028
+  double     'Purple' 0.0212   single     'Purple' 0.0009
+  double       'Blue' 0.0063   single    ' yellow' 0.0007
+  double       'Gold' 0.0044   single     'Indigo' 0.0004
+  double    'Scarlet' 0.0021   single       'Blue' 0.0003
+  double        'Ver' 0.0012   single     'Violet' 0.0003
+  double    'Magenta' 0.0008   single       'Gold' 0.0002
+  generated: double ['Green', '▁', '\n', '<end_of_turn>'] 'Green \n'; single ['Yellow', '▁', '\n', '<end_of_turn>'] 'Yellow \n'
+'Ver' ids [3016]; Vermilion -> ['Ver', 'm', 'ilion']
+after round-3 prompt + 'Ver', top-5 next: [('m', 0.7436), ('million', 0.1195), ('idian', 0.1105), ('dig', 0.0119), ('dant', 0.0044)]
+greedy continuation: ['m', 'ilion', '▁', '\n', '<end_of_turn>']
+[review_ch02 took 3.9s]
+
+==================== review_ch02: seaborn 0.13.2 ====================
+Colab: palette only: warnings ['FutureWarning: \n\nPassing `palette` without assigning `hue` is deprecated and will be removed in v0.14.0. Assign the `y` variable to `hue` and set `legend=False` for the same effect.\n']; bar colors [(0.609, 0.711, 0.94), (0.867, 0.865, 0.863), (0.897, 0.628, 0.537)]
+hw3.py: hue=y, legend=False: warnings []; bar colors [(0.609, 0.711, 0.94), (0.867, 0.865, 0.863), (0.897, 0.628, 0.537)]
+
+==================== review_ch02: ch02 2.7 的 printf 指令照字面重跑 ====================
+$ printf '%s\n' "Name a color in a rainbow, please just answer in a word without any emoji." "That's great! Now, could you tell me another color that I can find in a rainbow?" "Could you continue and name yet another color from the rainbow?" exit | .venv/bin/python HW03/hw3.py --q 2 --interactive; echo "exit=$?"
+輸出（去掉 Loading checkpoint 進度列、絕對路徑改相對）與 logs/review_ch02_q2.txt 第 5–84 行比對，忽略空行後逐字相同；最後一行 You: exit=0。
