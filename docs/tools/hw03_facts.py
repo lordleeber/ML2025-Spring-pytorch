@@ -1,7 +1,7 @@
 """Measure every number the HW03 textbook cites (needs GPU + HF access to Gemma).
 
 Run from the repo root:
-    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07]
+    .venv/bin/python docs/tools/hw03_facts.py [env model tok q1 q2 q4 q5 q6 q7 shapes perq q4steps ptit rescale26 review_ch01 kvcache review_ch02 pre_ch03 review_ch03 pre_ch04 review_ch04 pre_ch06 pre_ch07 review_ch07]
 
 With no arguments every section runs. Output is plain text meant to be pasted
 (after review) into docs/HW03/FACTS.md. Experiment figures go to docs/HW03/img/.
@@ -1258,6 +1258,71 @@ def pre_ch07_facts(tokenizer, model):
 
 
 # ---------------------------------------------------------------------------
+# ch07 review: what the rolled sliding cache holds, L0 H0 last row, label fix, (22, 23) plot, bad indices
+def review_ch07_facts(tokenizer, model):
+    import matplotlib
+    import seaborn as sns
+    from transformers import HybridCache
+
+    matplotlib.use("Agg")
+    section("review_ch07")
+
+    def loop(slots):
+        inp = tokenizer("Google ", return_tensors="pt")
+        nxt, am = inp.input_ids.to(DEVICE), inp.attention_mask.to(DEVICE)
+        cp = torch.arange(am.shape[1], device=DEVICE)
+        cache = HybridCache(config=model.config, max_batch_size=1, max_cache_len=slots, device=DEVICE, dtype=hw3.DTYPE)
+        rows, gen = [], []
+        for _ in range(20):
+            with torch.no_grad():
+                o = model(nxt, attention_mask=am, cache_position=cp, use_cache=True, past_key_values=cache, output_attentions=True)
+            rows.append(torch.stack([a[0].float() for a in o.attentions]))
+            nxt = o.logits[:, -1, :].argmax(dim=-1)
+            gen.append(nxt.item())
+            am = torch.cat([am, torch.ones(1, 1, device=DEVICE)], dim=-1)
+            nxt = nxt.unsqueeze(0)
+            cache = o.past_key_values
+            cp = cp[-1:] + 1
+        return torch.cat(rows, dim=2).cpu().numpy(), cache, gen, inp
+
+    A22, c22, gen, inp = loop(22)
+    A23, c23, _, _ = loop(23)
+    for L in (0, 10):
+        k22, k23 = c22.key_cache[L][0].float(), c23.key_cache[L][0].float()  # (4, slots, 256)
+        same = [j for j in range(22) if torch.allclose(k22[:, j], k23[:, j + 1] if j < 22 else k22[:, j], atol=1e-2)]
+        print(f"layer {L} (sliding) after the last step, 22-slot cache: slot 20 all zero: {bool(k22[:, 20].abs().max() == 0)}; "
+              f"slot j holds what the 23-slot cache has at j+1, for j in {same[:3]}...{same[-3:]} ({len(same)} slots)")
+        print(f"    slot 21 equals 23-slot slot 21 (the new token): {torch.allclose(k22[:, 21], k23[:, 21], atol=5e-2)}; "
+              f"<bos> key (23-slot slot 0) found anywhere in 22-slot cache: {any(torch.allclose(k22[:, j], k23[:, 0], atol=1e-2) for j in range(22))}")
+    k22, k23 = c22.key_cache[1][0].float(), c23.key_cache[1][0].float()
+    print(f"layer 1 (global): slots 0-20 equal to the 23-slot cache: {all(torch.allclose(k22[:, j], k23[:, j], atol=1e-2) for j in range(21))}")
+    print(f"layer 0 head 0 row 21: 22-slot argmax {int(A22[0, 0, 21].argmax())} (weight {A22[0, 0, 21].max():.4f}); "
+          f"23-slot argmax {int(A23[0, 0, 21, :22].argmax())} (weight {A23[0, 0, 21, :22].max():.4f}); "
+          f"22-slot weight on slot 20 (the empty one) {A22[0, 0, 21, 20]:.4f}")
+    print(f"layer 10 head 7 row 21, weight on the empty slot 20: {A22[10, 7, 21, 20]:.4f}")
+
+    # R7 fix from ch07 7.8, verbatim
+    input_ids, generated_tokens = inp, gen
+    fed_ids = input_ids.input_ids[0].tolist() + generated_tokens[:-1]   # 3 + 19 = 22 個
+    tokens = tokenizer.convert_ids_to_tokens(fed_ids)
+    print(f"ch07 R7 fix: {len(tokens)} labels {tokens[:4]} ... {tokens[-2:]}")
+
+    # what happens if hw3.py:320 is changed to 23 slots: matrix (22, 23), labels still 22
+    m = A23[10, 7]
+    labels = tokenizer.tokenize(hw3.Q6_PROMPT if hasattr(hw3, "Q6_PROMPT") else "Google " + tokenizer.decode(gen, skip_special_tokens=True))
+    print(f"23-slot matrix shape {m.shape}, hw3.py labels {len(labels)}")
+    import matplotlib.pyplot as plt
+    try:
+        plt.figure()
+        sns.heatmap(m, xticklabels=labels, yticklabels=labels, cmap="viridis", annot=False)
+        ax = plt.gca()
+        print(f"sns.heatmap with 23 columns and 22 labels: no error; x tick labels drawn {len(ax.get_xticklabels())}, y {len(ax.get_yticklabels())}")
+    except Exception as e:
+        print(f"sns.heatmap with 23 columns and 22 labels: {type(e).__name__}: {e}")
+    plt.close("all")
+
+
+# ---------------------------------------------------------------------------
 SECTIONS = ["env", "model", "attn", "tok", "q1", "q2", "q4", "q5", "q6", "q7"]
 
 
@@ -1274,7 +1339,7 @@ def main():
         fn = {"model": model_facts, "tok": lambda t, m: tok_facts(t), "q1": q1_facts, "q2": q2_facts, "q4": q4_facts,
               "q5": q5_facts, "q6": q6_facts, "q7": q7_facts, "shapes": shapes_facts, "perq": perq_facts,
               "q4steps": q4steps_facts, "ptit": ptit_facts, "rescale26": rescale26_facts,
-              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts}
+              "review_ch01": review_ch01_facts, "kvcache": kvcache_facts, "review_ch02": review_ch02_facts, "pre_ch03": pre_ch03_facts, "review_ch03": review_ch03_facts, "pre_ch04": pre_ch04_facts, "review_ch04": review_ch04_facts, "pre_ch06": pre_ch06_facts, "pre_ch07": pre_ch07_facts, "review_ch07": review_ch07_facts}
         for s in todo:
             if s in fn:
                 t0 = time.time()

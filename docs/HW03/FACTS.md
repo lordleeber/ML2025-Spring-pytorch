@@ -1052,6 +1052,15 @@
 - **ch07 標為推論或沒有跑過的**：previous-token head 常在淺層出現；attention sink 的成因（引 Xiao et al. 2023）；`<bos>` 大範數、attention sink、第 8 章大 SAE activation 的關聯；捲動後空的第 20 格分得到權重；`--layer-idx` 超出範圍時在 :346 出錯；R7 修法的兩行與直接改 hw3.py:320 的 23 格版本（矩陣會變成 (22, 23)）都沒有照字面跑過。
 - **ch07 第一次交代的名詞**：attention map／heatmap、query 列與 key 欄、previous-token head、attention sink、prefill／decode（回指）、`_sliding_update` 的捲動、一次 forward 與逐步生成的比對。
 
+## ch07 審稿補測（本機，2026-10-04；`hw03_facts.py review_ch07` → logs/review_ch07.txt）
+
+- **捲動後的 sliding cache 內容**（Q6 的迴圈配 22 格，最後一步之後）：layer 0、layer 10 的第 0–19 格等於 23 格版的第 1–20 格；第 20 格全為 0；`<bos>` 的 key 不在任何一格。layer 0 的第 21 格等於 23 格版的第 21 格（新 token；layer 0 的輸入是 embedding，未受影響），layer 10 的第 21 格不同（前面的 sliding 層已改變 hidden state）。global 層 layer 1 的第 0–20 格與 23 格版相同。
+- **空格分到的權重**（第 21 列、第 20 欄）：layer 0 head 0 0.0592；layer 10 head 7 0.0027。
+- **layer 0 head 0 第 21 列**：22 格版 argmax 第 19 欄（0.7280），23 格版第 20 欄（0.4829）。
+- **ch07 7.8 的 R7 修法兩行**照字面跑：22 個標籤 `<bos>`、Google、▁、`\n\n` … ▁products、`.`，與矩陣的列一致。
+- **(22, 23) 矩陣配 22 個標籤**呼叫 `sns.heatmap`：不報錯，x、y 各畫 22 個刻度（最右一欄沒有標籤）。
+- **超出範圍的旗標**：`--layer-idx 26` → hw3.py:346 `IndexError: tuple index out of range`；`--head-idx 8` → `IndexError: index 8 is out of bounds for dimension 0 with size 8`；結束碼都是 1。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1092,6 +1101,7 @@
 - review_ch06.txt：ch06 審稿補測（hw3.py 與事實腳本的句子向量與 t-SNE 座標、6.6 的 masked mean 照字面跑）。
 - run_q6_controls.txt：`hw3.py --q 6 --layer-idx 0 --head-idx 0` 與 `--layer-idx 25 --head-idx 0` 的輸出。
 - facts_pre_ch07.txt：`hw03_facts.py pre_ch07` 的輸出（hw3.q6 的矩陣與標籤、與一次 forward 逐層逐列比較、多配一格的對照）。
+- review_ch07.txt：ch07 審稿補測（捲動後的 cache 內容、空格權重、R7 修法、(22, 23) 畫圖、超出範圍的旗標）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
