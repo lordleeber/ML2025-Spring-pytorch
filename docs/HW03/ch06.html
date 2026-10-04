@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 6 章　Q5 句子表示與 t-SNE：同一個字，不同語境 — HW03 Understanding Transformers 教材</title>
+<style id="inline-style">
+/* ============================================================
+   repo → HTML 教材 — 共用樣式表（深色主題，通用樣板）
+   completed-repo-to-html-textbook 與 incremental-html-textbook 兩個 skill
+   共用這一份（唯一來源）。class 名稱是與章節骨架的契約，不可改名。
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #10141a;
+  --bg-panel: #161c24;
+  --fg: #dde5ec;
+  --muted: #93a1af;
+  --accent: #58a6ff;
+  --accent-2: #79c0ff;
+  --accent-warm: #e3b341;
+  --link: #58a6ff;
+  --link-visited: #b0a3e8;
+  --hairline: #2b3540;
+
+  --code-bg: #171d25;
+  --code-border: #2b3540;
+  --code-fg: #d6dee6;
+
+  --shell-bg: #0a0e12;
+  --shell-fg: #c8d6e0;
+
+  --note-bg: #142433;
+  --note-border: #3a6ea5;
+  --warn-bg: #2d2416;
+  --warn-border: #b08834;
+  --lab-bg: #14281a;
+  --lab-border: #3f7d4e;
+  --recap-bg: #211b31;
+  --recap-border: #7458b5;
+
+  --ok: #4ac26b;
+  --bad: #ff7b72;
+
+  --table-head-bg: #1b2330;
+  --kbd-bg: #232b36;
+
+  /* syntax highlight tokens */
+  --tok-kw: #79b8ff;
+  --tok-type: #66d4cf;
+  --tok-str: #a5d691;
+  --tok-num: #e0b76e;
+  --tok-cmt: #7d8b99;
+  --tok-pre: #d2a8ff;
+  --tok-fn: #dcbdfb;
+  --sh-prompt: #58d68d;
+  --sh-cmd: #eaf1f8;
+  --sh-out: #94a6b5;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+  /* 1080px. Wider than the 50-70 character prose convention on purpose: these
+     pages are not prose. They carry terminal output, generated dependency
+     lists and other long unwrappable lines, wide tables, and mechanism figures
+     drawn on a viewBox="0 0 900 H" grid -- all of which are forced to scroll or
+     shrink at the ~832px this used to be. Matches the incremental-html-textbook
+     sibling, so a reader moving between the two books sees one layout.
+
+     Knock-on effect: a figure at width:100% now scales up about 1.2x, so a 13px
+     .s-lbl renders near 15.6px, close to body text. That has been read and
+     accepted. If one page's figures look too heavy for it, cap that page with
+     figure.fig svg { max-width: 900px; margin: 0 auto; } -- do not narrow the
+     page back, or the long-line problem returns. */
+  max-width: 67.5rem;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.95;
+}
+
+::selection { background: rgba(88, 166, 255, 0.35); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* ---------- 捲軸 ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e3947; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3b485a; }
+
+/* ---------- 導覽列 ---------- */
+nav.chapnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.95rem;
+  background: rgba(16, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+}
+nav.chapnav.bottom {
+  position: static;
+  border-bottom: none;
+  border-top: 1px solid var(--hairline);
+  margin-top: 3rem;
+  background: none;
+  backdrop-filter: none;
+}
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); }
+nav.chapnav a:hover { color: var(--accent); text-decoration: none; }
+nav.chapnav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- 章首 ---------- */
+header.chap-header {
+  margin: 2.5rem 0 2.5rem;
+  padding: 1.6rem 1.8rem;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.10), rgba(88, 166, 255, 0.02) 55%), var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+header.chap-header .book-title {
+  margin: 0 0 0.5rem;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+header.chap-header h1 {
+  margin: 0 0 0.9rem;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  color: #eef4fa;
+}
+header.chap-header .chap-lead {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ---------- 本章目錄（JS 自動生成） ---------- */
+.toc-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.9rem 1.3rem;
+  margin: 0 0 2rem;
+  font-size: 0.93rem;
+}
+.toc-box .toc-box-title {
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+.toc-box ol { margin: 0; padding-left: 1.4rem; }
+.toc-box li { margin: 0.1rem 0; }
+
+/* ---------- 標題 ---------- */
+h1, h2, h3, h4 { line-height: 1.5; font-weight: 650; }
+h2 {
+  margin: 3rem 0 1.2rem;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  font-size: 1.42rem;
+  color: #e8f0f8;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.45rem;
+}
+h3 { margin: 2.2rem 0 0.9rem; font-size: 1.16rem; color: var(--accent-2); }
+h4 { margin: 1.6rem 0 0.7rem; font-size: 1.02rem; }
+
+h2:target, h3:target { animation: flash 1.6s ease-out 1; }
+@keyframes flash {
+  0% { background: rgba(88, 166, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+p { margin: 0 0 1.1rem; }
+ul, ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+li { margin-bottom: 0.35rem; }
+strong { font-weight: 700; color: #f0f6fc; }
+
+hr { border: none; border-top: 1px solid var(--hairline); margin: 2.5rem 0; }
+
+/* ---------- 程式碼 ---------- */
+code, kbd, pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", "Noto Sans Mono CJK TC", monospace;
+}
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+  color: var(--accent-2);
+}
+kbd {
+  background: var(--kbd-bg);
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.82em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.2rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--code-fg);
+}
+
+/* 語法上色 token（由 JS 標注；C 與 GAS 組語 pre.asm 共用同一組） */
+.tok-kw  { color: var(--tok-kw); font-weight: 600; }
+.tok-type{ color: var(--tok-type); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-cmt { color: var(--tok-cmt); font-style: italic; }
+.tok-pre { color: var(--tok-pre); }
+.tok-fn  { color: var(--tok-fn); }
+
+/* 行級強調（<pre data-hot="3,5-7">，由 JS 包 span）：把讀者的眼睛
+   釘在教學重點行上。原始碼在 HTML source 保持純文字，逐字 diff 不受影響。 */
+.hot-line {
+  display: inline-block;
+  width: 100%;
+  background: rgba(227, 179, 65, 0.13);
+  border-left: 3px solid var(--accent-warm);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 3px);
+}
+
+/* 終端機指令 */
+pre.shell {
+  background: var(--shell-bg);
+  color: var(--sh-out);
+  border-color: #1d2733;
+}
+pre.shell .sh-prompt { color: var(--sh-prompt); font-weight: 700; }
+pre.shell .sh-cmd { color: var(--sh-cmd); }
+pre.shell .sh-cmt { color: var(--tok-cmt); font-style: italic; }
+/* 「要讀者貼上執行」的指令塊：加 cmd，與輸出塊分得開，指令才數得出來。 */
+pre.shell.cmd { border-left: 3px solid var(--accent); }
+pre.shell.cmd::before {
+  content: "貼上執行";
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+/* ASCII 結構圖 */
+pre.diagram {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 40%), var(--code-bg);
+  border-style: dashed;
+  line-height: 1.45;
+  color: #b9c9d8;
+}
+
+/* 標注版終端輸出：pre 內寫 «N»（JS 轉成圓形標記），下方 ol.notes 逐點對照。
+   「實測輸出逐行解讀」是驗證章的招牌元件。 */
+.mk {
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.45em;
+  font-weight: 700;
+}
+pre .mk { margin-left: 0.5em; }
+ol.notes { font-size: 0.9rem; list-style: none; padding-left: 0; }
+ol.notes li { margin: 0.45rem 0; padding-left: 1.8em; text-indent: -1.8em; }
+ol.notes .mk { margin-right: 0.5em; }
+
+/* 圖例（建議全書統一「色彩 = 執行者」語意，例如 CPU／組語／C／外部硬體） */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+.legend i {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+  margin-right: 0.4em;
+  font-style: normal;
+}
+
+/* 手繪 inline SVG 圖（契約與畫法見 assets/svg-figures.md） */
+figure.fig {
+  margin: 0 0 1.4rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1rem 0.6rem;
+  overflow-x: auto;
+}
+figure.fig svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figure.fig figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.s-lbl  { fill: var(--fg);    font-size: 13px;   font-family: inherit; }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: inherit; }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.s-box  { fill: var(--code-bg); stroke: var(--hairline); stroke-width: 1.5; }
+/* 圖內關鍵字／短程式碼片段。fill 一定要寫：SVG 沒有繼承 color，
+   沒寫就吃預設的黑色，在深色底上等於隱形。 */
+.s-key  { fill: var(--fg);    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 公式／定義塊 */
+.eq {
+  background: var(--shell-bg);
+  border: 1px solid var(--code-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  margin: 0 0 1.2rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: var(--code-fg);
+  overflow-x: auto;
+}
+
+/* 並排小卡（術語群、對照組） */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 0 0 1.4rem; }
+.cardgrid .card { background: var(--bg-panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.8rem 1rem; }
+.cardgrid .card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--accent-warm); }
+.cardgrid .card p { margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
+
+/* 原始碼列表（含出處標註） */
+figure.listing { margin: 0 0 1.4rem; }
+figure.listing figcaption {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent-2);
+  background: #1d2530;
+  border: 1px solid var(--code-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem;
+}
+figure.listing figcaption::before { content: "◈ "; color: var(--accent); }
+figure.listing pre {
+  margin-bottom: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border-radius: 8px; border: 1px solid var(--hairline); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+th, td {
+  border: 1px solid var(--hairline);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tablewrap table { margin: 0; }
+.tablewrap th, .tablewrap td { border-left: none; border-right: none; }
+th {
+  background: var(--table-head-bg);
+  font-weight: 650;
+  color: var(--accent-2);
+  border-bottom: 2px solid var(--accent);
+}
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+tbody tr:hover { background: rgba(88, 166, 255, 0.06); }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .lab, .recap {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 0 10px 10px 0;
+  padding: 0.9rem 1.2rem;
+  margin: 0 0 1.4rem;
+}
+.note  { background: var(--note-bg);  border-color: var(--note-border); }
+.warn  { background: var(--warn-bg);  border-color: var(--warn-border); }
+.lab   { background: var(--lab-bg);   border-color: var(--lab-border); }
+.recap { background: var(--recap-bg); border-color: var(--recap-border); }
+
+.note > :first-child, .warn > :first-child,
+.lab > :first-child, .recap > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child,
+.lab > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+.note h4, .warn h4, .lab h4, .recap h4 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.note h4::before  { content: "💡 "; }
+.warn h4::before  { content: "⚠️ "; }
+.lab h4::before   { content: "🧪 "; }
+.recap h4::before { content: "📌 "; }
+
+/* ---------- 自我測驗 ---------- */
+details.quiz {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0 0.9rem;
+  background: var(--bg-panel);
+}
+details.quiz summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+details.quiz summary::marker { color: var(--accent); }
+details.quiz[open] { border-color: var(--accent); }
+details.quiz[open] summary { margin-bottom: 0.6rem; }
+
+/* ---------- 隨 PR 共生章（incremental-html-textbook）的元件 ----------
+   取自該 skill 實戰寫成的書，改成本表的深色 token。批次成書也可以用。 */
+
+/* hero：step 徽章、導言、meta、動到的檔案 chips */
+.hero { margin: 1.5rem 0 2rem; }
+.badge {
+  display: inline-block;
+  background: var(--ok);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.6rem;
+}
+.hero h1 { margin: 0.2rem 0 0.6rem; font-size: 1.9rem; line-height: 1.4; }
+.lead { font-size: 1.05rem; color: var(--fg); }
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 1rem; }
+.meta span + span::before { content: " · "; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: var(--bg-panel);
+  color: var(--muted);
+}
+.chip.new { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.chip.new::before { content: "+ "; }
+
+/* 散文裡的語意強調色：只掛在既有 <b> 上，多數 <b> 維持不上色 */
+b.hl-ok  { color: var(--ok); }      /* 驗證通過／修好了／正向結果 */
+b.hl-bad { color: var(--bad); }     /* 缺陷／錯誤／反例／警告 */
+b.hl-key { color: var(--accent); }  /* 貫穿全章的關鍵詞或核心主張 */
+
+/* 常見錯誤格網：每格「症狀 → 後果 → 正解」 */
+.pitfalls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 1rem 0 1.4rem;
+}
+.pit {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-panel);
+}
+.pit h4 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.pit dl { margin: 0; font-size: 0.9rem; }
+.pit dt { font-weight: 600; color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.pit dd { margin: 0; }
+.pit dd.fix { color: var(--ok); }
+
+/* 判準清單：li.pass / li.partial / li.fail */
+ul.criteria { list-style: none; padding-left: 0; }
+ul.criteria li { margin: 0.5rem 0; padding-left: 1.9rem; text-indent: -1.9rem; }
+ul.criteria li::before { display: inline-block; width: 1.9rem; text-indent: 0; }
+li.pass::before    { content: "✅"; }
+li.partial::before { content: "⚠"; }
+li.fail::before    { content: "❌"; }
+
+/* 「你可能以為要自己做／實際上」兩欄表 */
+table.twocol td:first-child { color: var(--muted); width: 42%; }
+table.twocol td:last-child  { color: var(--fg); }
+
+/* 導讀卡：hero 之後、正文之前，先給一個站得住的全貌 */
+.tldr {
+  border: 1px solid var(--hairline);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-panel);
+  padding: 1rem 1.15rem 0.9rem;
+  margin: 1.5rem 0 2.25rem;
+}
+.tldr .tag { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+.tldr .one { font-size: 1.12rem; font-weight: 600; margin: 0.35rem 0 1rem; }
+.tldr h3 { margin: 1.15rem 0 0.35rem; font-size: 0.92rem; color: var(--muted); }
+.tldr ul { margin: 0.35rem 0; padding-left: 1.25rem; }
+.tldr li { margin: 0.28rem 0; }
+
+/* 專案位置條：已完成／這一步／之後 */
+.where { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0 0.2rem; }
+.where span {
+  font-size: 0.82rem;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 0.18rem 0.55rem;
+  background: var(--bg);
+  color: var(--muted);
+}
+.where span.now { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 700; }
+.where i { color: var(--muted); font-style: normal; }
+
+/* ---------- 目錄頁 ---------- */
+ol.toc { list-style: none; padding: 0; counter-reset: chap; }
+ol.toc > li {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.85rem 0.2rem;
+  margin: 0;
+}
+ol.toc > li:hover { background: rgba(88, 166, 255, 0.05); }
+ol.toc .toc-title { font-weight: 650; font-size: 1.05rem; }
+ol.toc .toc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0; }
+
+/* ---------- 頁尾 ---------- */
+footer.chap-footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media print {
+  nav.chapnav { display: none; }
+  body { max-width: none; }
+}
+
+</style>
+<style>
+  figure.fig svg { max-width: 900px; margin: 0 auto; display: block; }
+  figure.fig img { display: block; max-width: 100%; margin: 0 auto; border-radius: 6px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch05.html">← 第 5 章</a><span class="disabled">第 7 章 →</span></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring HW03 教材</p>
+  <h1>第 6 章　Q5 句子表示與 t-SNE：同一個字，不同語境</h1>
+  <p class="chap-lead">前五章都在看模型「說什麼」。Q5 第一次往模型裡面看：六句話一起送進去，各取最後一層的 hidden state，平均成一個 2304 維的句子向量，再用 t-SNE 壓到平面上。問題是：「Apple」當水果和當公司，句子向量會不會被分開？這一章先看一個 batch 怎麼裝下長短不一的句子（左邊補 pad），再看那些 pad 怎麼被平均進句子向量（R8），然後不靠圖、直接用餘弦相似度回答問題，最後才看 t-SNE 那張圖能說什麼、不能說什麼。</p>
+</header>
+<main>
+
+<div class="tldr">
+  <span class="tag">本章重點</span>
+  <p class="one">六句話補 pad 到 9 個 token，<code>hidden_states[-1]</code> 是 (6, 9, 2304)；沿 token 維度平均，<b>pad 也被平均進去</b>（R8）。pad 位置的向量不是零，也不是固定的：它平均地「看」整句，所以每句的 pad 向量都不同。不管含不含 pad，結論相同：<b>Apple（水果）和 Apple（公司）的句子向量相似度 0.757，低於 Apple（公司）和 Microsoft 的 0.924</b>。t-SNE 圖上可靠的是「誰最靠近誰」，座標與距離本身沒有意義。</p>
+  <ul>
+    <li>本章對應的原始碼：hw3.py:256–294（<code>q5</code>，沒有 TODO）。</li>
+    <li>本章的實測來自 <code>logs/run_seed0.txt</code> 的 Q5 段與圖 <code>img/q5_tsne.png</code>（hw3.py 的實際輸出），以及事實腳本 <code>docs/tools/hw03_facts.py</code> 的 <code>q5</code>、<code>pre_ch06</code> 段（<code>logs/facts_q4_q7.txt</code>、<code>logs/facts_pre_ch06.txt</code>）與它畫的實驗圖 <code>img/exp_q5_tsne_masked.png</code>。log 在 repo 的 <code>docs/HW03/logs/</code>，圖在 <code>docs/HW03/img/</code>。</li>
+    <li>R8 是<a href="outline.html#issues">全書大綱的問題對照表</a>裡 repo 問題的編號；FACTS 是本機的事實清單 <code>docs/HW03/FACTS.md</code>。<code>hidden_states</code> 的 27 個索引與範數見<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>，<code>&lt;pad&gt;</code> 與其他特殊 token 見<a href="ch01.html#special-tokens">第 1 章 1.1.1 節</a>。</li>
+  </ul>
+</div>
+
+<h2 id="task">6.1　這一題要做什麼</h2>
+
+<p>投影片 p.20 的題目是「Plotting the t-SNE 2-D Embeddings」，六句話寫在 sample code 裡。投影片右邊畫的是一張示意圖：「原本每一個 Token 都是獨立的符號」，經過模型之後「意思相近的 Token 會有接近的 Embedding」（run 與 jump 靠近、dog、cat、rabbit 靠近）。三小題都是選擇題：(1) 關於 t-SNE 的正確敘述（選 2 個）；(2) 關於這個實驗的正確敘述；(3) 關於這個實驗的<b>錯誤</b>敘述。敘述的選項不在投影片與 Colab 裡，本書不編；本章講清楚這個實驗實際算了什麼，並列出本機的數字，但不把它們寫成標準答案（理由見<a href="index.html#hw">目錄頁第 1 節</a>）。</p>
+
+<p>這一題沒有 TODO 要填，程式整段是給好的：</p>
+
+<figure class="listing"><figcaption>hw3.py:256–271 — 六句話、一個 batch、一次 forward</figcaption>
+<pre class="py" data-hot="260,269,271"><code>def q5(tokenizer, model, args):
+    from sklearn.manifold import TSNE
+
+    ######################## (Q5.2 ~ 5.3) ########################
+    sentences = [
+        "I ate a fresh apple.",  # Apple (fruit)
+        "Apple released the new iPhone.",  # Apple (company)
+        "I peeled an orange and ate it.",  # Orange (fruit)
+        "The Orange network has great coverage.",  # Orange (telecom)
+        "Microsoft announced a new update.",  # Microsoft (company)
+        "Banana is my favorite fruit.",  # Banana (fruit)
+    ]
+
+    inputs = tokenizer(sentences, return_tensors="pt", padding=True, truncation=True).to(DEVICE)
+    with torch.no_grad():
+        outputs = model(**inputs, output_hidden_states=True)</code></pre>
+</figure>
+
+<p>六句話成對設計：Apple 有水果與公司兩個意思，Orange 有水果與電信公司（法國的 Orange 電信）兩個意思，再加上一家公司（Microsoft）和一種水果（Banana）當參照。實驗想看的是：同一個字在不同語境下，模型給的表示會不會跟著語境走。</p>
+
+<p>和原版 Colab 第 26 格（第 25 格是「## Q5: t-SNE」標題）比，hw3.py 拿掉了原版開頭的 <code>model.to(device)</code>（模型早就在 GPU 上）與重複的 import，<code>plt.show()</code> 改成 <code>save_fig("q5_tsne.png")</code>，平均之後多了一個 <code>.float()</code>（<a href="#pooling">6.3 節</a>）。其他程式逐行相同（註解有幾處改寫，例如 :274）。這一題沒有旗標（<a href="ch00.html#flags">第 0 章旗標表</a>），本機跑一次 0.5 s（<a href="ch00.html#time-mem">第 0 章 0.10 節</a>）。</p>
+
+<h2 id="batch">6.2　一個 batch 裝六句話：左邊補 pad</h2>
+
+<p>:269 把六句話的 list 一次交給 tokenizer。句子長短不同，但 tensor 必須是方的，所以 <code>padding=True</code> 讓 tokenizer 把短句補到和最長的一樣長。補的是 <code>&lt;pad&gt;</code>（id 0），而且 Gemma 的 tokenizer 設定 <code>padding_side='left'</code>，<b>補在左邊</b>（<a href="ch01.html#special-tokens">第 1 章</a>的 tokenizer 資訊）。本機實際的結果（<code>logs/facts_q4_q7.txt</code> q5 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>句子</th><th class="num">真實 token</th><th class="num">pad</th><th>9 個位置</th></tr></thead>
+<tbody>
+<tr><td>Apple (fruit)</td><td class="num">7</td><td class="num">2</td><td><code>&lt;pad&gt; &lt;pad&gt; &lt;bos&gt; I ▁ate ▁a ▁fresh ▁apple .</code></td></tr>
+<tr><td>Apple (company)</td><td class="num">7</td><td class="num">2</td><td><code>&lt;pad&gt; &lt;pad&gt; &lt;bos&gt; Apple ▁released ▁the ▁new ▁iPhone .</code></td></tr>
+<tr><td>Orange (fruit)</td><td class="num">9</td><td class="num">0</td><td><code>&lt;bos&gt; I ▁peeled ▁an ▁orange ▁and ▁ate ▁it .</code></td></tr>
+<tr><td>Orange (telecom)</td><td class="num">8</td><td class="num">1</td><td><code>&lt;pad&gt; &lt;bos&gt; The ▁Orange ▁network ▁has ▁great ▁coverage .</code></td></tr>
+<tr><td>Microsoft (company)</td><td class="num">7</td><td class="num">2</td><td><code>&lt;pad&gt; &lt;pad&gt; &lt;bos&gt; Microsoft ▁announced ▁a ▁new ▁update .</code></td></tr>
+<tr><td>Banana (fruit)</td><td class="num">7</td><td class="num">2</td><td><code>&lt;pad&gt; &lt;pad&gt; &lt;bos&gt; Banana ▁is ▁my ▁favorite ▁fruit .</code></td></tr>
+</tbody>
+</table></div>
+
+<p>最長的是 Orange (fruit) 的 9 個 token（含 <code>&lt;bos&gt;</code>），所以 <code>input_ids</code> 是 <b>(6, 9)</b>，各句補 2、2、0、1、2、2 個 pad。注意第 0 句是小寫的 <code>▁apple</code>（句中、前面有空白），第 1 句是句首的 <code>Apple</code>：依<a href="ch03.html#space">第 3 章</a>，這兩個本來就是不同的 token，id 也不同。</p>
+
+<p>tokenizer 同時回傳 <code>attention_mask</code>，pad 的位置是 0、真實 token 是 1（<code>logs/facts_pre_ch06.txt</code> 第 7 行）：</p>
+
+<pre class="shell">attention_mask rows: [[0, 0, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1]]</pre>
+
+<p>:271 的 <code>model(**inputs, ...)</code> 把它一起傳進模型，模型在 attention 裡用它把 pad 的位置遮起來（<a href="ch00b.html#mask">補充章 K.5 節</a>的 mask，加上 −65504 讓那些位置分到的權重是 0）：<b>真實 token 不會去看 pad</b>。</p>
+
+<p>:269 還有一個 <code>truncation=True</code>：超過最大長度就截斷。但它沒有給 <code>max_length</code>，Gemma 的 tokenizer 也沒有預設的最大長度，所以實際上什麼都不做，只印一行警告（<code>logs/run_seed0.txt</code> 第 217–219 行，逐字；本機路徑改成相對路徑）：</p>
+
+<pre class="shell">############################## Q5 ##############################
+Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+[saved] HW03/outputs/q5_tsne.png</pre>
+
+<p>這就是 Q5 在終端機上的全部輸出：分隔線之後只有一行警告（可以忽略）、一行存圖。所有的數字都在圖裡，或要另外算。</p>
+
+<h3 id="shift">6.2.1　左補 pad 會不會改變真實 token 的向量？</h3>
+
+<p>有兩個理由讓人擔心。第一，pad 雖然被遮起來，但它佔了位置：補了 2 個 pad 的句子，<code>&lt;bos&gt;</code> 在第 2 格而不是第 0 格。transformers 4.47 的 Gemma 2 在這裡用的 <code>position_ids</code>（每個 token 的位置編號，給位置編碼用）預設取自 <code>cache_position</code>（「這一批 token 要寫進 KV cache 的第幾格」，這裡就是 0 到 8；<code>modeling_gemma2.py:727–728</code>，FACTS「ch06 前置補測」），<b>不看 <code>attention_mask</code></b>，所以補了 pad 的句子，每個真實 token 的位置編號整體往後移 1–2 格。第二，fp16 的運算形狀不同可能帶來微差（<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。</p>
+
+<p>本機直接比：每句另外<b>單獨</b> forward（不補 pad），和 batch 裡同一句的真實 token 逐一比較最後一層的 hidden state（<code>logs/facts_pre_ch06.txt</code> 第 8–13 行）：每個 token 的 cosine（兩個向量夾角的餘弦，1 是方向完全相同，<a href="#cosine">6.4 節</a>）都 ≥ <b>0.999998</b>，最大的逐元素差是 0.0625–0.125（fp16 在 100 上下的精度就是這個量級）。<b>真實 token 的向量幾乎不受 padding 影響。</b></p>
+
+<p>位置整體平移了卻沒有影響，合理的解釋是 Gemma 用的 RoPE 位置編碼在 attention 裡只取決於兩個 token 的<b>相對</b>距離，整句一起平移不改變任何一對的相對距離。這是<b>推論</b>，本機量到的是「結果幾乎不變」，沒有單獨驗證 RoPE 的這個性質。</p>
+
+<h2 id="pooling">6.3　句子向量：mean pooling，pad 也算進去</h2>
+
+<figure class="listing"><figcaption>hw3.py:273–275 — 最後一層、沿 token 平均</figcaption>
+<pre class="py" data-hot="273,275"><code>    hidden_states = outputs.hidden_states[-1]  # Extract last layer embeddings
+    # Compute sentence-level embeddings (mean pooling, padding included as in the Colab)
+    sentence_embeddings = hidden_states.mean(dim=1).float().cpu().numpy()</code></pre>
+</figure>
+
+<ul>
+<li><b>:273</b>：<code>hidden_states[-1]</code> 就是索引 [26]，最後一個 decoder block 的輸出<b>再經過最後的 RMSNorm</b>（<a href="ch00.html#hidden-states">第 0 章 0.9 節</a>），形狀 (6, 9, 2304)，fp16。範數因此回到 100 上下：第 0 句 9 個位置是 108.9、108.9、98.7、106.6、124.5、119.3、125.3、119.9、150.4（前兩個是 pad，第三個是 <code>&lt;bos&gt;</code>；<code>logs/facts_q4_q7.txt</code>）。</li>
+<li><b>:275</b>：<code>.mean(dim=1)</code> 沿第 1 維（9 個 token 位置）平均，得到 (6, 2304)：每句一個 2304 維的向量。這種「把每個 token 的向量平均成一個」的做法叫 <b>mean pooling</b>。<code>.float()</code> 轉成 fp32（原版沒有這一步，直接 <code>.cpu().numpy()</code> 也能轉，只是 fp16），<code>.numpy()</code> 交給 sklearn。</li>
+</ul>
+
+<p>:274 的註解說得很直白：「padding included as in the Colab」。<code>.mean(dim=1)</code> 不知道哪些位置是 pad，<b>9 個位置一律平均</b>：補了 2 個 pad 的句子，句子向量有 2/9 來自 pad；Orange (fruit) 沒有 pad，全部來自真實 token。這就是 R8。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 330" role="img" aria-label="六句話左邊補 pad 到 9 個位置；hw3.py 的 mean pooling 把每一列的 9 格全部平均，包含灰色的 pad；排除 pad 的做法只平均真實 token">
+  <text class="s-sm" x="20" y="22" text-anchor="start">每格是一個位置的 2304 維 hidden state（hidden_states[-1]，6 × 9 × 2304）。灰色：&lt;pad&gt;；黃色：&lt;bos&gt;；藍色：真實的字</text>
+  <text class="s-sm" x="20" y="58" text-anchor="start">Apple (fruit)</text>
+  <text class="s-sm" x="20" y="96" text-anchor="start">Apple (company)</text>
+  <text class="s-sm" x="20" y="134" text-anchor="start">Orange (fruit)</text>
+  <text class="s-sm" x="20" y="172" text-anchor="start">Orange (telecom)</text>
+  <text class="s-sm" x="20" y="210" text-anchor="start">Microsoft</text>
+  <text class="s-sm" x="20" y="248" text-anchor="start">Banana (fruit)</text>
+  <g>
+    <rect x="160" y="40" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="198" y="40" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="236" y="40" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="274" y="40" width="186" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <rect x="160" y="78" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="198" y="78" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="236" y="78" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="274" y="78" width="186" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <rect x="160" y="116" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="198" y="116" width="262" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <rect x="160" y="154" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="198" y="154" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="236" y="154" width="224" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <rect x="160" y="192" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="198" y="192" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="236" y="192" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="274" y="192" width="186" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+    <rect x="160" y="230" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="198" y="230" width="34" height="28" rx="3" style="fill: var(--muted); fill-opacity: 0.45"/><rect x="236" y="230" width="34" height="28" rx="3" style="fill: var(--accent-warm); fill-opacity: 0.6"/><rect x="274" y="230" width="186" height="28" rx="3" style="fill: var(--accent); fill-opacity: 0.45"/>
+  </g>
+  <text class="s-sm" x="196" y="284" text-anchor="middle">位置 0、1（左邊補 pad）</text>
+  <text class="s-sm" x="367" y="284" text-anchor="middle">真實 token（右邊對齊）</text>
+  <rect x="510" y="60" width="370" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="695" y="88" text-anchor="middle" font-weight="700">hw3.py：.mean(dim=1)</text>
+  <text class="s-sm" x="695" y="110" text-anchor="middle">每列 9 格全部平均，pad 也算（R8）</text>
+  <text class="s-sm" x="695" y="128" text-anchor="middle">補 2 個 pad 的句子，2/9 來自 pad</text>
+  <rect x="510" y="170" width="370" height="80" rx="9" class="s-box"/>
+  <text class="s-lbl" x="695" y="198" text-anchor="middle" font-weight="700">排除 pad（masked mean）</text>
+  <text class="s-sm" x="695" y="220" text-anchor="middle">用 attention_mask 只平均 mask = 1 的格子</text>
+  <text class="s-sm" x="695" y="238" text-anchor="middle">事實腳本的實驗版（6.4、6.6 節）</text>
+  <line x1="462" y1="100" x2="506" y2="100" stroke="var(--accent)" stroke-width="2"/>
+  <line x1="462" y1="210" x2="506" y2="210" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/>
+  <text class="s-sm" x="20" y="316" text-anchor="start">兩種做法都得到 (6, 2304)：每句一個句子向量。差別只在灰色的格子算不算。</text>
+</svg>
+<figcaption>圖 6.1 — 左邊補 pad 與兩種 mean pooling。格子的排列照本機的實際切法（<code>logs/facts_q4_q7.txt</code>）；藍色那一段畫成一整塊，代表那句剩下的真實 token。</figcaption>
+</figure>
+
+<h3 id="pad-vector">6.3.1　pad 位置的向量從哪裡來</h3>
+
+<p>既然 pad 被平均進去了，它的向量是什麼？直覺可能是「零」或「每句都一樣的某個固定向量」。都不是。本機量了 9 個 pad 位置的最後一層 hidden state 範數（<code>logs/facts_pre_ch06.txt</code> 第 14 行）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>句子</th><th class="num">pad 數</th><th class="num">pad 向量的範數</th></tr></thead>
+<tbody>
+<tr><td>Apple (fruit)</td><td class="num">2</td><td class="num">108.94、108.94</td></tr>
+<tr><td>Apple (company)</td><td class="num">2</td><td class="num">115.31、115.31</td></tr>
+<tr><td>Orange (fruit)</td><td class="num">0</td><td class="num">（沒有 pad）</td></tr>
+<tr><td>Orange (telecom)</td><td class="num">1</td><td class="num">104.16</td></tr>
+<tr><td>Microsoft (company)</td><td class="num">2</td><td class="num">120.86、120.86</td></tr>
+<tr><td>Banana (fruit)</td><td class="num">2</td><td class="num">114.82、114.82</td></tr>
+</tbody>
+</table></div>
+
+<p><b>同一句的兩個 pad 完全相同，不同句的 pad 不同</b>（任一個 pad 向量和第一個 pad 向量的最大逐元素差 19.97）。範數在 104.2 到 120.9 之間，和真實 token 差不多大，在平均裡的份量一點都不小。</p>
+
+<p>原因在 attention。真實 token 的那幾列，pad 的位置被 mask 掉；但 <b>pad 自己那一列，所有的 key 都被 mask 了</b>：它左邊沒有東西（因果遮罩只讓它看自己與前面），它自己和左邊的 pad 又被 <code>attention_mask</code> 遮掉。本機用 eager attention（照公式逐步算、留得下權重的實作，<a href="ch00.html#load">第 0 章 0.4 節</a>）印出第 0 句的權重（<code>logs/facts_pre_ch06.txt</code> 第 37–40 行，逐字）：</p>
+
+<pre class="shell">layer 0, sentence 0, head 0, query position 0 (pad): [0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111]  «1»
+layer 0, sentence 0, head 0, query position 2 (&lt;bos&gt;): [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  «2»
+layer 25, sentence 0, head 0, query position 0 (pad): [0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111]
+layer 25, sentence 0, head 0, query position 2 (&lt;bos&gt;): [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]</pre>
+<ol class="notes">
+<li><span class="mk">1</span>pad（位置 0）對 9 個位置的權重全是 1/9 ≈ 0.1111，<b>包括它右邊、本來因果遮罩不准看的真實 token</b>。全部被遮住時，每個位置都被加上同樣的極小值，softmax 只能平均分配（推論：fp16 在 −65504 附近相鄰兩個數相差 32，原本被 attention 的 soft-cap 限制在 ±50 以內（<a href="ch00.html#attn">第 0 章 0.6.2 節</a>）的分數差異被淹沒，所以變成全部相等；本機量到的是結果，沒有逐步看數值）。</li>
+<li><span class="mk">2</span>對照：<code>&lt;bos&gt;</code>（位置 2）左邊兩格是 pad，被遮掉，只能看自己，權重 1.0。</li>
+</ol>
+
+<p>所以 pad 的向量是「整句所有位置（含真實的字）的平均」一路經過 26 層算出來的，<b>帶著整句的內容</b>，每句自然不同。同一句的兩個 pad 輸入相同（都是 <code>&lt;pad&gt;</code> 的 embedding）、權重相同（都是均分），看的又是同一組 key、value，所以結果相同（推論：位置不同只影響 attention 分數，而分數在這裡全被蓋掉了）。這也表示 R8 的影響不是「加了一堆雜訊」那麼簡單：pad 向量本身含有句子的資訊，只是用一種很奇怪的方式取得。</p>
+
+<p>pad 被平均進去之後，句子向量差了多少？本機把 hw3.py 的句子向量（含 pad）和「單獨 forward、只平均真實 token」的向量比 cosine（<code>logs/facts_pre_ch06.txt</code> 第 8–13 行）：Apple(f) 0.977、Apple(c) 0.972、Orange(f) 1.000（沒有 pad）、Orange(t) 0.994、MS 0.963、Banana 0.976。前面已經確認真實 token 本身幾乎不受 padding 影響，所以這些差異<b>全部來自 mean pooling 把 pad 平均進去</b>。</p>
+
+<h2 id="cosine">6.4　不用 t-SNE，先看餘弦相似度</h2>
+
+<p>t-SNE 是為了把 2304 維畫到平面上。但「哪兩句比較像」這個問題，可以直接在 2304 維裡回答：兩個句子向量的 <b>cosine 相似度</b>（兩個向量夾角的餘弦，1 是方向完全相同，0 是垂直）。本機用 hw3.py 的句子向量（含 pad）算出的 6 × 6 表（<code>logs/facts_q4_q7.txt</code> q5 段）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th></th><th class="num">Apple(f)</th><th class="num">Apple(c)</th><th class="num">Orange(f)</th><th class="num">Orange(t)</th><th class="num">MS(c)</th><th class="num">Banana(f)</th></tr></thead>
+<tbody>
+<tr><td>Apple (fruit)</td><td class="num">1</td><td class="num">0.757</td><td class="num"><b>0.902</b></td><td class="num">0.793</td><td class="num">0.757</td><td class="num">0.897</td></tr>
+<tr><td>Apple (company)</td><td class="num">0.757</td><td class="num">1</td><td class="num">0.703</td><td class="num">0.851</td><td class="num"><b>0.924</b></td><td class="num">0.761</td></tr>
+<tr><td>Orange (fruit)</td><td class="num"><b>0.902</b></td><td class="num">0.703</td><td class="num">1</td><td class="num">0.788</td><td class="num">0.704</td><td class="num">0.859</td></tr>
+<tr><td>Orange (telecom)</td><td class="num">0.793</td><td class="num">0.851</td><td class="num">0.788</td><td class="num">1</td><td class="num"><b>0.868</b></td><td class="num">0.822</td></tr>
+<tr><td>Microsoft (company)</td><td class="num">0.757</td><td class="num"><b>0.924</b></td><td class="num">0.704</td><td class="num">0.868</td><td class="num">1</td><td class="num">0.764</td></tr>
+<tr><td>Banana (fruit)</td><td class="num"><b>0.897</b></td><td class="num">0.761</td><td class="num">0.859</td><td class="num">0.822</td><td class="num">0.764</td><td class="num">1</td></tr>
+</tbody>
+</table></div>
+
+<p>粗體是每一列的最大值（自己除外），也就是每句的<b>最近鄰</b>：Apple(f)→Orange(f)、Apple(c)→MS、Orange(f)→Apple(f)、Orange(t)→MS、MS→Apple(c)、Banana→Apple(f)（本書從表讀出）。整張表可以分成兩群：三句水果彼此 0.86–0.90，三句公司／電信彼此 0.85–0.92；跨群多在 0.70–0.79。</p>
+
+<p>最關鍵的一格：<b>Apple (fruit) 與 Apple (company) 只有 0.757</b>，比 Apple (company) 與 Microsoft 的 0.924 低得多，也比 Apple (fruit) 與 Banana 的 0.897 低。兩句都有「Apple」這個字，句子向量卻離得比「沒有共同字、但語境相同」的句子還遠。Orange 也一樣：水果與電信 0.788，電信與 Microsoft 0.868。<b>句子向量反映的是語境，而不是字面。</b></p>
+
+<p>pad 會不會改變這個結論？本機另外算了兩個版本（同一份 log）：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>句對</th><th class="num">hw3.py（含 pad）</th><th class="num">排除 pad</th><th class="num">排除 pad 與 <code>&lt;bos&gt;</code></th></tr></thead>
+<tbody>
+<tr><td>Apple(f)–Orange(f)</td><td class="num">0.902</td><td class="num">0.924</td><td class="num">0.926</td></tr>
+<tr><td>Apple(c)–MS</td><td class="num">0.924</td><td class="num">0.915</td><td class="num">0.915</td></tr>
+<tr><td>Orange(t)–MS</td><td class="num">0.868</td><td class="num">0.869</td><td class="num">0.871</td></tr>
+<tr><td>Apple(f)–Apple(c)</td><td class="num">0.757</td><td class="num">0.728</td><td class="num">0.732</td></tr>
+</tbody>
+</table></div>
+
+<p>數字有變：上升最多的是 Apple(f)–Orange(f)，從 0.902 變成 0.924（+0.022）；下降最多的是 Apple(f)–Apple(c)，從 0.757 變成 0.728（−0.029，計算值）；但每一句的最近鄰在三個版本裡都相同（本書從 log 的三張完整表讀出），「Apple 兩個意思比 Apple 與 Microsoft 遠」的結論也都成立。哪些句對被拉近、哪些被拉遠，只能照這幾個數字說；本機只有這六句話，不能推廣成「pad 一定會讓相似度上升或下降」。</p>
+
+<h3 id="keyword">6.4.1　只看關鍵字那一個 token 呢？</h3>
+
+<p>句子向量是 9 個位置的平均。如果只取「Apple」那一個位置的向量，結果會一樣嗎？本機取每句關鍵字所在位置的最後一層向量（▁apple 第 7 格、Apple 第 3 格、▁orange 第 4 格、▁Orange 第 3 格、Microsoft 第 3 格、Banana 第 3 格；<code>logs/facts_pre_ch06.txt</code> 第 16–28 行）比 cosine：</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>句對</th><th class="num">只看關鍵字 token</th><th class="num">整句平均（hw3.py）</th></tr></thead>
+<tbody>
+<tr><td>Apple(f)–Apple(c)</td><td class="num"><b>0.528</b></td><td class="num">0.757</td></tr>
+<tr><td>Apple(c)–MS</td><td class="num"><b>0.897</b></td><td class="num">0.924</td></tr>
+<tr><td>Apple(f)–Orange(f)</td><td class="num">0.831</td><td class="num">0.902</td></tr>
+<tr><td>Orange(f)–Orange(t)</td><td class="num">0.497</td><td class="num">0.788</td></tr>
+<tr><td>Orange(t)–MS</td><td class="num">0.606</td><td class="num">0.868</td></tr>
+</tbody>
+</table></div>
+
+<p>單一 token 的差異更大：Apple 的兩個意思只剩 0.528，Orange 的兩個意思 0.497；而公司的 Apple 和 Microsoft 仍有 0.897。整句平均把每句共有的成分（<code>&lt;bos&gt;</code>、句號、pad 等）也平均進去，所有的相似度都往上墊，差距比較小。</p>
+
+<p>但要注意一件事：第 0 句的是小寫、句中的 <code>▁apple</code>，第 1 句是句首的 <code>Apple</code>，<b>兩者本來就是不同的 token</b>（<a href="ch03.html#same-word">第 3 章 3.4 節</a>），輸入的 embedding 就不同。所以 0.528 不完全是「語境」造成的，字本身也不一樣。這個實驗設計得不夠乾淨；要純粹看語境，應該讓兩句的 Apple 是同一個 token（例如都放在句首）。這是本書的觀察，本機沒有做這個對照。</p>
+
+<h2 id="tsne">6.5　t-SNE 做了什麼</h2>
+
+<p>畫圖前先定好六個點的標籤（:277–281），順序和 <code>sentences</code> 一致：</p>
+
+<figure class="listing"><figcaption>hw3.py:277–281 — 六個點的標籤</figcaption>
+<pre class="py"><code>    word_labels = [
+        "Apple (fruit)", "Apple (company)",
+        "Orange (fruit)", "Orange (telecom)",
+        "Microsoft (company)", "Banana (fruit)",
+    ]</code></pre>
+</figure>
+
+<figure class="listing"><figcaption>hw3.py:283–294 — t-SNE 降到 2 維、畫圖</figcaption>
+<pre class="py" data-hot="283,284,293"><code>    tsne = TSNE(n_components=2, perplexity=2, random_state=42)
+    embeddings_2d = tsne.fit_transform(sentence_embeddings)
+
+    plt.figure(figsize=(8, 6))
+    colors = ["red", "blue", "orange", "purple", "green", "brown"]
+    for i, label in enumerate(word_labels):
+        plt.scatter(embeddings_2d[i, 0], embeddings_2d[i, 1], color=colors[i], s=100)
+        plt.text(embeddings_2d[i, 0] + 0.1, embeddings_2d[i, 1] + 0.1, label, fontsize=12, color=colors[i])
+    plt.xlabel("t-SNE Dim 1")
+    plt.ylabel("t-SNE Dim 2")
+    plt.title("t-SNE Visualization of Word Embeddings")
+    save_fig("q5_tsne.png")</code></pre>
+</figure>
+
+<p><b>t-SNE</b>（t-distributed Stochastic Neighbor Embedding）是一種把高維的點放到 2 維（或 3 維）平面上的方法。它的目標是：在原本空間裡互相靠近的點，在平面上也靠近。做法大致是：先在高維空間裡，為每個點把「其他點離它多近」換成一組機率（越近的點機率越大，加總為 1；perplexity 控制這組機率要多集中在最近的幾個點上），再在平面上擺點，用同樣的方式算一組平面上的機率（名稱裡的 t 是這一步用的 t 分佈），反覆調整位置，讓兩組機率盡量接近（van der Maaten &amp; Hinton 2008，見延伸閱讀）。它只在乎「誰是誰的鄰居」，不保留距離的大小，也不保留方向。</p>
+
+<p>hw3.py:283 的三個參數：</p>
+
+<ul>
+<li><b><code>n_components=2</code></b>：降到 2 維。</li>
+<li><b><code>perplexity=2</code></b>：大約是「每個點考慮幾個鄰居」。它<b>必須小於樣本數</b>；這裡只有 6 個點，sklearn 1.9.1 實測 perplexity=5 可以跑，6 和 10 會直接丟出例外（<code>logs/facts_pre_ch06.txt</code> 第 31–33 行，逐字）：</li>
+</ul>
+
+<pre class="shell">perplexity=5: ok
+perplexity=6: ValueError: perplexity (6) must be less than n_samples (6)
+perplexity=10: ValueError: perplexity (10) must be less than n_samples (6)</pre>
+
+<ul>
+<li><b><code>random_state=42</code></b>：t-SNE 的初始化與最佳化有隨機性，固定它，同樣的輸入就得到同樣的座標。</li>
+</ul>
+
+<p>:284 的 <code>fit_transform</code> 是 sklearn 的慣用介面：「用這些資料把模型擬合好（fit），再回傳轉換後的結果（transform）」，對 t-SNE 來說就是直接回傳 (6, 2) 的平面座標。沒寫出來的設定用 sklearn 的預設值。本機印出的（<code>logs/facts_pre_ch06.txt</code> 第 29–30 行，逐字）：</p>
+
+<pre class="shell">sklearn 1.9.1
+TSNE(perplexity=2, random_state=42): init='pca' learning_rate='auto' -&gt; 50.000, max_iter=1000, n_iter_=999, kl_divergence_=0.0067, metric='euclidean'</pre>
+
+<p>初始位置用 PCA（主成分分析，一種線性降維）決定；學習率 <code>'auto'</code> 實際算出來是 50；最多迭代 1000 次；距離用歐氏距離（不是上一節的 cosine）。<code>n_iter_</code> 999 是實際跑完的迭代次數的紀錄（從 0 數，所以跑滿 1000 次是 999；推論）。<code>kl_divergence_</code> 0.0067 是最後「平面上的鄰居機率」和「高維的鄰居機率」之間的 KL divergence（衡量兩個機率分布差多少的量，0 代表完全相同），越小代表擺得越貼近；它沒有固定的「好壞門檻」，只能和同一份資料的其他設定比。6 個點的鄰居關係很簡單，擺得很好並不意外（推論）。</p>
+
+<p>hw3.py 畫出來的圖（<code>hw3.py --seed 0</code> 的實際輸出，<code>HW03/outputs/q5_tsne.png</code>；Q5 不用亂數抽樣，seed 不影響它）：</p>
+
+<figure class="fig">
+<img src="img/q5_tsne.png" alt="hw3.py 的 t-SNE 圖：左下角是 Orange (fruit)、Apple (fruit)、Banana (fruit) 三個點，右上角是 Orange (telecom)、Microsoft (company)、Apple (company) 三個點">
+<figcaption>圖 6.2 — hw3.py 的輸出（含 pad 的句子向量）。三個水果在左下、公司與電信在右上；Apple (fruit) 與 Orange (fruit) 緊貼在一起，Apple (company) 與 Microsoft 相鄰。</figcaption>
+</figure>
+
+<p>圖上看得到的：<b>兩群分得很開</b>，水果一群、公司與電信一群；Apple 的兩個意思落在不同群裡。這和上一節的 cosine 表是同一個結論。</p>
+
+<p>看不到、也不該讀的：</p>
+
+<ul>
+<li><b>座標的數值與軸向沒有意義</b>。「t-SNE Dim 1」不是某個可以解釋的方向，整張圖轉 90 度、左右翻轉，表達的鄰居關係都一樣。</li>
+<li><b>距離的大小不能當成相似度的大小</b>。t-SNE 會把群內的點擠在一起、把群和群推開，平面上「左下到右上」的距離遠大於群內的距離，但原本的 cosine 只是 0.70–0.79 對 0.85–0.92 的差別。</li>
+<li><b>可靠的是最近鄰</b>。本機用 random_state 0、1、42、123 各跑一次（<code>logs/facts_q4_q7.txt</code> q5 段最後四行），平面上每個點的最近鄰都是 Apple(f)↔Orange(f)、Apple(c)↔MS、Orange(t)→MS、Banana→Apple(f)，和上一節從 cosine 表讀出的最近鄰相同。</li>
+</ul>
+
+<p>座標不可靠這件事本機就碰到了一個例子：FACTS 記錄的事實腳本 t-SNE 座標（例如 Apple(f) 在 (−150.2, −112.6)）和這張 hw3.py 輸出圖的座標範圍（x 約 −45 到 40、y 約 −55 到 26，從圖讀出）對不上，但分群與最近鄰一致。事實腳本與 hw3.py 都用 <code>perplexity=2, random_state=42</code>，差異可能來自兩者算句子向量時的數值細節（例如先平均再轉 fp32，或先轉再平均），t-SNE 對輸入的微小差異很敏感（推論，本機沒有追）。<!-- TODO(本機實測): hw3.py q5 實際的 embeddings_2d 座標；事實腳本 q5 段的 t-SNE 輸入與 hw3.py 的 sentence_embeddings 是否逐元素相同、差異從哪裡來 --></p>
+
+<h2 id="r8">6.6　讀 code 不盡信文件</h2>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：R8 句子向量把 padding 也平均進去</h4>
+<p><b>程式做的</b>：hw3.py:275 的 <code>hidden_states.mean(dim=1)</code> 把 9 個位置一律平均，不看 <code>attention_mask</code>。補了 2 個 pad 的句子，句子向量有 2/9 來自 pad；Orange (fruit) 沒有 pad。:274 的註解寫明這是「as in the Colab」，原版 Colab 第 26 格的 <code>hidden_states.mean(dim=1)</code> 就是這樣。</p>
+<p><b>為什麼不好</b>：pad 是為了湊齊 tensor 形狀才補的，不屬於任何一句話；而且它的向量不是零，是「平均地看整句」算出來的、每句不同的東西（<a href="#pad-vector">6.3.1 節</a>）。結果是句子向量會隨「這句被補了幾個 pad」而改變：同一句話單獨跑和放在 batch 裡跑，句子向量的 cosine 只有 0.963–0.994（沒有 pad 的那句是 1.000）。</p>
+<p><b>影響有多大</b>：數字有變，例如 Apple(f)–Orange(f) 從 0.902（含 pad）變成 0.924（排除 pad）；但最近鄰關係與「Apple 兩個意思比 Apple 與 Microsoft 遠」的結論不變（<a href="#cosine">6.4 節</a>）。排除 pad 的 t-SNE（事實腳本畫的實驗版）：</p>
+<figure class="fig">
+<img src="img/exp_q5_tsne_masked.png" alt="排除 pad 的 t-SNE 實驗版：Apple (company)、Microsoft (company)、Orange (telecom) 在上方；下方是 Apple (fruit)，Banana (fruit) 在它上方一點、Orange (fruit) 在它右邊">
+<figcaption>圖 6.3 — <b>實驗版，不是 hw3.py 的輸出</b>：事實腳本改用只平均真實 token 的句子向量（其他設定相同），畫成 <code>img/exp_q5_tsne_masked.png</code>。座標和上一張 hw3.py 的圖完全不同（這一張的 x 軸只有 −10 到 1 左右），但公司／電信一群、水果一群，最近鄰關係相同（本書從 <code>logs/facts_q4_q7.txt</code> 的實驗版座標算：例如 Apple(f) 到 Orange(f) 約 11.7、到 Banana 約 15.7）。</figcaption>
+</figure>
+<p><b>正確的寫法</b>（本書的示意，不在 hw3.py 裡）：用 <code>attention_mask</code> 當權重，只平均真實 token。</p>
+<pre class="py">mask = inputs.attention_mask.unsqueeze(-1).to(hidden_states.dtype)   # (6, 9, 1)
+sentence_embeddings = ((hidden_states * mask).sum(dim=1) / mask.sum(dim=1)).float().cpu().numpy()</pre>
+<p>事實腳本的「排除 pad」版本就是這個做法的結果（數字見 6.4 節）；上面這兩行本書沒有照字面跑過。hw3.py 為了和助教的參考答案一致，保留原版的寫法。</p>
+</div>
+
+<div class="warn">
+<h4>讀 code 不盡信文件：「Word Embeddings」其實是句子向量</h4>
+<p>hw3.py:293 與原版 Colab 第 26 格的圖標題都是 <code>"t-SNE Visualization of Word Embeddings"</code>；投影片 p.20 的示意圖也在說「意思相近的 <b>Token</b> 會有接近的 Embedding」。但程式畫的六個點，每一個都是<b>一整句話</b> 9 個位置的平均（含 <code>&lt;bos&gt;</code>、句號與 pad），不是某一個字（word 或 token）的向量。圖上的標籤「Apple (fruit)」指的是「I ate a fresh apple.」這<b>一句</b>。</p>
+<p>這個差別會影響解讀：「Apple 的兩個意思被分開」，嚴格說是「含 apple 的兩句話被分開」；兩句的其他字（ate、fresh、released、iPhone…）也在平均裡，貢獻不比 Apple 小。<a href="#keyword">6.4.1 節</a>只取關鍵字 token 的對照，才比較接近「word embedding」的意思（而且還有 <code>▁apple</code> 與 <code>Apple</code> 是不同 token 的問題）。讀選擇題的敘述時，留意它說的是 token、word 還是 sentence。</p>
+</div>
+
+<h2 id="lab">6.7　動手做</h2>
+
+<div class="lab">
+<h4>自己跑 Q5，看 pad 的影響</h4>
+<p><b>1. 只跑 Q5</b>（在 repo 根目錄；需要 GPU 與 HF 授權，見<a href="index.html#env">目錄頁 3.2 節</a>；不需要 <code>--seed</code>，Q5 沒有亂數抽樣）：</p>
+<pre class="shell cmd">.venv/bin/python HW03/hw3.py --q 5</pre>
+<p>終端機在 Q5 的分隔線之後只會印 <a href="#batch">6.2 節</a>那兩行（truncation 的警告與 <code>[saved] …/HW03/outputs/q5_tsne.png</code>），圖存在 <code>HW03/outputs/q5_tsne.png</code>。和圖 6.2 比：應該看到水果一群、公司與電信一群，Apple (fruit) 最靠近 Orange (fruit)，Apple (company) 最靠近 Microsoft。座標數值可能不同（<a href="#tsne">6.5 節</a>），這不代表錯。</p>
+<p><b>2. 看 cosine 表、排除 pad 的版本與實驗圖</b>（事實腳本，同樣在 repo 根目錄，會載入模型；結果印在終端機）：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py q5</pre>
+<p>輸出格式就是 <code>logs/facts_q4_q7.txt</code> 的 q5 段：每句的 token、三個版本的 6 × 6 cosine 表與 t-SNE 座標、四個 random_state 的最近鄰。它也會把圖 6.3 寫到 <code>docs/HW03/img/exp_q5_tsne_masked.png</code>（覆蓋 repo 裡那一張；不想改動 repo 的話，跑完用 <code>git checkout docs/HW03/img/exp_q5_tsne_masked.png</code> 還原）。</p>
+<p><b>3. pad 向量、batch 與單句、關鍵字 token、t-SNE 的預設值</b>：</p>
+<pre class="shell cmd">.venv/bin/python docs/tools/hw03_facts.py pre_ch06</pre>
+<p>本機約 160 秒（逐句單獨 forward、印 attention 權重）。輸出格式就是 <code>logs/facts_pre_ch06.txt</code>：attention_mask、每句 batch 與單句的比較、9 個 pad 向量的範數、關鍵字 token 的 cosine 表、sklearn 的設定與 perplexity 的例外、pad 那一列的 attention 權重。</p>
+</div>
+
+<h2 id="pitfalls">6.8　常見錯誤</h2>
+
+<div class="pitfalls">
+<div class="pit">
+<h4>以為 pad 的向量是零或固定的</h4>
+<dl>
+<dt>症狀</dt><dd>認為 pad 被 mask 掉了，平均時就像加了零；或以為所有 pad 位置的向量都一樣。</dd>
+<dt>後果</dt><dd>低估 R8 的影響。</dd>
+<dt>正解</dt><dd class="fix">pad 那一列平均地看整句，向量範數 104–121、每句不同（同一句的兩個 pad 相同）。要排除它，就用 <code>attention_mask</code> 加權平均。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 t-SNE 圖上的距離當成相似度</h4>
+<dl>
+<dt>症狀</dt><dd>「Apple (fruit) 和 Apple (company) 在圖上隔了一整張圖，所以非常不像」。</dd>
+<dt>後果</dt><dd>t-SNE 會誇大群與群之間的距離；原本的 cosine 是 0.757，不是「完全不像」。</dd>
+<dt>正解</dt><dd class="fix">要比相似度，看原本空間的 cosine；t-SNE 圖只用來看分群與最近鄰。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>拿座標去和別人比</h4>
+<dl>
+<dt>症狀</dt><dd>自己的圖 Apple (fruit) 在左下，同學的在右上，以為有人錯了。</dd>
+<dt>後果</dt><dd>在沒有意義的地方找差異。</dd>
+<dt>正解</dt><dd class="fix">t-SNE 的座標與軸向沒有意義，輸入的微小差異、random_state 都會讓它整個變。比較「誰最靠近誰」。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把 perplexity 調大</h4>
+<dl>
+<dt>症狀</dt><dd>照一般建議把 perplexity 設成 30，或設成 6。</dd>
+<dt>後果</dt><dd><code>ValueError: perplexity (6) must be less than n_samples (6)</code>。</dd>
+<dt>正解</dt><dd class="fix">只有 6 個點，perplexity 必須小於 6；hw3.py 用 2。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>以為 padding 改變了真實 token 的向量</h4>
+<dl>
+<dt>症狀</dt><dd>看到句子向量隨 batch 改變，就懷疑模型對補了 pad 的句子算錯。</dd>
+<dt>後果</dt><dd>找錯原因。</dd>
+<dt>正解</dt><dd class="fix">真實 token 的向量 batch 與單句的 cosine ≥ 0.999998；差異來自 mean pooling 把 pad 平均進去（R8）。</dd>
+</dl>
+</div>
+<div class="pit">
+<h4>把圖標題的 Word Embeddings 當真</h4>
+<dl>
+<dt>症狀</dt><dd>以為六個點是 Apple、Orange 這幾個字的向量。</dd>
+<dt>後果</dt><dd>把「整句平均」的結論說成「字的表示」。</dd>
+<dt>正解</dt><dd class="fix">每個點是一整句（含 <code>&lt;bos&gt;</code>、標點、pad）的平均；只取字的位置，結果差很多（0.528 對 0.757）。</dd>
+</dl>
+</div>
+</div>
+
+<div class="recap">
+<h4>本章小結</h4>
+<ul>
+<li>六句話一次送進模型，tokenizer 左邊補 pad 到 9 個 token，<code>input_ids</code> (6, 9)、各句 2、2、0、1、2、2 個 pad；<code>attention_mask</code> 讓真實 token 不看 pad。:269 的 <code>truncation=True</code> 沒有 <code>max_length</code>，只印一行警告。</li>
+<li>左補 pad 讓位置整體平移，但真實 token 的最後一層向量 batch 與單句 cosine ≥ 0.999998（RoPE 只看相對距離是推論）。</li>
+<li>句子向量 = <code>hidden_states[-1]</code>（norm 之後的 [26]）沿 token 平均，<b>pad 也平均進去</b>（R8）。pad 那一列所有 key 都被遮，權重均分 1/9、連後面的字都看，所以 pad 向量每句不同（範數 104.2–120.9），同一句的兩個相同。</li>
+<li>cosine：Apple 兩個意思 0.757，低於 Apple(c)–MS 0.924；最近鄰在含 pad、排除 pad、再排除 <code>&lt;bos&gt;</code> 三個版本都相同。只看關鍵字 token 差距更大（0.528 對 0.897），但 <code>▁apple</code> 與 <code>Apple</code> 本來就是不同 token。</li>
+<li>t-SNE（perplexity 2 &lt; 6 個點；預設 init pca、learning_rate 50、max_iter 1000）只保留鄰居關係：分群與最近鄰可靠，座標、軸向、距離大小不可靠。</li>
+<li>圖標題寫 Word Embeddings，實際是句子平均。</li>
+</ul>
+<p>下一章是 Q6：同一個 attention，換成看「誰在看誰」。模型逐步生成時，每一層、每一個 head 的 attention 權重畫成熱圖；本章 pad 那一列的「平均分配」，在那裡會看到另一個版本：大量注意力流向 <code>&lt;bos&gt;</code>。</p>
+</div>
+
+<h2 id="quiz">自我測驗</h2>
+
+<details class="quiz"><summary>1. 為什麼 <code>input_ids</code> 是 (6, 9)？pad 補在哪一邊、各句補幾個？</summary>
+<p>六句話中最長的 Orange (fruit) 是 9 個 token（含 <code>&lt;bos&gt;</code>），其他句補到 9。Gemma 的 tokenizer 是 <code>padding_side='left'</code>，pad 補在左邊；各句補 2、2、0、1、2、2 個。</p>
+</details>
+
+<details class="quiz"><summary>2. pad 的位置被 attention_mask 遮掉了，為什麼它的最後一層向量還不是零、而且每句不同？</summary>
+<p>真實 token 不看 pad，但 pad 自己那一列，所有的 key 都被遮了，softmax 只能平均分配（本機量到 1/9），連後面的真實 token 都看進去。它的向量是整句內容經過 26 層的結果，所以不是零，也隨句子不同（範數 104.2–120.9）。同一句的兩個 pad 輸入、權重、看的東西都一樣，所以相同。</p>
+</details>
+
+<details class="quiz"><summary>3. Apple (fruit) 與 Apple (company) 的句子向量 cosine 是 0.757，Apple (company) 與 Microsoft 是 0.924。這說明了什麼？有哪些需要保留的地方？</summary>
+<p>句子向量主要反映語境：同樣有 Apple 的兩句，比語境相同（都是科技公司）的兩句還遠。保留：(1) 這是整句平均，句子裡的其他字也有貢獻；(2) 第 0 句是 <code>▁apple</code>、第 1 句是 <code>Apple</code>，本來就是不同 token；(3) 只有六句話，是這個實驗的結果，不是一般定律。</p>
+</details>
+
+<details class="quiz"><summary>4. 把 hw3.py:283 的 <code>perplexity=2</code> 改成 6，會發生什麼？</summary>
+<p>sklearn 1.9.1 丟出 <code>ValueError: perplexity (6) must be less than n_samples (6)</code>。perplexity 必須小於樣本數，這裡只有 6 個點；本機實測 5 可以跑。</p>
+</details>
+
+<details class="quiz"><summary>5. 同學的 t-SNE 圖裡，Apple (fruit) 在右上、Apple (company) 在左下，和本書相反。他錯了嗎？看什麼才能判斷？</summary>
+<p>不一定錯。t-SNE 的座標與軸向沒有意義，翻轉、旋轉、輸入的微小差異都會改變位置。要看的是分群與最近鄰：水果一群、公司與電信一群，Apple (fruit) 最靠近 Orange (fruit)、Apple (company) 最靠近 Microsoft。本機換四個 random_state，最近鄰都相同。</p>
+</details>
+
+<h2 id="further">延伸閱讀</h2>
+<ul>
+<li>van der Maaten &amp; Hinton, <i>Visualizing Data using t-SNE</i>, JMLR 2008, <a href="https://www.jmlr.org/papers/v9/vandermaaten08a.html">jmlr.org/papers/v9/vandermaaten08a</a>：t-SNE 的原始論文。</li>
+<li>Wattenberg, Viégas &amp; Johnson, <i>How to Use t-SNE Effectively</i>, Distill 2016, <a href="https://distill.pub/2016/misread-tsne/">distill.pub/2016/misread-tsne</a>：perplexity、群間距離、群大小為什麼不能直接讀。</li>
+<li>scikit-learn 文件 <a href="https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html">sklearn.manifold.TSNE</a>：參數與預設值。</li>
+<li>Reimers &amp; Gurevych, <i>Sentence-BERT</i>, 2019, <a href="https://arxiv.org/abs/1908.10084">arXiv:1908.10084</a>：用 mean pooling（含 attention mask）做句子向量的常見做法。</li>
+<li>Su et al., <i>RoFormer: Enhanced Transformer with Rotary Position Embedding</i>, 2021, <a href="https://arxiv.org/abs/2104.09864">arXiv:2104.09864</a>：RoPE 只依賴相對位置的性質。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch05.html">← 第 5 章</a><span class="disabled">第 7 章 →</span></nav>
+<footer class="chap-footer">本教材依據 lordleeber/ML2025-Spring-pytorch 的 HW03/hw3.py 撰寫；作業內容與投影片版權屬 NTU ML 2025 Spring 課程。</footer>
+<script id="inline-js">
+/* repo → HTML 教材 — 頁面強化腳本
+   （Python/C/GAS/shell 語法上色、data-hot 行強調、«N» 標注、本章目錄） */
+(function () {
+  'use strict';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- C 語法上色 ---------- */
+  var KW = new Set(('if else for while do return switch case default break continue goto sizeof ' +
+    'typedef struct union enum static const extern inline register volatile ' +
+    'unsigned signed NULL true false').split(' '));
+  var TYPE = new Set(('void int char long short float double bool ' +
+    'uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t ' +
+    'size_t ssize_t loff_t sector_t dev_t mode_t umode_t pgoff_t gfp_t ' +
+    'u8 u16 u32 u64 s8 s16 s32 s64 journal_t handle_t tid_t').split(' '));
+
+  var C_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)' +            // 1 comment
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' + // 2 string/char
+    '|(^[ \\t]*#[ \\t]*\\w+(?:[ \\t]+[<"][^>"\\n]*[>"])?)' +   // 3 preprocessor
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                     // 4 function call
+    '|\\b(0[xX][0-9a-fA-F]+[uUlL]*|\\d+[uUlL]*)\\b' +      // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                              // 6 identifier
+    'gm');
+
+  function highlightC(text) {
+    var out = '', last = 0, m;
+    C_RE.lastIndex = 0;
+    while ((m = C_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = C_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (TYPE.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else if (TYPE.has(m[6])) out += '<span class="tok-type">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- GAS 組語上色（pre.asm；AT&T 語法，.S/.s 檔案用） ---------- */
+  var ASM_RE = new RegExp(
+    '(\\/\\*[\\s\\S]*?\\*\\/)' +                       // 1 區塊註解（可跨行）
+    '|(^[ \\t]*#[ \\t]*\\w+[^\\n]*)' +                 // 2 cpp 行（#include 等）
+    '|(^[ \\t]*\\.[a-z_]\\w*)' +                       // 3 指示詞（.macro/.global…）
+    '|(^[ \\t]*[A-Za-z_.\\\\][\\w\\\\]*:)' +           // 4 標籤（含巨集的 \\label:）
+    '|(%[a-z][a-z0-9]{1,4}\\b)' +                      // 5 暫存器
+    '|(\\$?0[xX][0-9a-fA-F]+\\b|\\$\\d+\\b|\\b\\d+\\b)', // 6 立即數/數字
+    'gm');
+
+  function highlightAsm(text) {
+    var out = '', last = 0, m;
+    ASM_RE.lastIndex = 0;
+    while ((m = ASM_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = ASM_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-pre">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      else if (m[5]) out += '<span class="tok-type">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += '<span class="tok-num">' + esc(m[6]) + '</span>';
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- Python 上色（pre.py） ---------- */
+  var PY_KW = new Set(('False None True and as assert break class continue def del elif else ' +
+    'except finally for from global if import in is lambda nonlocal not or pass raise ' +
+    'return try while with yield self super').split(' '));
+  var PY_BUILTIN = new Set(('print len range list sum enumerate open int float str dict ' +
+    'set tuple isinstance zip map').split(' '));
+
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                     // 1 comment
+    '|((?:[rRbBfF]{1,2})?(?:"""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'' +
+      '|"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'))' +      // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                           // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                                 // 4 call
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?)\\b' +                        // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b',                                          // 6 identifier
+    'g');
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        if (PY_KW.has(m[4])) out += '<span class="tok-kw">' + esc(m[4]) + '</span>';
+        else if (PY_BUILTIN.has(m[4])) out += '<span class="tok-type">' + esc(m[4]) + '</span>';
+        else out += '<span class="tok-fn">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) {
+        if (PY_KW.has(m[6])) out += '<span class="tok-kw">' + esc(m[6]) + '</span>';
+        else out += esc(m[6]);
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  /* ---------- shell 上色 ---------- */
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)(\$|#)\s(.*)$/);
+      if (m && m[2] === '$') {
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(m[3]) + '</span>';
+      }
+      if (/^\s*#/.test(line)) {
+        return '<span class="sh-cmt">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  /* ---------- data-hot 行強調 ---------- */
+  function parseHotSpec(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 把 data-hot 指定的行包進 .hot-line。行號 = offset + 區塊內第幾行（1 起算）；
+     figure.listing 的 offset 取自 figcaption 的起始行號，所以 data-hot 寫原始碼行號。
+     跨行的 span（多行註解）先在行尾補收、下一行重開，維持合法巢狀。 */
+  function wrapHotLines(html, spec, offset) {
+    var hot = parseHotSpec(spec);
+    var carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [];
+      var closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) {
+        carry = opens[opens.length - 1];
+        s += '</span>';
+      } else {
+        carry = null;
+      }
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    /* pre.manual：作者手工上色/標注的頁面，enhance 完全不碰 */
+    if (pre.classList.contains('diagram') || pre.classList.contains('manual')) return;
+    var code = pre.querySelector('code');
+    var target = code || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) {
+      target.innerHTML = highlightShell(text);
+    } else if (pre.classList.contains('py')) {
+      target.innerHTML = highlightPy(text);
+    } else if (pre.classList.contains('asm')) {
+      target.innerHTML = highlightAsm(text);
+    } else if (/[;{}()#]|->|\breturn\b|\bstruct\b/.test(text)) {
+      /* 只對看起來像 C 的內容上色（含常見符號），避免誤傷純文字 */
+      target.innerHTML = highlightC(text);
+    }
+    /* «N» → 圓形標記：寫在 pre 的純文字裡（如實測輸出的逐行標注），
+       不破壞「原始碼保持純文字」的逐字 diff 原則 */
+    if (/«\d+»/.test(target.innerHTML)) {
+      target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    }
+    if (pre.dataset.hot) {
+      var offset = 0;
+      var fig = pre.closest('figure.listing');
+      var cap = fig && fig.querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      if (m) offset = parseInt(m[1], 10) - 1;
+      target.innerHTML = wrapHotLines(target.innerHTML, pre.dataset.hot, offset);
+    }
+  });
+
+  /* ---------- 本章目錄（自動生成） ---------- */
+  var main = document.querySelector('main');
+  var header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('div');
+      box.className = 'toc-box';
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + h.textContent + '</a></li>';
+      });
+      html += '</ol>';
+      box.innerHTML = html;
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>

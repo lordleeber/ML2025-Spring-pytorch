@@ -957,6 +957,15 @@
 - **sklearn 1.9.1 TSNE**（hw3.py 的設定 `perplexity=2, random_state=42`）：預設 `init='pca'`、`learning_rate='auto'`（實際 50.0）、`max_iter=1000`（`n_iter_` 999）、`metric='euclidean'`；`kl_divergence_` 0.0067。perplexity=5 可以跑；6 與 10 會丟出 `ValueError: perplexity (6) must be less than n_samples (6)`。
 - **hw3.py Q5 的警告**：`Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.`（logs/run_seed0.txt 第 218 行），來自 :269 的 `truncation=True` 沒給 `max_length`，沒有作用。
 
+## ch06 寫作時查證的事項（雲端，2026-10-04）
+
+- **hw3.py 圖與事實腳本座標對不上**：FACTS「Q5 實測」記的 hw3 版 t-SNE 座標（Apple(f) (−150.2, −112.6) 等）來自事實腳本，和 img/q5_tsne.png（hw3.py --seed 0 的實際輸出）的座標範圍（從圖讀：x 約 −45 到 40、y 約 −55 到 26）不同；分群與最近鄰一致。exp_q5_tsne_masked.png 與 log 的 masked 座標一致。ch06 推論差異來自句子向量的數值細節（平均與轉 fp32 的順序），留了 TODO。
+- **投影片 p.20（Q5，1 分）**：「Plotting the t-SNE 2-D Embeddings」，右邊示意圖寫「意思相近的 Token 會有接近的 Embedding」。三小題：(1) t-SNE 正確敘述選 2（0.4）、(2) 實驗的正確敘述（0.3）、(3) 實驗的錯誤敘述（0.3）。選項不在投影片裡。
+- **原版 Colab**：第 25 格是「## Q5: t-SNE」標題，第 26 格是整個 Q5（多 `model.to(device)` 與 import，`.cpu().numpy()` 沒有 `.float()`，`plt.show()`）；標題同樣是 "t-SNE Visualization of Word Embeddings"。
+- **從 log 讀出的（本書計算）**：三個版本（含 pad、排除 pad、再排除 `<bos>`）的 6 × 6 cosine 表，每句最近鄰都相同，且和四個 random_state 的 t-SNE 最近鄰相同。含 pad → 排除 pad：Apple(f)–Orange(f) +0.022（上升最多）、Apple(f)–Apple(c) −0.029（下降最多）。masked t-SNE 座標：Apple(f) 到 Orange(f) 約 11.7、到 Banana 約 15.7。
+- **ch06 標為推論的**：RoPE 只看相對距離所以平移不影響；pad 列全被遮時權重均分的數值原因（fp16 在 −65504 附近間距 32，蓋掉 ±50 的分數差）；同一句兩個 pad 相同的原因；`n_iter_` 999 是從 0 數的 1000 次；kl_divergence 0.0067 小並不意外。
+- **ch06 第一次交代的名詞**：mean pooling、sentence embedding（句子向量）、cosine 相似度、最近鄰、t-SNE（鄰居機率、perplexity、t 分佈）、PCA、`fit_transform`、KL divergence、`position_ids`／`cache_position`。
+
 ## 圖檔清單（docs/HW03/img/，14 張）
 
 - **hw3.py 實際輸出**：
