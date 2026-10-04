@@ -924,12 +924,23 @@
 - **R10 的現象逐句比對**（本書用 diff 比 run_seed0.txt 與 run_q4_seed0.txt 的 Q4 段）：40 句裡只有 top-k 第 13 句不同（run_q4_seed0.txt 第 23 行 vs run_seed0.txt 第 165 行），兩句前 5 個詞相同、第 6 個詞 `an`／`a` 起分岔；top-p 20 句逐句相同。
 - **p=0.6 的 98 對 BLEU = 1（計算值拆解）**：run_q4_seed0 top-p 的 8 種句子出現次數是 10、3、2、1、1、1、1、1；10 × 9 + 3 × 2 + 2 × 1 = 98 個有序句對。
 - **手算 BLEU**（第 0 句 → 第 2 句）：幾何平均 (0.8333 × 0.7273 × 0.6 × 0.4444)^(1/4) ≈ 0.634，BP exp(1 − 14/12) ≈ 0.8465，乘積 0.5367，與工具一致。
-- **nltk 原始碼沒有逐行引用**：`sentence_bleu` 的預設 weights、`modified_precision`、`brevity_penalty`、零精確度換成極小值的位置，ch05 留了 TODO（需要本機 .venv 的 nltk 3.10.3）。`SmoothingFunction().method1` 的行為（計數為 0 的那一階加 epsilon）是依 nltk 文件描述，沒有逐行查。
-- **6.22e-155 與 sys.float_info.min 並列的用意**：ch05 寫成推論（說明它不是浮點下溢，而是 nltk 刻意換進去的小數）。
+- **nltk 原始碼沒有逐行引用**（本機審稿已查出行號，見「ch05 審稿補測」）：`sentence_bleu` 的預設 weights、`modified_precision`、`brevity_penalty`、零精確度換成極小值的位置，ch05 留了 TODO（需要本機 .venv 的 nltk 3.10.3）。`SmoothingFunction().method1` 的行為（計數為 0 的那一階加 epsilon）是依 nltk 文件描述，沒有逐行查。
+- **6.22e-155 與 sys.float_info.min 並列的用意**：ch05 寫成推論（說明它不是浮點下溢，而是 nltk 刻意換進去的小數）。→ 本機審稿：換進去的就是 sys.float_info.min 本身，見「ch05 審稿補測」。
 - **hw03_selfbleu.py 數警告的寫法**：第 65–66 行 `warnings.catch_warnings(record=True)` + `warnings.simplefilter("always")`。
-- **ch05 標為推論、沒有實測的**：`--q 4 1 --seed 0` 與 `--q 4 --seed 0` 相同；Colab／notebook 裡重跑 Q4 格子不一定重現；原版不設 seed 是投影片問「哪個高」而不問數字的理由。
-- **ch00 0.1 節「那一對的 BLEU 記為 0」**：實際是極小值（例如 6.22e-155），ch05 5.2.2 有交代；ch00 那句可以改成「等同 0（實際是極小值，第 5 章）」。
+- **ch05 標為推論、沒有實測的**：`--q 4 1 --seed 0` 與 `--q 4 --seed 0` 相同（本機審稿已實測，相同）；Colab／notebook 裡重跑 Q4 格子不一定重現；原版不設 seed 是投影片問「哪個高」而不問數字的理由。
+- **ch00 0.1 節「那一對的 BLEU 記為 0」**：實際是極小值（例如 6.22e-155），ch05 5.2.2 有交代；本機審稿已把 ch00 那句改成「等同 0（實際是一個極小的正數，見第 5 章 5.2.2 節）」。
 - **ch05 第一次交代的名詞**：BLEU、hypothesis／reference、n-gram、修正精確度、幾何平均、brevity penalty、smoothing（`SmoothingFunction`）、self-BLEU、有序／無序句對、Python `warnings` 的預設過濾。
+
+## ch05 審稿補測（本機，2026-10-04；logs/review_ch05.txt）
+
+- **nltk 3.10.3 `nltk/translate/bleu_score.py` 行號**：
+  - `sentence_bleu` :45，預設 `weights=(0.25, 0.25, 0.25, 0.25)` :48，`auto_reweigh=False` :50；呼叫 `corpus_bleu` :132。
+  - `corpus_bleu` :137：BP :246；`p_numerators[1] == 0`（連 1-gram 都沒有重疊）時直接回傳 0 :257–258；沒給 smoothing 就用 `method0` :261–262；`s = (w_i * math.log(p_i) ...)`、`s = bp * math.exp(math.fsum(s))` :279–280。
+  - `modified_precision` :285：clip :384–386、numerator :388、denominator `max(1, ...)` :391。
+  - `brevity_penalty` :416：hyp 比 ref 長回傳 1 :499，hyp 為空回傳 0 :501–503，否則 `exp(1 - closest_ref_len / hyp_len)` :505。
+  - `SmoothingFunction.__init__(epsilon=0.1, ...)` :517；`method0` :561（警告 :570–577，`p_n_new.append(sys.float_info.min)` :583）；`method1` :586–597，分子為 0 的那一階換成 `(0 + epsilon) / denominator`。
+- **6.22e-155 的拆解**：那一對的 p1..p4 = 4/12、1/11、0/10、0/9，BP = 1（hyp 12 個詞、ref 8 個）。method0 把兩個 0 換成 sys.float_info.min（2.2250738585072014e-308），exp(Σ 0.25·log p_i) = 6.223629500679345e-155，與 sentence_bleu 相同。完全沒有 1-gram 重疊時（例如 `a b c` 對 `x y z`）才真的回傳 0。
+- **`--q 4 1 --seed 0`**：Q4 先跑，self-BLEU 0.2029／0.5542，Q4 的 40 句與 logs/run_q4_seed0.txt 逐字相同。
 
 ## 圖檔清單（docs/HW03/img/，14 張）
 
@@ -965,6 +976,7 @@
 - review_ch04.txt：`hw03_facts.py review_ch04` 的輸出（hw3.py 順序下的 eos [1, 107]、top_k=0 對照，碰到上限的句子，top_k=200 與 top_p=0.999 的逐步比較）。
 - facts_pre_ch05_selfbleu.txt：`docs/tools/hw03_selfbleu.py` 的輸出（從 log 重算 self-BLEU、句對統計、BLEU 拆解）。
 - review_ch05_noseed.txt：不給 `--seed` 連跑兩次 `hw3.py --q 4` 的前 3 句與分數。
+- review_ch05.txt：ch05 審稿補測（`--q 4 1 --seed 0`、6.22e-155 的拆解）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
 - log 裡的絕對路徑 `/home/valtec/poyi/GitHubLL/ML2025-Spring-pytorch/` 是本機 repo 位置。教材引用時改寫成相對路徑，例如 `HW03/outputs/...`。
 

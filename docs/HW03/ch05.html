@@ -639,7 +639,7 @@ footer.chap-footer {
 
 <div class="eq">BLEU = BP × (p<sub>1</sub> · p<sub>2</sub> · p<sub>3</sub> · p<sub>4</sub>)<sup>1/4</sup>，　BP = exp(1 − r/c)（c &lt; r 時），否則 1</div>
 
-<p>這是 BLEU 的標準定義（Papineni et al. 2002，見延伸閱讀）。nltk 的 <code>sentence_bleu</code> 不給 <code>weights</code> 時就是 4 階等權，hw3.py 沒有給。nltk 原始碼的對應行本書沒有逐行引用。<!-- TODO(本機實測): .venv 裡 nltk 3.10.3 的 nltk/translate/bleu_score.py 中 sentence_bleu／corpus_bleu 的預設 weights、modified_precision、brevity_penalty、以及「某階精確度為 0」時的處理各在第幾行 --></p>
+<p>這是 BLEU 的標準定義（Papineni et al. 2002，見延伸閱讀）。nltk 的 <code>sentence_bleu</code> 不給 <code>weights</code> 時就是 4 階等權，hw3.py 沒有給。對應的 nltk 3.10.3 原始碼（<code>.venv/lib/python3.12/site-packages/nltk/translate/bleu_score.py</code>，本機查的行號）：<code>sentence_bleu</code> 定義在 :45，預設 <code>weights=(0.25, 0.25, 0.25, 0.25)</code> 在 :48，它只是把一句包成一個 corpus 交給 <code>corpus_bleu</code>（:132）；<code>modified_precision</code> 在 :285，分子是每個 n-gram 的次數不超過它在 reference 裡出現的次數（clip，:384–388），分母是 hypothesis 的 n-gram 總數（:391）；<code>brevity_penalty</code> 在 :416，hypothesis 比 reference 長就是 1（:499），否則 <code>exp(1 - r/c)</code>（:505）；最後 :279–280 把各階取 log、乘權重、加總、取 exp，再乘上 BP。</p>
 
 <h3 id="by-hand">5.2.1　用真實的句子手算一次</h3>
 
@@ -698,11 +698,11 @@ Consider using lower n-gram order or use SmoothingFunction()
 ref: Professor Lee is a renowned machine learning educator.
 sentence_bleu = 6.223629500679345e-155 ; sys.float_info.min = 2.2250738585072014e-308</pre>
 
-<p>回傳的是 <b>6.22 × 10<sup>−155</sup></b>，不是 0。nltk 3.10.3 在某一階完全沒有重疊時，會把那一階的精確度換成一個極小的正數，而不是讓整個 log 運算出現 log(0)；後面印的 <code>sys.float_info.min</code>（Python 一般浮點數能表示的最小正數，約 2.2 × 10<sup>−308</sup>）放在旁邊，是為了說明 6.22 × 10<sup>−155</sup> 離浮點數的極限還很遠，不是運算時數值太小被截成的結果，而是 nltk 刻意換進去的小數（推論）。確切換成哪個數、在原始碼哪一行，本書沒有逐行查（5.2 節最後也說了，nltk 原始碼本書沒有逐行引用）。對 self-BLEU 的平均來說，10<sup>−155</sup> 和 0 沒有差別，所以「等同 0」的說法在數值上成立；只是嚴格說它不是 0。<code>hw03_selfbleu.py</code> 用「小於 10<sup>−10</sup>」來判斷一對「實際為 0」。</p>
+<p>回傳的是 <b>6.22 × 10<sup>−155</sup></b>，不是 0。沒有指定平滑時，nltk 用 <code>SmoothingFunction().method0</code>（bleu_score.py:261–262）：某一階的分子是 0，就發出那則警告，並把這一階的精確度換成 <code>sys.float_info.min</code>（:583），也就是 Python 一般浮點數能表示的最小正數，約 2.2 × 10<sup>−308</sup>，好讓後面的 log 不會變成 log(0)。這一對的精確度是 4/12、1/11、0/10、0/9，BP = 1（hypothesis 12 個詞，比 reference 的 8 個長），所以 BLEU = (4/12 × 1/11 × 2.2×10<sup>−308</sup> × 2.2×10<sup>−308</sup>)<sup>1/4</sup>，正好是 6.22 × 10<sup>−155</sup>：兩個最小正數各開四次方根，乘起來約 10<sup>−154</sup>（本機重算，<code>logs/review_ch05.txt</code>）。真的回傳 0 只有一種情況：連 1-gram 都沒有任何重疊（:257–258）。對 self-BLEU 的平均來說，10<sup>−155</sup> 和 0 沒有差別，所以「等同 0」的說法在數值上成立；只是嚴格說它不是 0。<code>hw03_selfbleu.py</code> 用「小於 10<sup>−10</sup>」來判斷一對「實際為 0」。</p>
 
 <p>那 log 裡只有三則警告，是不是只有三對？不是。<code>hw03_selfbleu.py</code> 把警告設成每次都記錄，（在 <code>warnings.catch_warnings(record=True)</code> 裡呼叫 <code>warnings.simplefilter("always")</code>，見 <code>docs/tools/hw03_selfbleu.py</code> 第 65–66 行），數出 <code>run_q4_seed0</code> 的 top-k 組實際觸發了 <b>4-gram 146 次、3-gram 36 次、2-gram 2 次</b>（第 5 行）。log 只印各一次，是因為 Python 的 <code>warnings</code> 預設<b>同一個程式位置、同一則訊息只顯示一次</b>，後面的都被默默略過。top-p 組（p=0.6）一次都沒觸發，原因下一節會看到。</p>
 
-<p>警告最後建議「use SmoothingFunction()」：nltk 提供幾種平滑方法，讓沒有重疊的那一階不會把整個分數壓到接近 0。<code>method1</code> 依 nltk 文件的說明，是在計數為 0 的那一階加上一個小的 epsilon 再算精確度（本書沒有逐行查原始碼，所以表裡的數字請以工具的輸出為準）。hw3.py 與原版都沒有用。本機用 <code>SmoothingFunction().method1</code> 重算同樣的句子（<code>logs/facts_pre_ch05_selfbleu.txt</code>）：</p>
+<p>警告最後建議「use SmoothingFunction()」：nltk 提供幾種平滑方法，讓沒有重疊的那一階不會把整個分數壓到接近 0。<code>method1</code>（bleu_score.py:586–597）把分子為 0 的那一階換成 <code>(0 + epsilon) / 分母</code>，epsilon 預設 0.1（:517），其他階不動。hw3.py 與原版都沒有用。本機用 <code>SmoothingFunction().method1</code> 重算同樣的句子（<code>logs/facts_pre_ch05_selfbleu.txt</code>）：</p>
 
 <div class="tablewrap"><table>
 <thead><tr><th>log、組</th><th class="num">hw3.py 的 self-BLEU</th><th class="num">加 method1</th><th class="num">實際為 0 的對數（共 380）</th></tr></thead>
@@ -962,11 +962,11 @@ self-BLEU Score for top_p (p=0.6): 0.5076</pre>
 
 <p>所以 R10 的定論是：<b>「設了 seed 還不一定一樣」的原因不是亂數，而是同一個模型物件上留著前一次 <code>generate</code> 的狀態</b>。換句話說，<code>--seed</code> 能保證的是「<b>同一條指令</b>在同一台機器、同一套版本上重跑會一樣」，不保證「Q4 的結果和前面有沒有跑別的題目無關」。本機的 hw3.py <code>--q 4 --seed 0 --top-k 200 --top-p 0.999</code> 連跑兩次，輸出逐字相同（FACTS「ch04 審稿補測」），就是前一種保證。</p>
 
-<p>幾個由此推出的情況（推論，除了已列在上表的組合，本機沒有逐一跑過）：</p>
+<p>幾個由此推出的情況：</p>
 
 <ul>
-<li><code>--q 4 1 --seed 0</code>：Q4 先跑，這時模型上還沒有 cache，Q4 自己配 62 格，結果應該和 <code>--q 4 --seed 0</code> 相同。<a href="ch00.html#pitfalls">第 0 章常見錯誤</a>那條「<code>--q 4 1</code>」說的「順序不同，Q4 的結果可能跟著變」，指的是和 <code>--q 1 4</code> 比。</li>
-<li>在 Colab 或 notebook 裡：同一個 kernel 先跑過哪些格子、跑過幾次 <code>generate</code>，都會留下 cache。即使自己加了 seed，重新執行 Q4 的格子也不一定得到上一次的結果。</li>
+<li><code>--q 4 1 --seed 0</code>：Q4 先跑，這時模型上還沒有 cache，Q4 自己配 62 格，結果和 <code>--q 4 --seed 0</code> 相同：本機實測 0.2029／0.5542，Q4 的 40 句與 <code>logs/run_q4_seed0.txt</code> 逐字相同（<code>logs/review_ch05.txt</code>）。<a href="ch00.html#pitfalls">第 0 章常見錯誤</a>那條「<code>--q 4 1</code>」說的「順序不同，Q4 的結果可能跟著變」，指的是和 <code>--q 1 4</code> 比。</li>
+<li>在 Colab 或 notebook 裡：同一個 kernel 先跑過哪些格子、跑過幾次 <code>generate</code>，都會留下 cache。即使自己加了 seed，重新執行 Q4 的格子也不一定得到上一次的結果（推論，本機沒有在 notebook 裡試）。</li>
 <li>換 GPU 或套件版本，fp16 的運算本來就可能不同，同一條指令也不保證和本書的句子一樣（<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。</li>
 </ul>
 
