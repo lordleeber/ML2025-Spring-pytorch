@@ -1132,7 +1132,7 @@
 - **ch10 沒有引用新的原始碼行號**；提到的 :77、:80、:139、:162、:208、:215、:231、:275、:320、:365、:393、:397、:400 都是前面各章逐字引用過的行（雲端以 grep 核對 HW03/hw3.py）。
 - **Q1 單 `<bos>` 的改法**：hw3.py:77 是 Q1 兩條路共用的 `tokenizer(prompt, ...)`；純文字那條本身沒有 `<bos>`，若兩條一起加 `add_special_tokens=False` 會變成沒有 `<bos>`。ch10 進階 1 給的示意是 `add_special_tokens=not prompt.startswith(tokenizer.bos_token)`，沒有照字面跑過（留了 TODO）；參考數字用「ch01 審稿補測」cache 表的「自己配置」欄（6.0734、6.3992、4.2210）。
 - **Q2 單 `<bos>` 的改法**：:139 加 `add_special_tokens=False`、:162 前 `model._cache = None`；參考數字是事實腳本的「ch02 審稿補測」（Red、Orange、Yellow），改 hw3.py 本身沒有跑過（留了 TODO）。
-- **哪些修法照字面跑過**：R5、R6（ch08 審稿，改 hw3.py 複本）、R7（ch07 審稿）、R8（ch06 審稿）。R1（Q1、Q2）與 R11 是事實腳本的等價實驗；R2 的 `top_k=0` 是 ch04 審稿用 hw3.py 的順序跑的。
+- **哪些修法照字面跑過**（ch10 10.2 節的分類）：R5、R6 改 hw3.py 的複本照字面跑過（ch08 審稿）；R7、R8 的兩行在事實腳本裡照字面跑過（ch07、ch06 審稿），沒有跑改過的 hw3.py；R1（Q1、Q2）、R2（`top_k=0`，ch04 審稿用 hw3.py 的順序）、R3（eos `[1, 107]`）、R11 是事實腳本的等價實驗。進階 4「重畫後 y 軸第一個是 `<bos>`」是推論（只印過標籤清單）。
 - **計算值**：Q1 單 vs 雙 `<bos>` 的差：沿用 cache 6.1188 − 6.0734 ≈ 0.05、自己配置 6.3992 − 6.0734 ≈ 0.33。
 - **全景圖（圖 10.1）的對應**：Q6 的 `attentions[layer_idx]` 用的是 block 編號本身（attentions 沒有 embedding 那一格），hidden_states 才有「索引 = block + 1」的位移。
 - **ch10 第一次交代的名詞**：探針（probe，本書指「每一題觀察的位置」）、三級題庫（入門／進階／挑戰）。
