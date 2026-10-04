@@ -800,7 +800,7 @@ footer.chap-footer {
 
 <div class="lab">
 <h4>進階 1　Q1 改成單 &lt;bos&gt;，再比 coherence</h4>
-<p><b>做什麼</b>：讓有 template 的那條路只有一個 <code>&lt;bos&gt;</code>。注意 hw3.py:77 的 <code>tokenizer(prompt, ...)</code> 是兩條路共用的：沒有 template 的純文字本身沒有 <code>&lt;bos&gt;</code>，靠 tokenizer 加的那一個，所以不能兩條路一起加 <code>add_special_tokens=False</code>。一個做法（本書的示意，沒有照字面跑過）是只在字串已經以 <code>&lt;bos&gt;</code> 開頭時不加：</p>
+<p><b>做什麼</b>：讓有 template 的那條路只有一個 <code>&lt;bos&gt;</code>。注意 hw3.py:77 的 <code>tokenizer(prompt, ...)</code> 是兩條路共用的：沒有 template 的純文字本身沒有 <code>&lt;bos&gt;</code>，靠 tokenizer 加的那一個，所以不能兩條路一起加 <code>add_special_tokens=False</code>。一個做法（本機照字面跑過，見下面的參考）是只在字串已經以 <code>&lt;bos&gt;</code> 開頭時不加：</p>
 <pre class="py">input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=not prompt.startswith(tokenizer.bos_token)).input_ids.to(DEVICE)</pre>
 <p><b>關鍵</b>：結果取決於 KV cache。hw3.py 先跑有 template（配 544 格），沒有 template 那次沿用 544 格。要公平比較，在 :80 的 <code>model.generate</code> 前面加一行 <code>model._cache = None</code>，讓每次都自己配置。</p>
 <p>改完在 repo 根目錄跑 <code>.venv/bin/python HW03/hw3.py --q 1</code>，看兩行 <code>Coherence Score</code>。</p>
@@ -813,13 +813,13 @@ footer.chap-footer {
 <tr><td>沒有 template</td><td class="num">535 格：4.2210</td><td class="num">5.0104</td></tr>
 </tbody>
 </table></div>
-<p>加了 <code>model._cache = None</code>，預期兩行分數是左欄的 <b>6.3992</b>（有 template）與 <b>4.2210</b>（沒有 template）。只改 :77、不加那一行時：有 template 那次是 Q1 的第一次 generate，自己配 543 格（推論：應該是 6.3992）；沒有 template 那次會沿用這 543 格，這個長度本機沒有量過。所以「單 <code>&lt;bos&gt;</code> 比雙 <code>&lt;bos&gt;</code> 高多少」，答案是 0.05 還是 0.33，取決於 cache 怎麼配；連沒有 template 那一欄都會跟著變。這一題真正要學的是：比較兩種寫法時，先把其他會變的東西固定住（<a href="ch01.html#r1">第 1 章 1.7 節</a>、<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。<!-- TODO(本機實測): 照 ch10 進階 1 的示意改 hw3.py:77 並在 :80 前加 model._cache = None，跑 --q 1，確認兩行分數是 6.3992 與 4.2210；另外量只改 :77、不加 _cache = None 時沒有 template 那條路沿用 543 格的分數 --></p>
+<p>加了 <code>model._cache = None</code>，預期兩行分數是左欄的 <b>6.3992</b>（有 template）與 <b>4.2210</b>（沒有 template）。只改 :77、不加那一行時：有 template 那次是 Q1 的第一次 generate，自己配 543 格；沒有 template 那次會沿用這 543 格。本機兩種改法都照字面跑過（<code>logs/review_ch10.txt</code>，改的是 hw3.py 的複本）：加了 <code>model._cache = None</code> 印出 6.3992 與 4.2210；只改 :77、不加那一行，同樣印出 6.3992 與 4.2210，也就是沒有 template 那條路沿用 543 格時，分數剛好和自己配 535 格相同。所以「單 <code>&lt;bos&gt;</code> 比雙 <code>&lt;bos&gt;</code> 高多少」，答案是 0.05 還是 0.33，取決於 cache 怎麼配；連沒有 template 那一欄都會跟著變。這一題真正要學的是：比較兩種寫法時，先把其他會變的東西固定住（<a href="ch01.html#r1">第 1 章 1.7 節</a>、<a href="ch00b.html#numerics">補充章 K.8.1 節</a>）。</p>
 </div>
 
 <div class="lab">
 <h4>進階 2　Q2 改成單 &lt;bos&gt;</h4>
 <p><b>做什麼</b>：Q2 的 prompt 一律來自 chat template，可以直接把 hw3.py:139 改成 <code>tokenizer(chat_template_format_prompt, return_tensors="pt", add_special_tokens=False)</code>，並在 :162 的 <code>model.generate</code> 前加 <code>model._cache = None</code>。三輪的 prompt 變成 26、58、81 個 token。改完在 repo 根目錄跑 <code>.venv/bin/python HW03/hw3.py --q 2</code>，看三行 <code>Chatbot:</code>。</p>
-<p><b>參考</b>（FACTS「ch02 審稿補測」，<code>logs/review_ch02.txt</code>；事實腳本每輪從新的 cache 開始）：三輪的回答從 Indigo、Orange、Green 變成 <b>Red、Orange、Yellow</b>。第 1 輪的前幾名是 Red 0.2591、Green 0.2434、Indigo 0.2182；第 3 輪 Yellow 0.8378、Green 0.1479。同一個程序裡的雙 <code>&lt;bos&gt;</code> 對照組，三輪和 hw3.py 的 log 逐字相同（<a href="ch02.html#s5">第 2 章 2.8 節</a>）。一個 token 的差別，就讓第 1 輪換了顏色，後面兩輪的 prompt 跟著全部不同。<!-- TODO(本機實測): 照 ch10 進階 2 改 hw3.py:139 與 :162 跑 --q 2，確認回答是 Red、Orange、Yellow --></p>
+<p><b>參考</b>（FACTS「ch02 審稿補測」，<code>logs/review_ch02.txt</code>；事實腳本每輪從新的 cache 開始）：三輪的回答從 Indigo、Orange、Green 變成 <b>Red、Orange、Yellow</b>。第 1 輪的前幾名是 Red 0.2591、Green 0.2434、Indigo 0.2182；第 3 輪 Yellow 0.8378、Green 0.1479。同一個程序裡的雙 <code>&lt;bos&gt;</code> 對照組，三輪和 hw3.py 的 log 逐字相同（<a href="ch02.html#s5">第 2 章 2.8 節</a>）。一個 token 的差別，就讓第 1 輪換了顏色，後面兩輪的 prompt 跟著全部不同。本機照字面改 hw3.py 的複本跑過（<code>logs/review_ch10.txt</code>），三行 <code>Chatbot:</code> 依序是 Red、Orange、Yellow，和事實腳本一致。</p>
 </div>
 
 <div class="lab">
@@ -827,7 +827,7 @@ footer.chap-footer {
 <p><b>做什麼</b>：把 hw3.py:275 換成<a href="ch06.html#r8">第 6 章 6.6 節</a>的兩行：</p>
 <pre class="py">mask = inputs.attention_mask.unsqueeze(-1).to(hidden_states.dtype)   # (6, 9, 1)
 sentence_embeddings = ((hidden_states * mask).sum(dim=1) / mask.sum(dim=1)).float().cpu().numpy()</pre>
-<p>改完跑 <code>.venv/bin/python HW03/hw3.py --q 5</code>，看 <code>HW03/outputs/q5_tsne.png</code>。hw3.py 只畫 t-SNE 圖、不印餘弦相似度；下面的餘弦是本機審稿時對同樣的句子向量另外算的，想自己對照，就在 :275 之後用 <code>sklearn.metrics.pairwise.cosine_similarity(sentence_embeddings)</code> 印出 6 × 6 的表（這一行是本書的建議，沒有照字面跑過）。</p>
+<p>改完跑 <code>.venv/bin/python HW03/hw3.py --q 5</code>，看 <code>HW03/outputs/q5_tsne.png</code>。hw3.py 只畫 t-SNE 圖、不印餘弦相似度；下面的餘弦是本機審稿時對同樣的句子向量另外算的，想自己對照，就在 :275 之後用 <code>sklearn.metrics.pairwise.cosine_similarity(sentence_embeddings)</code> 印出 6 × 6 的表（本機照字面跑過，印出的 6 × 6 表裡 Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728，與下面的數字相同；<code>logs/review_ch10.txt</code>）。</p>
 <p><b>參考</b>（FACTS「ch06 審稿補測」，<code>logs/review_ch06.txt</code>，這兩行本機照字面跑過）：fp16 裡加總沒有溢位（最大 407.0）；餘弦相似度 Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728（含 pad 時依序是 0.902、0.924、0.868、0.757）；t-SNE 的座標整個不同，但最近鄰關係和 hw3.py 相同。</p>
 </div>
 

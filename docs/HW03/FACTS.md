@@ -1137,6 +1137,15 @@
 - **全景圖（圖 10.1）的對應**：Q6 的 `attentions[layer_idx]` 用的是 block 編號本身（attentions 沒有 embedding 那一格），hidden_states 才有「索引 = block + 1」的位移。
 - **ch10 第一次交代的名詞**：探針（probe，本書指「每一題觀察的位置」）、三級題庫（入門／進階／挑戰）。
 
+## ch10 審稿補測（本機，2026-10-04；logs/review_ch10.txt）
+
+照 ch10 題庫的示意改 hw3.py 的暫存複本（repo 的 hw3.py 沒動）：
+- **進階 1，Q1 單 `<bos>`**（:77 改成 `add_special_tokens=not prompt.startswith(tokenizer.bos_token)`）：
+  - 加上 :80 前的 `model._cache = None`：有 template 6.3992、沒有 template 4.2210。
+  - 不加：同樣是 6.3992、4.2210。沒有 template 那條路沿用有 template 配的 543 格時，分數與自己配 535 格相同（「ch01 審稿補測」表裡缺的那一格）。
+- **進階 2，Q2 單 `<bos>`**（:139 加 `add_special_tokens=False`，:162 前加 `model._cache = None`）：三輪 `Chatbot:` 依序 Red、Orange、Yellow。
+- **進階 3，Q5 排除 pad**（:275 換成 masked mean，並印 `cosine_similarity`）：Apple(f)–Orange(f) 0.924、Apple(c)–MS 0.915、Orange(t)–MS 0.869、Apple(f)–Apple(c) 0.728，與「ch06 審稿補測」相同。
+
 ## 圖檔清單（docs/HW03/img/，16 張）
 
 - **hw3.py 實際輸出**：
@@ -1184,6 +1193,7 @@
 - run_q7_bad_flags.txt：`hw3.py --q 7 --sae-layer-idx 27` 與 `--token-idx 13` 的 traceback 尾段。
 - run_q7_token0.txt：`hw3.py --q 7 --token-idx 0` 的 `<bos>` 逐層一行。
 - rerun_seed0_check.txt：寫第 10 章前重跑 `hw3.py --seed 0` 與 run_seed0.txt 的比對結果（只差進度列；9 張圖 md5 相同）。
+- review_ch10.txt：ch10 審稿補測（題庫進階 1、2、3 照字面改 hw3.py 複本跑的結果）。
 - sources_gemma.txt：Gemma 補充章引用的外部來源原文摘錄（技術報告、模型卡、Gemma Scope、Google 部落格、HF API）。
 - facts_gemma.txt：`docs/tools/hw03_gemma.py` 的輸出（checkpoint 檔案、config、tokenizer、pt vs it 權重與行為）。
 - facts_review1_r10.txt：R10 的對照。前半是 `hw3.py --q 4|3 4|2 4|1 4 --seed 0` 的 self-BLEU，後半是 `docs/tools/hw03_r10_cache.py` 的輸出。
