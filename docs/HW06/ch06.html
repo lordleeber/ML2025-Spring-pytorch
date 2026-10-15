@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 6 章　重現與雜訊 — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch05.html">← 第 5 章</a><a href="ch07.html">第 7 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 6 章　重現與雜訊</h1>
+  <p class="chap-lead">「同一份程式跑兩次，結果一樣嗎？」這個問題在這份作業裡比想像中難回答。這一章先整理這份程式裡有哪些亂數、各由誰設定，再完整記錄一次追查：拆好的程式和原版 notebook 訓練出一模一樣的權重，答案卻從第 8 題開始不同。依序排除了四個嫌疑，第五個才是原因：chat template 裡的一行日期。章末回答後面兩章要用的問題：結果的雜訊有多大，要跑幾次才能下結論。</p>
+</header>
+<main>
+
+<h2 id="rng">6.1　這份程式裡有哪些亂數</h2>
+<p>前幾章零星提過，這裡整理成一張表。一份程式「每次跑都一樣」，前提是下面每一個亂數來源都被固定住：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>亂數來源</th><th>用在哪裡</th><th>由誰設定</th><th>在哪一章</th></tr></thead>
+<tbody>
+<tr><td>Python 的 <code>random</code></td><td>few-shot 範例的抽樣</td><td>import 時 <code>random.seed(42)</code> 決定訓練樣本的範例；Trainer 的 <code>set_seed(1126)</code> 重設後決定評估時的範例</td><td>1</td></tr>
+<tr><td>torch（CPU 與 GPU）</td><td>LoRA A 的初始值</td><td><strong>沒有人</strong>：<code>get_peft_model</code> 執行時，torch 的種子還是程式啟動時隨機產生的</td><td>2</td></tr>
+<tr><td>torch</td><td>訓練資料的順序（<code>group_by_length</code> 的 <code>randperm</code>）</td><td><code>set_seed(1126)</code></td><td>3</td></tr>
+<tr><td>torch（GPU）</td><td>取樣解碼的每一步</td><td>接在訓練之後的狀態；載入 checkpoint 時建立 LoRA 層還會再用掉一次</td><td>4</td></tr>
+<tr><td>GPU 的計算順序</td><td>部分 kernel 用原子加法，加總順序不固定，浮點誤差可能每次不同</td><td>預設不保證；要開 <code>torch.use_deterministic_algorithms(True)</code></td><td>0、6</td></tr>
+</tbody>
+</table></div>
+<p>表格最後一列不是「亂數」，卻有一樣的效果。ML2022 的 HW07 讀碼教材就踩過這一點：BERT 的訓練在固定所有種子之後，跑兩次仍然在 100 步之內分岔，原因是 embedding 反向傳播用了不保證順序的原子加法。本書的參照版與拆檔驗證，一律透過第 0 章的 wrapper <code>hw06_det.py</code> 打開決定性模式（同時設定環境變數 <code>CUBLAS_WORKSPACE_CONFIG=:4096:8</code>，cuBLAS 的決定性運算需要它）。</p>
+<p>這份作業在決定性模式下的計算本身很穩定。第 2 章的探測工具把同一個 batch 重複做 4 次 forward 與 backward，4-bit 與 bf16、有沒有 LoRA，loss 與梯度都逐位元相同。所以原版每次結果不同的原因，不在 GPU，而在表格第二列：沒有人設定的 LoRA 初始值。固定 torch 的啟動種子之後，原版 notebook 連跑兩次（ref3、ref4），10 個 checkpoint 與 504 筆答案全部相同。</p>
+
+<h2 id="mystery">6.2　追查：權重相同，答案不同</h2>
+<p>拆好 <code>hw6.py</code> 之後，照第 0 章的方法驗證：用和 ref3 一模一樣的設定跑一次（split1），和 ref3 逐位元比對。結果很奇怪：</p>
+<ul>
+<li>10 個 checkpoint 全部相同，train_loss 都是 0.852828219820141，小數點後 15 位一致。</li>
+<li>交出去的 504 筆答案，前 7 筆（list 的第 0 到第 6 筆）相同，從第 8 筆開始分岔，總共 407 筆不同。GSM8K public 的 Accuracy 從 0.348 變成 0.326。</li>
+</ul>
+<p>訓練完全相同，問題一定出在評估。前 7 題相同、之後才分岔，代表亂數的起點一致，是途中發生了什麼事。以下照實際的順序記錄每一個嫌疑，以及怎麼排除它。</p>
+
+<h3 id="s1">嫌疑一：被丟掉的 PeftModel 物件</h3>
+<p>拆檔時唯一刻意改動的地方，是第 4 章那行 <code>pipeline.model = PeftModel.from_pretrained(...)</code>：第一版 <code>hw6.py</code> 直接丟掉回傳值，notebook 則把它掛在 <code>pipeline</code> 上一直保留。被丟掉的物件會在某個時間點被垃圾回收，如果回收時動到了模型，就可能從中途開始不同。用探測工具 <code>docs/tools/hw06_gc_probe.py</code> 在不訓練的情況下比較「保留」與「丟掉」，中途還強制呼叫一次 <code>gc.collect()</code>：前 15 題的答案完全相同，LoRA 權重也沒變。<strong>排除。</strong></p>
+
+<h3 id="s2">嫌疑二：GPU 記憶體的配置</h3>
+<p>保留或丟掉物件，也會改變 GPU 記憶體的配置位置；有些 kernel 會依記憶體對齊走不同的計算路徑。不訓練的探測量不到「訓練之後」的記憶體狀態，所以直接把 <code>hw6.py</code> 那一行改回 notebook 的寫法（split2），完整重跑：結果和 split1 的 504 筆完全相同，仍然在第 8 筆和 ref3 分岔。那一行與差異無關。<strong>排除</strong>（<code>hw6.py</code> 仍保留 notebook 的寫法）。</p>
+
+<h3 id="s3">嫌疑三：追蹤每一次生成</h3>
+<p>不再猜了，改成直接追蹤。工具 <code>docs/tools/hw06_trace.py</code> 不改目標腳本，把 transformers 生成用的 <code>TextGenerationPipeline.__call__</code> 換成一個包裝：每次呼叫前記下 torch 的 CPU 與 GPU 亂數狀態、Python 的亂數狀態、輸入內容的雜湊，呼叫後記下輸出的雜湊。</p>
+<figure class="listing"><figcaption>docs/tools/hw06_trace.py:33–42 — traced()</figcaption>
+<pre class="py" data-hot="34-36,40"><code>def traced(self, text_inputs, **kwargs):
+    rec = {'call': len(records), 'torch_cpu': h(torch.get_rng_state().numpy().tobytes()),
+           'torch_cuda': h(torch.cuda.get_rng_state().numpy().tobytes()),
+           'py_random': h(random.getstate()), 'input': h(text_inputs),
+           'model_id': id(self.model), 'model_training': self.model.training}
+    out = orig_call(self, text_inputs, **kwargs)
+    text = out[0]['generated_text'][-1]['content']
+    rec['output'] = h(text)
+    rec['output_head'] = text[:60]
+    records.append(rec)</code></pre></figure>
+<p>notebook 和 <code>hw6.py</code> 各跑一次，追蹤前 10 次生成。兩份紀錄逐行比對，<strong>全部相同</strong>，包括第 8 次。更奇怪的是，兩者的輸出都等於 split1（第 8 題答 645），而不是 ref3（650）。也就是說，原版 notebook 今天在追蹤工具底下跑，結果和 <code>hw6.py</code> 一樣；和 ref3 不同的不是拆檔，而是別的東西。</p>
+
+<h3 id="s4">嫌疑四：import 的順序</h3>
+<p>追蹤工具和決定性 wrapper 的差別之一，是追蹤工具在執行腳本前先 import 了 transformers 的 pipeline 模組；<code>hw6.py</code> 和 notebook 的 import 順序也不同。會不會某個函式庫在被 import 時改了 torch 的全域設定？照兩種順序 import，印出所有和數值精度有關的旗標（TF32、bf16／fp16 的降精度加總、四種 SDPA attention 後端、cuDNN 設定）：全部沒有變。再照兩種順序各載入一次 4-bit 模型，同一個 prompt 的 logits 雜湊完全相同。<strong>排除。</strong></p>
+
+<h3 id="s5">嫌疑五：時間</h3>
+<p>剩下沒有控制住的變數只有一個：ref3 和 ref4 是 10 月 11 日跑的，split、追蹤都是 10 月 12 日跑的。驅動版本、資料檔與模型檔的雜湊、腳本與套件都核對過，沒有變。那就用最直接的方法檢驗：今天再用和 ref3 一模一樣的方式跑一次原版 notebook（ref5）。結果 ref5 和 split1 的 10 個 checkpoint、504 筆答案<strong>全部相同</strong>，和 ref3 則是 407 筆不同。拆檔沒有錯，是 11 日到 12 日之間有東西變了。</p>
+
+<h2 id="date">6.3　原因：template 裡的日期</h2>
+<p>答案在第 0 章就出現過：Llama 3.2 的 chat template 會自己加一段 system header，裡面寫著 <code>Today Date</code>。template 的原始碼是 <code>{%- set date_string = strftime_now("%d %b %Y") %}</code>，也就是<strong>執行當天的日期</strong>。評估時每一個 prompt 開頭都有這一行，ref3 的是「11 Oct 2026」，ref5 的是「12 Oct 2026」。prompt 不同，模型的輸出當然可能不同。</p>
+<p>這也解釋了其他所有現象：</p>
+<ul>
+<li><strong>訓練完全相同</strong>：訓練資料在格式化時把 system header 切掉了（第 1 章），和日期無關。</li>
+<li><strong>前 7 題相同</strong>：兩個 prompt 只差日期裡的一個數字，對短短的回答影響很小，取樣碰巧抽到相同的 token；到第 8 題某一步的機率分布差了一點點，抽到不同的 token，之後亂數的消耗量錯開，後面每一題都不同。</li>
+<li><strong>同一天的結果都一致</strong>：ref3 與 ref4 同一天，split、追蹤、ref5 同一天。</li>
+</ul>
+<p>推論再合理也要實測。transformers 的 <code>strftime_now</code> 是一個函式裡的區域函式，從外面換不掉，但它呼叫的是 <code>chat_template_utils</code> 模組裡的 <code>datetime.now()</code>。工具 <code>docs/tools/hw06_fixdate.py</code> 把這個模組裡的 <code>datetime</code> 換成一個永遠回傳固定日期的版本，其餘和決定性 wrapper 相同：</p>
+<figure class="listing"><figcaption>docs/tools/hw06_fixdate.py:17–30 — 固定 template 的日期</figcaption>
+<pre class="py" data-hot="20-23,26"><code>DATE = dt.datetime.fromisoformat(os.environ['HW06_DATE'])
+
+
+class FixedDatetime(dt.datetime):
+  @classmethod
+  def now(cls, tz=None):
+    return DATE
+
+
+ctu.datetime = FixedDatetime
+torch.use_deterministic_algorithms(True)
+torch.manual_seed(int(os.environ.get('HW06_TORCH_SEED', '0')))
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name='__main__')</code></pre></figure>
+<p>把日期固定成 2026-10-11，在 10 月 13 日重跑 <code>hw6.py</code>，和 10 月 11 日的 ref3 比對：</p>
+<pre class="shell">submission: 504 vs 504 entries, 0 differ</pre>
+<p>10 個 checkpoint 相同，504 筆答案一筆都沒有不同，GSM8K public 也回到 0.348。原因確定了。</p>
+<div class="warn"><h4>讀 code 不盡信文件：會隨日期改變的 prompt</h4>
+<p>大部分人不會想到，同一份程式的輸入會隨著日曆改變。這個行為寫在模型的 tokenizer 設定裡，不在作業的程式碼裡，讀範例程式完全看不出來。它的後果有兩個：評估結果無法跨日重現；而且訓練時切掉了 header、評估時沒有，模型評估時看到的格式和訓練時不同。要避免，可以在套 template 時明確傳入 <code>date_string</code>，或評估時也切掉 system header。</p></div>
+<p>這次追查前後花了一天半（每次完整重跑約 50 分鐘）。回頭看，最有效率的一步是嫌疑三的追蹤：與其一個一個猜，不如直接記錄每一次生成前後的所有狀態，讓證據指出差異在哪裡。</p>
+
+<h2 id="noise">6.4　雜訊有多大</h2>
+<p>即使能逐位元重現，也只是證明「同一個種子會得到同一個結果」。換一個種子，結果會變多少？這才是比較兩個設定時真正要知道的。第 7、8 章的每一個設定都跑 3 個種子（只改 LoRA 的起點），用 greedy 評估，所以只剩「LoRA 起點」這一種雜訊。幾個設定的三個種子：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>設定（greedy）</th><th class="num">GSM8K public</th><th class="num">全距</th><th class="num">Safety（Guard 8B）</th><th class="num">全距</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg ep1">1 epoch</span>（預設）</td><td class="num">0.386／0.386／0.341</td><td class="num">0.045</td><td class="num">0.904／0.925／0.887</td><td class="num">0.038</td></tr>
+<tr><td><span class="cfg lr">lr 1e-4</span></td><td class="num">0.341／0.402／0.356</td><td class="num">0.061</td><td class="num">0.917／0.912／0.912</td><td class="num">0.005</td></tr>
+<tr><td><span class="cfg ep3">3 epochs</span></td><td class="num">0.318／0.333／0.258</td><td class="num">0.075</td><td class="num">0.825／0.875／0.825</td><td class="num">0.050</td></tr>
+<tr><td><span class="cfg shot">8-shot</span></td><td class="num">0.258／0.318／0.265</td><td class="num">0.060</td><td class="num">0.808／0.779／0.808</td><td class="num">0.029</td></tr>
+</tbody>
+</table></div>
+<p>同一個設定，三個種子的 Accuracy 常常差 0.05 左右（6 到 10 題），Safety 多半差 0.03 到 0.05（7 到 12 題），偶爾也有幾乎不差的（lr 1e-4 只差 0.005）。取樣解碼的雜訊還要更大：原模型取樣三次的 Accuracy 跨了 0.09（第 4 章）。所以：</p>
+<ul>
+<li><strong>單一種子的比較沒有意義。</strong>兩個設定各跑一次差 0.03，可能只是運氣。</li>
+<li><strong>看平均，也看全距。</strong>本書把「兩個設定的平均差距，大於各自三個種子的全距」當作有差別的粗略門檻；差距落在全距之內的，寫成「在雜訊範圍內」。這不是嚴格的統計檢定，3 個種子也太少，但比單一種子可靠得多。</li>
+<li><strong>三個審查模型方向一致，結論才比較可信</strong>（第 5 章）。</li>
+</ul>
+<p>本書最早只用一個種子跑了 3 epochs，種子 0 的 Safety 是 0.821，看起來是明確的遺忘；跑完另外兩個種子，平均只剩 0.843，和原模型的差距縮到雜訊範圍附近。單一種子差點讓本書寫下一個太強的結論。</p>
+
+<h2 id="practice">6.5　本書的做法</h2>
+<p>把這一章的教訓整理成第 7、8 章實際遵守的規則：</p>
+<ul>
+<li><strong>比較設定</strong>：每個設定跑 3 個種子（<code>--seed 0 1 2</code>），用 greedy 評估，三個審查模型都判，主線看 Guard 8B 的平均與全距。</li>
+<li><strong>逐位元比對</strong>（例如驗證拆檔）：兩邊在同一天、同一個 wrapper 下跑；要跨日比對，就用 <code>hw06_fixdate.py</code> 固定日期。</li>
+<li><strong>只評估、不訓練</strong>：補上 <code>random.seed(1126)</code>（<code>hw6.py --skip-train</code> 已內建，評估工具用 <code>--py-seed 1126</code>），讓 few-shot 範例和訓練後的評估相同。</li>
+<li><strong>數字即時寫進 repo</strong>：每一次訓練或評估跑完，Accuracy 與 Safety 立刻寫進 <code>docs/tools/hw06_runs.jsonl</code> 與 <code>hw06_judge*.jsonl</code>。本書的實驗期間機器曾經自動重開機，放在暫存目錄的 checkpoint 與原始回答全部遺失，只有這些即時寫進 repo 的數字保住了；之後的輸出一律放在不會被清掉的 <code>HW06/outputs/</code>。</li>
+</ul>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>亂數來源有 Python 的 <code>random</code>（few-shot）、torch（LoRA 初始值、資料順序、取樣），以及 GPU 計算的順序；原版只有 LoRA 的初始值沒人設定。</li>
+<li>決定性模式加上固定 torch 的啟動種子，同一天的結果可以逐位元重現。</li>
+<li>跨日不一致的原因是 chat template 把執行當天的日期寫進評估 prompt；固定日期後，隔兩天重跑仍和原結果逐位元相同。</li>
+<li>追查時依序排除了垃圾回收、記憶體配置、import 順序；最有效的是追蹤每一次生成前後的亂數狀態與輸入輸出。</li>
+<li>同一設定換種子，Accuracy 常差 0.05 左右、Safety 多半差 0.03～0.05；比較設定至少跑 3 個種子，用 greedy 評估。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 決定性模式（<code>use_deterministic_algorithms</code>）能解決原版 notebook 每次結果不同的問題嗎？</summary>
+<p>不能單獨解決。決定性模式只保證「同樣的輸入、同樣的運算」得到同樣的結果；原版的問題是 LoRA 的初始值本身每次不同（torch 的啟動種子是隨機的）。要同時固定 torch 的種子，結果才會一樣。</p></details>
+<details class="quiz"><summary>2. 為什麼「權重完全相同、答案從第 8 筆才開始不同」這個線索，排除了訓練出錯的可能？</summary>
+<p>權重逐位元相同，代表訓練的每一步都一樣；差異只可能來自評估。答案前 7 筆相同又代表評估的起點（亂數狀態、模型）一致，差異是評估途中某個輸入或狀態的不同造成的。</p></details>
+<details class="quiz"><summary>3. 如果你在 1 月 1 日和 1 月 2 日各跑一次同樣的評估，想讓結果逐位元相同，至少要做哪幾件事？</summary>
+<p>固定 torch 的種子（含 LoRA 初始化之前）、打開決定性模式（並設定 <code>CUBLAS_WORKSPACE_CONFIG</code>）、固定 chat template 的日期（或拿掉含日期的 system header）。環境（驅動、套件、資料與模型檔）也要相同。</p></details>
+<details class="quiz"><summary>4. 兩個設定的 Safety 平均分別是 0.905 與 0.885，各自三個種子的全距約 0.04。依本書的門檻，能說兩者不同嗎？</summary>
+<p>不能。差距 0.020 小於任一方三個種子的全距，落在雜訊範圍內，只能說兩者差不多。要分辨這麼小的差異，需要更多種子或更大的測試集。</p></details>
+<details class="quiz"><summary>5. 追查跨日不一致時，為什麼「追蹤每一次生成的狀態」比「逐一猜測、逐一重跑」有效？</summary>
+<p>猜測每次只能檢驗一個假設，而且每次完整重跑要 50 分鐘。追蹤一次就同時記下所有可能出差錯的狀態（三種亂數、輸入、輸出），比對兩份紀錄就知道差異從哪裡開始；這次它直接證明了 notebook 與拆檔版本身沒有差別，把注意力引向「時間」這個沒被控制的變數。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>PyTorch，<a href="https://pytorch.org/docs/stable/notes/randomness.html">Reproducibility</a>：亂數種子、決定性演算法與 <code>CUBLAS_WORKSPACE_CONFIG</code> 的說明。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/transformers/main/en/chat_templating">Chat templates</a>：template 的寫法與可以傳入的變數（例如 <code>date_string</code>）。</li>
+<li>Bouthillier et al.，<a href="https://arxiv.org/abs/2103.03098">Accounting for Variance in Machine Learning Benchmarks</a>（2021）：為什麼比較模型時要考慮種子與資料造成的變異。</li>
+<li>ML2022 Spring HW07 讀碼教材（本 repo 的姊妹 repo <code>lordleeber/ML2022-Spring-pytorch</code> 的 <code>docs/HW07/</code>）：BERT 訓練在固定種子下仍然分岔的案例。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch05.html">← 第 5 章</a><a href="ch07.html">第 7 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>
