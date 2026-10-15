@@ -32,7 +32,7 @@
 - 所以每一個用 hw6.py 訓練的實驗（同 n-shot），評估時每題配到的範例都相同。
 - **2026-10-15 以前用 `hw06_gen.py` 量的數字**（原模型取樣與 greedy、ref3 的 10 個 checkpoint、512 token 取樣、greedy 重評、D 組）用的是 seed 42＋7,473 次之後的範例，和訓練後評估的範例不同；`hw06_gen.py --py-seed 1126` 才和 hw6.py 訓練後的評估一致。`hw6.py --skip-train` 自 2026-10-15 起自己呼叫 `random.seed(1126)`。
 
-- **base1126（2026-10-15，`hw06_gen.py --greedy --py-seed 1126`，和 hw6.py 訓練後評估相同的 few-shot 範例）**：GSM8K public 256 token **0.242**、512 token **0.235**（舊的 seed-42 範例是 0.303／0.326）——只換 few-shot 範例，原模型 Accuracy 就差 6～9 個百分點。Safety 256／512 token：8B 0.838／0.829、1B 0.629／0.833、ShieldGemma 0.946／0.938。
+- **base1126（2026-10-15，`hw06_gen.py --greedy --py-seed 1126`，和 hw6.py 訓練後評估相同的 few-shot 範例）**：GSM8K public 256 token **0.235**、512 token **0.242**（舊的 seed-42 範例是 0.303／0.326）——只換 few-shot 範例，原模型 Accuracy 就差 7～8 個百分點。（2026-10-15 更正：最初把 256／512 寫反了，以 responses.json 與完整 log 為準。）Safety 256／512 token：8B 0.838／0.829、1B 0.629／0.833、ShieldGemma 0.946／0.938。
 - **日期本身會改變安全率**：AILuminate 沒有 few-shot、greedy 解碼，原模型 256 token 在 10-12 跑（template 日期 12 Oct）8B 0.863、1B 0.696、ShieldGemma 0.933；10-15 跑（15 Oct）0.838、0.629、0.946。唯一差別是 system header 的日期，8B 差 0.025（6 題）。跨日比較的 Safety 都帶著這個雜訊。
 
 ## 資料（第 1 章）
@@ -102,6 +102,9 @@
   全部和 1 epoch 預設（0.371、8B 0.905、1B 0.767、ShieldGemma 0.935）在種子雜訊內；1 epoch 本來就沒有遺忘，這兩個提示沒有東西可以保護。
 
 - **self-instruct 訓練資料（F 組前半，greedy，1 epoch，種子 0／1／2；1868 步）**：GSM8K public 0.485／0.455／0.492（平均 **0.477**，全書最高，超過投影片 Strong 基準線 0.455）；Safety 8B 0.871／0.854／0.892（0.872）、1B 0.692／0.642／0.746（0.693）、ShieldGemma 0.921／0.908／0.938（0.922）。數學大幅上升，安全維持在原模型水準（greedy 原模型 0.863／0.696／0.933），但沒有原版資料那種「微調後更安全」（1 epoch 預設 0.905／0.767／0.935）。
+
+- **ep1g（2026-10-15，預設設定、hw6.py --greedy，種子 0／1／2，和 base1126 同一天、同一套範例）**：GSM8K public 0.394／0.371／0.348（平均 0.371）；train_loss 0.852797／0.853393／…；Safety 8B 0.871／0.904／0.892（0.889）、1B 0.717／0.746／0.729（0.731）、ShieldGemma 0.917／0.938／0.933（0.929）。對 base1126（0.235；0.838／0.629／0.946）：Accuracy ＋0.136（約 18 題），8B ＋0.051、1B ＋0.102、ShieldGemma −0.017。ep1g 種子 0 的 train_loss 0.852797 和決定性 wrapper 下的 0.852828 不同（沒開決定性模式，或 --seed 與 HW06_TORCH_SEED 的設定時機不同；未查證是哪一個）。
+- 圖表（`docs/tools/hw06_book/make_charts.py`）：三個審查模型色 #9085e9／#d55181／#c98500 與 7 個設定色在面板色 #1b1a22 上通過 dataviz 驗證（dark）；灰色只當原模型的虛線參考線（和藍色的 normal-vision ΔE 14.9 < 15，不當類別色）。
 
 ## 規格內其餘實驗
 - C、D、E、F、G、I、H 組：排程中（`scratchpad/queue_spec.sh`），完成後逐項補進來。
