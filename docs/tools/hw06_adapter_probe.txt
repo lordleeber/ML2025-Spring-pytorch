@@ -1,0 +1,8 @@
+Device set to use cuda:0
+generator.model is sft_model: True
+type(generator.model): LlamaForCausalLM
+pipeline.model is a PeftModelForCausalLM (an attribute on the function)
+LoRA copies of layer 0 q_proj in generator.model: ['model.layers.0.self_attn.q_proj.lora_B.default.weight']
+generator holds the stand-in (all 0.01): False
+generator holds the checkpoint weights: True
+checkpoint weights are all 0.01: False

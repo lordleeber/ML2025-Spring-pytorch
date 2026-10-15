@@ -1,0 +1,11 @@
+  checkpoint-187: 224 tensors, identical
+  checkpoint-374: 224 tensors, identical
+  checkpoint-561: 224 tensors, identical
+  checkpoint-748: 224 tensors, identical
+  checkpoint-935: 224 tensors, identical
+ checkpoint-1122: 224 tensors, identical
+ checkpoint-1309: 224 tensors, identical
+ checkpoint-1496: 224 tensors, identical
+ checkpoint-1683: 224 tensors, identical
+ checkpoint-1868: 224 tensors, identical
+submission: 504 vs 504 entries, 0 differ

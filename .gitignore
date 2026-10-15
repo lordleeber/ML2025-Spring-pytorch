@@ -5,3 +5,4 @@ __pycache__/
 HW*/outputs/
 .env
 .claude/
+HW*/data/

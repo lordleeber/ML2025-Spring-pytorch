@@ -1,0 +1,6 @@
+4bit forward only (no LoRA): logits identical over 4 runs: True
+4bit + LoRA: losses ['3.1220397949', '3.1220397949', '3.1220397949', '3.1220397949']
+4bit + LoRA: loss identical: True | all grads identical: True
+bf16 forward only (no LoRA): logits identical over 4 runs: True
+bf16 + LoRA: losses ['3.1319835186', '3.1319835186', '3.1319835186', '3.1319835186']
+bf16 + LoRA: loss identical: True | all grads identical: True
