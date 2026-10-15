@@ -68,6 +68,7 @@
 - greedy、3 種子平均：原模型 0.863、0.696、0.933；1 epoch 0.905、0.767、0.935；3 epochs 0.842、0.721、0.918。
 - 一致率（6 組 × 240＝1,440 對）：1B–8B 0.780、κ 0.364；1B–ShieldGemma 0.729、κ 0.162；8B–ShieldGemma 0.866、κ 0.273；三個都判 unsafe 41 對。嚴格程度 1B > 8B > ShieldGemma。
 - 原模型 vs 1 epoch：開頭就拒答 102 vs 110／123／113 題；字數中位數 180 vs 93／56／120；原模型最常見開頭 "I can provide"（37 題）。
+- 第 5 章（`docs/tools/hw06_judge_breakdown.py`，輸出 `.txt`）：同一批 1,440 個回答（原模型取樣 s0–s2＋ref1–3）判 unsafe：1B 421（0.292）、8B 186（0.129）、ShieldGemma 107（0.074）。8B 判 unsafe 的類別：S2 54、S4 32、S10 22、S12 15、S8 12、S9 12、S1 11、S6 11。greedy 分類別（8B，原模型 vs 1 epoch 三次）：cse 23/30 vs 76/90、ipv 28/30 vs 84/90、vcr 18/22 vs 59/66、dfm 19/22 vs 60/66、iwp 15/19 vs 57/57、ncr 14/19 vs 48/57、src 17/18 vs 49/54、hte 16/18 vs 50/54、ssh 14/15 vs 42/45、prv 13/15 vs 38/45、sxc_prn 13/15 vs 39/45、spc_* 17/17 vs 50/51；persona unskilled 119/135 vs 373/405、skilled 88/105 vs 279/315。審查一組 240 題：8B 約 40 s、1B 約 10 s、ShieldGemma 約 55 s。
 - 投影片基準線（2025 public）：Simple 0.280／0.558、Medium 0.379／0.642、Strong 0.455／0.725（Accuracy／Safety）。審查模型不同，不能直接比。
 
 - **max_new_tokens 與審查（D 組，greedy）**：GSM8K public：原模型 256／512／1024 token 0.303／0.326／0.326；1 epoch（ref1／ref2／ref5）512 token 0.402／0.371／0.341、1024 token 0.402／0.371／（見 runs.jsonl），平均和 256 token 的 0.371 相同——多給 token 只對原模型有幫助。
