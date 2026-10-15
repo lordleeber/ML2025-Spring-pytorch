@@ -44,6 +44,7 @@
 ## QLoRA 與訓練（第 2、3 章）
 - 4-bit NF4、double quant、compute dtype bf16；4-bit 載入佔 1.03 GB。
 - LoRA r=8、alpha=16、bias none、7 個投影層（up、down、gate、k、q、v、o）；可訓練 5,636,096＝0.454%（peft 印的 all params 1,241,450,496）；LoRA 張量 224 個（16 層 × 7 × 2）。B 初始為 0，第一步 A 的梯度為 0。
+- 第 2 章（`docs/tools/hw06_qlora_probe.py`，輸出 `.txt`，照 load_model 建模型）：load_model 後 GPU 記憶體 1.051 GB；Linear4bit 模組 224 個（112 個 peft 外層＋112 個 bnb base_layer）、Embedding 1、Linear（lm_head）1；embed_tokens、lm_head、RMSNorm 都是 **float16**（沒指定 torch_dtype）；4-bit 權重 uint8 (2097152, 1)；lora_A (8, 2048) float32、scaling 2.0、B 全為 0；各類 16 層合計：q／o 524,288、k／v 327,680、gate／up／down 1,310,720（MLP 占 69.8%）。peft 0.14.0 `reset_lora_parameters`：A `kaiming_uniform_(a=√5)`（範圍 ±1／√輸入維度：±0.0221、down_proj ±0.0110），B `zeros_`；scaling＝lora_alpha／r。tokenizer 128,257、pad id 128256、embedding 128,256 列；把 id 128256 送進模型觸發 CUDA device-side assert（indexSelectSmallIndex）。`<|finetune_right_pad_id|>` 是 128004。
 - `[PAD]` 讓 tokenizer 變 128,257，embedding 沒 resize（128,256）。
 - trl 0.15.2 `_prepare_peft_model`：model 已是 PeftModel 就直接回傳（2025 版因此跳過 `prepare_model_for_kbit_training` 與 bf16 轉型）；2026 版傳原始模型，會做這兩步。
 - 1 epoch 1868 步（batch 1 × grad-accum 4）；每 187 步存一個 checkpoint、共 10 個；本機 train_runtime 約 1,033–1,046 s（決定性模式；正式計時見 H 組）。3 epochs 5604 步。

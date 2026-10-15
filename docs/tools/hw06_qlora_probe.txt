@@ -1,0 +1,13 @@
+GPU memory allocated after load_model (GB): 1.051
+module types (projections, base layers, embeddings, lm_head): {'Embedding': 1, 'Linear4bit': 224, 'Linear': 1}
+embed_tokens Embedding torch.float16 | lm_head Linear torch.float16
+layer norm dtype torch.float16
+q_proj: Linear4bit | base layer Linear4bit | base weight torch.uint8 (2097152, 1)
+lora_A (8, 2048) torch.float32 | lora_B (2048, 8) | scaling 2.0
+B all zero: True
+trainable per module type (all 16 layers): {'q_proj': 524288, 'k_proj': 327680, 'v_proj': 327680, 'o_proj': 524288, 'gate_proj': 1310720, 'up_proj': 1310720, 'down_proj': 1310720}
+trainable params: 5,636,096 || all params: 1,241,450,496 || trainable%: 0.4540
+LoRA A init sha256 with torch.manual_seed(0): 251009a8f24567b2
+tokenizer size 128257 pad id 128256 embedding rows 128256
+forward with [PAD]: AcceleratorError CUDA error: device-side assert triggered
+(the [PAD] lookup also printed 640 CUDA device-side assertion lines 'indexSelectSmallIndex ... Assertion srcIndex < srcSelectDimSize failed', removed here)
