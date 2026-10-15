@@ -27,6 +27,11 @@
 - 跨日：ref3（10-11）對 ref5（10-12）：checkpoint 相同、504 筆有 407 筆不同，從第 7 筆開始。排除：垃圾回收（`hw06_gc_probe.py`）、`pipeline.model` 那一行（split2＝split1）、import 順序（torch 數值旗標不變、logits 相同）、驅動與檔案。追蹤（`hw06_trace.py`）：notebook 與 hw6.py 在 10-12 的前 10 次呼叫的 RNG 狀態、輸入、輸出全部相同。
 - 原因（10-13 **實測確認**：`hw06_fixdate.py` 把日期固定成 2026-10-11 重跑 hw6.py，和 10-11 的 ref3 逐位元相同，10 個 checkpoint 相同、504 筆 0 筆不同、GSM8K public 0.348；`docs/tools/hw06_compare_ref3_date1011.txt`）：Llama 3.2 的 chat template 在 system header 寫 `Today Date: {strftime_now("%d %b %Y")}`；評估 prompt 帶當天日期，訓練資料切掉了 system header。`docs/tools/hw06_fixdate.py` 固定日期。
 
+## Python 亂數與 few-shot（第 0、1 章；2026-10-15 查證）
+- `random.seed(42)`（import 時）只決定訓練樣本配到的 few-shot 範例（7,473 次 `random.sample`）。Trainer 的 `__init__` 呼叫 `set_seed(1126)`（transformers trainer.py 第 453 行；`set_seed` 第一步是 `random.seed`），訓練過程完全不用 Python 的 `random`：`docs/tools/hw06_pyrandom_probe.py`（輸出 `.txt`）在 CPU 上用小模型跑 3 步，`SFTTrainer()` 之後與 `trainer.train()` 之後的狀態都等於 `random.seed(1126)` 剛設好的狀態。
+- 所以每一個用 hw6.py 訓練的實驗（同 n-shot），評估時每題配到的範例都相同。
+- **2026-10-15 以前用 `hw06_gen.py` 量的數字**（原模型取樣與 greedy、ref3 的 10 個 checkpoint、512 token 取樣、greedy 重評、D 組）用的是 seed 42＋7,473 次之後的範例，和訓練後評估的範例不同；`hw06_gen.py --py-seed 1126` 才和 hw6.py 訓練後的評估一致。`hw6.py --skip-train` 自 2026-10-15 起自己呼叫 `random.seed(1126)`。
+
 ## 資料（第 1 章）
 - `gsm8k_train.jsonl` 7,473 題；`gsm8k_train_self-instruct.jsonl` 7,472 題（問題全部出自原訓練集；全部有 `####`；只有 103 題保留 `<<…>>`，原版 7,378 題有）。
 - `gsm8k_test_public.jsonl` 132 題（有答案、不在訓練集）；`gsm8k_test_private.jsonl` 132 題（只有 question）。

@@ -102,7 +102,7 @@ HW14 書的 ch08 已經用「現在的做法」框預告過這份作業；本書
   1. **`pipeline.model = PeftModel.from_pretrained(...)` 是對 `transformers.pipeline` 這個函式設屬性，不是 `generator`**（兩年都一樣）。~~所以 adapter_path 沒作用~~：**這個推論是錯的，2026-10-11 實測推翻**（`docs/tools/hw06_adapter_probe.py`，輸出 `hw06_adapter_probe.txt`）。`PeftModel.from_pretrained(sft_model, path)` 會**就地**把 checkpoint 權重載入 `sft_model` 裡已有的 LoRA 層（`default` 只有一份，被覆寫），而 `generator.model is sft_model`，所以 generator 用的就是 adapter_path 的 checkpoint。設錯了對象，結果卻碰巧是對的；「評估不同 checkpoint」照範例改路徑會生效。書裡寫成「讀 code 不盡信」加「推論也要實測」的雙層例子。
   2. 2025 先 `get_peft_model(sft_model, peft_config)`，又把 `peft_config` 傳給 `SFTTrainer`；2026 改成直接傳 `sft_model`＋`peft_config`。要查 2025 有沒有包兩層 adapter。
   3. 兩年都用 **4-bit NF4 量化（QLoRA）**、`paged_adamw_32bit`、bf16、batch 1×grad-accum 4、lr 2e-4 linear、r=8／alpha=16、7 個投影層、seed 1126。2025 的輸出：`global_step=1868`、`train_loss=0.8525`、T4 上 8,992 秒（約 2.5 h）。2026 的路徑寫 `checkpoint-1869`。
-  4. few-shot 用 `random.sample(gsm8k_train, n)`，**測試時也從訓練集抽、每題不同**，全域 `random.seed(42)` 只設一次，所以測試用的範例取決於前面抽了幾次。
+  4. few-shot 用 `random.sample(gsm8k_train, n)`，**測試時也從訓練集抽、每題不同**。~~測試用的範例取決於前面抽了幾次~~（2026-10-15 更正：Trainer 建立時 `set_seed(1126)` 重設 Python 的 random，訓練不用它，所以評估的範例由 1126 決定；見 FACTS「Python 亂數與 few-shot」）。
   5. 解碼預設 `do_sample=True, temperature=0.6, top_p=0.9`、`max_new_tokens=256`；答案抽取只取 `####` 後面、去掉 `, $ % g` 四個字元，再用字串相等比對（`"72.0"`、`"72 dollars"` 都算錯）。
   6. 2026 的差異：`N_SHOT` 一個變數同時管訓練與測試、log／save 改成每 100 步、`max_seq_length`→`max_length`（新版 trl）、資料改用 gdown 從 Google Drive 抓、改用 `hf auth login`。
   7. 套件：2025 的 pip 輸出是 datasets 3.3.2、trl 0.15.2、bitsandbytes 0.45.3（peft、transformers 用 Colab 預裝的，版本沒印）。本機 GPU 是 sm_120，**bitsandbytes 0.45.3 可能沒有 Blackwell 的 kernel**，要先試。

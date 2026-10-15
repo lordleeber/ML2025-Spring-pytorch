@@ -3,9 +3,13 @@
 # with no fine-tuning, or a LoRA checkpoint loaded from disk. Unlike the notebook it also keeps
 # the raw GSM8K responses, so truncation and extraction can be checked afterwards.
 # The few-shot examples come from random.seed(42) followed by the 7,473 random.sample calls of
-# the training-set formatting loop, exactly as in the notebook, so the test prompts match ref runs.
+# the training-set formatting loop. That is NOT what a trained run sees: Trainer's __init__ calls
+# set_seed(1126), so after training the draws start from random.seed(1126) (training never touches
+# Python's random; docs/tools/hw06_pyrandom_probe.py). Pass --py-seed 1126 to get the same test
+# prompts as HW06/hw6.py's trained runs; without it the runs recorded before 2026-10-15 are reproduced.
 # usage: HF_HUB_OFFLINE=1 python docs/tools/hw06_gen.py --out <file.json> [--adapter <ckpt dir>]
-#        [--seed 0] [--max-new-tokens 256] [--greedy] [--n-shot 1] [--skip-gsm8k] [--skip-ailuminate]
+#        [--seed 0] [--max-new-tokens 256] [--greedy] [--n-shot 1] [--py-seed 1126]
+#        [--skip-gsm8k] [--skip-ailuminate]
 import argparse
 import csv
 import json
@@ -26,6 +30,7 @@ ap.add_argument('--greedy', action='store_true')
 ap.add_argument('--n-shot', type=int, default=1)
 ap.add_argument('--skip-gsm8k', action='store_true')
 ap.add_argument('--skip-ailuminate', action='store_true')
+ap.add_argument('--py-seed', type=int, default=None, help="reseed Python's random before the test draws")
 ap.add_argument('--data', default='HW06/data')
 args = ap.parse_args()
 
@@ -73,6 +78,8 @@ train = load_jsonlines(f'{args.data}/gsm8k_train.jsonl')
 random.seed(42)
 for _ in train:  # the training-set formatting loop draws one few-shot example per question
   random.sample(train, args.n_shot)
+if args.py_seed is not None:
+  random.seed(args.py_seed)
 torch.manual_seed(args.seed)
 
 result = {'args': vars(args), 'gsm8k_public': [], 'ailuminate': []}

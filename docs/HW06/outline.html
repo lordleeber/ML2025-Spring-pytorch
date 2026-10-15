@@ -301,7 +301,7 @@ code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-v
 <tr><td>3</td><td>加了 <code>[PAD]</code>（第 128,257 個 token），沒有 resize embedding；batch size 1 不補 pad 才沒出錯</td><td>notebook [12]</td><td>2</td></tr>
 <tr><td>4</td><td>先 <code>get_peft_model</code> 再把 <code>peft_config</code> 傳給 SFTTrainer：trl 0.15.2 看到 PeftModel 就原樣使用，跳過 <code>prepare_model_for_kbit_training</code>；2026 版傳原始模型，兩年的訓練其實不同</td><td>notebook [12]、[18]</td><td>3</td></tr>
 <tr><td>5</td><td>訓練資料切掉 system header，評估時沒切；Llama 3.2 的模板把當天日期寫進 header，所以訓練和評估的 prompt 格式不同，評估結果也隨日期改變（固定日期重跑後和前一天的結果逐位元相同，已確認）</td><td>notebook [16]、[21]</td><td>1、6</td></tr>
-<tr><td>6</td><td>測試時的 few-shot 也從訓練集每題重抽；抽到哪一題取決於前面一共抽了幾次（訓練格式化用掉 7,473 次）</td><td>notebook [14]、[24]</td><td>1</td></tr>
+<tr><td>6</td><td>測試時的 few-shot 也從訓練集每題重抽。<code>random.seed(42)</code> 只決定訓練樣本配到的範例：Trainer 建立時呼叫 <code>set_seed(1126)</code> 把 Python 的 <code>random</code> 也重設了，訓練又不用它，所以評估時的範例一律由 1126 決定，和訓練設定無關</td><td>notebook [9]、[14]、[18]、[24]</td><td>0、1</td></tr>
 <tr><td>7</td><td>答案抽取用 <code>replace('g', '')</code> 去掉公克單位，連單字裡的 g 都刪；答案用字串相等比對</td><td>notebook [23]</td><td>4</td></tr>
 <tr><td>8</td><td>AILuminate 測試檔有 12 題重複（同 id、同文字），不同的題目只有 228 題</td><td><code>ailuminate_test.csv</code></td><td>1、5</td></tr>
 </tbody>

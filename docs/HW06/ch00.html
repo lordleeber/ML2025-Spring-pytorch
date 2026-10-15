@@ -448,17 +448,19 @@ Q: 1+1?&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;
     if args.fixed_shots_seed is not None:
         global FIXED_SHOTS
         FIXED_SHOTS = random.Random(args.fixed_shots_seed).sample(gsm8k_train, max(args.train_n_shot, args.test_n_shot))
-    # the formatting loop runs even with --skip-train: its random.sample calls decide which
-    # few-shot examples the test questions get afterwards
+    # Trainer's __init__ calls set_seed(1126), random.seed included, so the test questions' few-shot
+    # draws start from seed 1126 (training itself never touches Python's random)
     dataset, max_token_len = format_train_data(gsm8k_train, sft_tokenizer, args.train_n_shot)
     print(f'{len(dataset)} training samples, {args.train_n_shot}-shot, max token length {max_token_len}')</code></pre></figure>
-<p>第 291–292 行是本 repo 加的：notebook 從頭到尾沒有設定 torch 的亂數種子，而 LoRA 的初始值又是在 <code>load_model</code> 裡用 torch 的亂數產生的，所以原版每跑一次，訓練的起點就不同（第 2 章）。不給 <code>--seed</code> 時這兩行什麼都不做，行為和原版相同。第 296–298 行同樣是本 repo 加的，對應投影片 Strong 提示的「固定 few-shot 範例」：給了 <code>--fixed-shots-seed</code> 才會用固定種子從訓練集抽出一組範例，所有題目共用（第 8 章）。第 301 行有一個不容易注意到的細節：就算用 <code>--skip-train</code> 只做評估，訓練資料的格式化迴圈仍然要跑，因為它呼叫了 7,473 次 <code>random.sample</code>，評估時每一題抽到哪個 few-shot 範例，取決於前面一共抽了幾次（第 1 章）。</p>
+<p>第 291–292 行是本 repo 加的：notebook 從頭到尾沒有設定 torch 的亂數種子，而 LoRA 的初始值又是在 <code>load_model</code> 裡用 torch 的亂數產生的，所以原版每跑一次，訓練的起點就不同（第 2 章）。不給 <code>--seed</code> 時這兩行什麼都不做，行為和原版相同。第 296–298 行同樣是本 repo 加的，對應投影片 Strong 提示的「固定 few-shot 範例」：給了 <code>--fixed-shots-seed</code> 才會用固定種子從訓練集抽出一組範例，所有題目共用（第 8 章）。第 299–300 行的註解記下一個不容易注意到的細節：格式化訓練資料時呼叫了 7,473 次 <code>random.sample</code>，但這些抽樣<strong>不會</strong>影響評估時每一題配到哪個 few-shot 範例。原因是 transformers 的 <code>Trainer</code> 建立時會呼叫 <code>set_seed(1126)</code>，連 Python 的 <code>random</code> 一起重設；訓練過程本身又完全不用 Python 的 <code>random</code>（本書用一個小模型實測過，訓練完的亂數狀態和剛設好 1126 時一模一樣）。所以不管訓練設定怎麼改，評估時的 few-shot 範例都由 1126 決定（第 1 章）。</p>
 <p>後半段訓練、評估、寫檔：</p>
-<figure class="listing"><figcaption>hw6.py:304–321 — main()</figcaption>
-<pre class="py" data-hot="307,311,318-320"><code>    if not args.skip_train:
+<figure class="listing"><figcaption>hw6.py:304–323 — main()</figcaption>
+<pre class="py" data-hot="307-309,313,320-322"><code>    if not args.skip_train:
         trainer = train(peft_model, peft_config, sft_tokenizer, dataset, max_token_len, args)
         if args.adapter is None:
             args.adapter = str(args.out_dir / 'sft' / f'checkpoint-{trainer.state.global_step}')
+    else:
+        random.seed(1126)  # what Trainer would have done, so the test prompts match a trained run
     if args.adapter is None:
         parser.error('--skip-train needs --adapter')
 
@@ -473,7 +475,7 @@ Q: 1+1?&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;
         print(gsm8k_predictions + ailuminate_predictions, file=output_f)
     json.dump(raw, open(args.out_dir / 'responses.json', 'w'), ensure_ascii=False, indent=1)
     print(f'wrote {args.out_dir}')</code></pre></figure>
-<p>第 307 行用 <code>trainer.state.global_step</code> 算出最後一個 checkpoint 的路徑；notebook 是把 <code>sft/checkpoint-1868</code> 直接寫死在程式裡，資料量或 epoch 數一改，路徑就錯了。第 318–319 行和 notebook 的最後一格一模一樣：用 <code>print</code> 把 list 印進檔案，所以檔案內容就是 Python 的 list 寫法，讀回來要用 <code>ast.literal_eval</code>。第 320 行的 <code>responses.json</code> 是本 repo 加的。</p>
+<p>第 307 行用 <code>trainer.state.global_step</code> 算出最後一個 checkpoint 的路徑；notebook 是把 <code>sft/checkpoint-1868</code> 直接寫死在程式裡，資料量或 epoch 數一改，路徑就錯了。第 308–309 行是 <code>--skip-train</code>（只評估一個現成的 checkpoint）時的處理：沒有 <code>Trainer</code> 幫忙重設亂數，就自己呼叫 <code>random.seed(1126)</code>，讓評估的 prompt 和訓練完再評估時相同。第 320–321 行和 notebook 的最後一格一模一樣：用 <code>print</code> 把 list 印進檔案，所以檔案內容就是 Python 的 list 寫法，讀回來要用 <code>ast.literal_eval</code>。第 322 行的 <code>responses.json</code> 是本 repo 加的。</p>
 <p>拆檔時刻意<strong>保留</strong>了幾個看起來可以順手改掉的地方，因為它們會影響結果：</p>
 <ul>
 <li><code>make_generator</code> 裡那行 <code>pipeline.model = PeftModel.from_pretrained(...)</code>，設定的對象是 <code>pipeline</code> 這個函式，不是生成器。它看起來是錯的，實際上卻有作用；而且它會用掉一次 torch 的亂數，拿掉之後後面每一題的取樣結果都不同（第 4 章）。</li>
@@ -558,8 +560,8 @@ submission: 504 vs 504 entries, 0 differ</pre>
 <p>k_proj 和 v_proj 會從 (512, 2048) 變成 (2048, 2048)，各多 2048 × 2048 − 512 × 2048 ＝ 3,145,728 個，兩個合計多 6,291,456 個。一層 attention 會從 10,485,760 變成 16,777,216，16 層總共多出約 1 億個參數。GQA 也讓生成時要快取的 key、value 只剩四分之一。</p></details>
 <details class="quiz"><summary>3. 為什麼核對鏡像時不能只比權重檔，tokenizer 和 generation_config 也要比？</summary>
 <p>tokenizer 決定文字怎麼切成 token、chat template 長什麼樣、哪些是特殊 token；generation_config 提供生成時的預設參數。unsloth 的鏡像權重和官方相同，但這幾個檔改過，用它跑出來的 prompt 或生成行為就可能和官方模型不同，結果也就不能代表原版作業。</p></details>
-<details class="quiz"><summary>4. 只做評估（<code>--skip-train</code>）時，為什麼 hw6.py 還要跑訓練資料的格式化迴圈？</summary>
-<p>格式化迴圈為每個訓練題目呼叫一次 <code>random.sample</code> 抽 few-shot 範例，一共 7,473 次。評估時每一題的範例也是用同一個 Python 亂數產生器抽的，抽到哪一題取決於前面已經抽了幾次。少了這個迴圈，評估時的 prompt 就和 notebook 不同。</p></details>
+<details class="quiz"><summary>4. 格式化訓練資料時抽了 7,473 次 few-shot 範例，為什麼評估時每一題配到的範例卻和這些抽樣無關？只做評估（<code>--skip-train</code>）時，hw6.py 怎麼讓 prompt 和訓練過的流程一致？</summary>
+<p>訓練開始前，<code>Trainer</code> 會呼叫 <code>set_seed(1126)</code>，把 Python 的 <code>random</code> 也重設成 1126，而訓練過程不使用 Python 的 <code>random</code>，所以評估時的抽樣一律從「剛設好 1126」的狀態開始。<code>--skip-train</code> 時沒有建立 <code>Trainer</code>，hw6.py 就自己呼叫 <code>random.seed(1126)</code> 補上這一步（第 308–309 行）。</p></details>
 <details class="quiz"><summary>5. 參照版和 hw6.py 拿不同天的結果來比，會發生什麼事？為什麼 checkpoint 卻完全相同？</summary>
 <p>交出去的答案會有大量不同（實測 504 筆有 407 筆不同），因為評估的 prompt 裡有 chat template 寫入的當天日期，日期不同 prompt 就不同。訓練資料在格式化時把含有日期的 system header 切掉了，所以訓練和日期無關，checkpoint 完全相同。</p></details>
 

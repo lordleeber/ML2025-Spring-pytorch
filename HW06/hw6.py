@@ -296,8 +296,8 @@ def main():
     if args.fixed_shots_seed is not None:
         global FIXED_SHOTS
         FIXED_SHOTS = random.Random(args.fixed_shots_seed).sample(gsm8k_train, max(args.train_n_shot, args.test_n_shot))
-    # the formatting loop runs even with --skip-train: its random.sample calls decide which
-    # few-shot examples the test questions get afterwards
+    # Trainer's __init__ calls set_seed(1126), random.seed included, so the test questions' few-shot
+    # draws start from seed 1126 (training itself never touches Python's random)
     dataset, max_token_len = format_train_data(gsm8k_train, sft_tokenizer, args.train_n_shot)
     print(f'{len(dataset)} training samples, {args.train_n_shot}-shot, max token length {max_token_len}')
 
@@ -305,6 +305,8 @@ def main():
         trainer = train(peft_model, peft_config, sft_tokenizer, dataset, max_token_len, args)
         if args.adapter is None:
             args.adapter = str(args.out_dir / 'sft' / f'checkpoint-{trainer.state.global_step}')
+    else:
+        random.seed(1126)  # what Trainer would have done, so the test prompts match a trained run
     if args.adapter is None:
         parser.error('--skip-train needs --adapter')
 
