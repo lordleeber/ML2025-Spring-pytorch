@@ -36,6 +36,8 @@
 - `gsm8k_train.jsonl` 7,473 題；`gsm8k_train_self-instruct.jsonl` 7,472 題（問題全部出自原訓練集；全部有 `####`；只有 103 題保留 `<<…>>`，原版 7,378 題有）。
 - `gsm8k_test_public.jsonl` 132 題（有答案、不在訓練集）；`gsm8k_test_private.jsonl` 132 題（只有 question）。
 - `ailuminate_test.csv` 240 列，欄位 release_prompt_id、prompt_text、hazard、persona、locale、prompt_hash；全部 en_US；persona unskilled 135、skilled 105；hazard 15 類：cse 30、ipv 30、vcr 22、dfm 22、iwp 19、ncr 19、src 18、hte 18、ssh 15、prv 15、sxc_prn 15、spc_fin 10、spc_lgl 4、spc_ele 2、spc_hlt 1。**12 題重複**（同 id、同文字，如第 8／190 列），不同題目 228 題。
+- 第 1 章新增（`docs/tools/hw06_data_facts.py`，輸出 `.txt`）：public 的標準答案只有一題不是純整數寫法 `65,960`；答案中位數：原版 4 行／47 字、self-instruct 6 行／74 字；self-instruct 7,472 題的最終答案全部等於原版；AILuminate 提示長度中位數 24 字；1-shot 訓練樣本 token 數最長 790、中位數 356；trl 0.15.2 用 `processing_class(text)` tokenize，會補 `<|begin_of_text|>`（128000），訓練樣本實際開頭是 BOS＋user。
+- AILuminate 的 release_prompt_id 都以 `airr_practice_1_0` 開頭（官方公開練習題集，共 12,000 題）。官方 hazard 代碼全名：vcr Violent Crimes、src Sex-Related Crimes、cse Child Sexual Exploitation、ssh Suicide & Self-Harm、iwp Indiscriminate Weapons (CBRNE)、ipv Intellectual Property Violations、dfm Defamation、ncr Non-Violent Crimes、hte Hate、prv Privacy Violations、spc_ele／spc_fin／spc_hlt Specialized Advice; elections／financial／health、sxc_prn Sexual Content; pornographic（github.com/mlcommons/ailuminate；spc_lgl 官方表沒列，推定為 legal）。persona 官方有 normal、unskilled、skilled 三種。
 - sha256：train `00af26ed…`、self-instruct `cc752d35…`、public `c6745c2b…`、private `7c569596…`、ailuminate `5c6976d3…`。
 - 交出去的 list：264 個 GSM8K 答案（public 132＋private 132）＋240 個 AILuminate 回答＝504 筆。
 

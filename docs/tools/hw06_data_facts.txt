@@ -1,0 +1,58 @@
+sizes: train 7473 self-instruct 7472 public 132 private 132
+keys: train ['question', 'answer'] private ['question']
+self-instruct questions found in train: 7472
+public questions found in train: 0
+train: answers with <<calc>> 7378, with #### 7473, median lines 4, median words 47
+self-instruct: answers with <<calc>> 103, with #### 7472, median lines 6.0, median words 74.0
+self-instruct final answer equals the original one: 7472 / 7472
+public answers that are not plain integers: ['65,960']
+--- train[0]
+Natalia sold 48/2 = <<48/2=24>>24 clips in May.
+Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.
+#### 72
+--- self-instruct entry for the same question
+Natalia sold 48 clips in April.
+In May, she sold half as many clips, which is 48/2 = 24 clips.
+The total number of clips Natalia sold in April and May is 48 + 24 = 72.
+#### 72
+ailuminate rows 240 columns ['release_prompt_id', 'prompt_text', 'hazard', 'persona', 'locale', 'prompt_hash'] unique prompts 228
+hazard [('cse', 30), ('ipv', 30), ('vcr', 22), ('dfm', 22), ('iwp', 19), ('ncr', 19), ('src', 18), ('hte', 18), ('ssh', 15), ('prv', 15), ('sxc_prn', 15), ('spc_fin', 10), ('spc_lgl', 4), ('spc_ele', 2), ('spc_hlt', 1)]
+persona Counter({'unskilled': 135, 'skilled': 105}) locale Counter({'en_US': 240})
+ailuminate prompt words: median 24.0
+1-shot training samples: max tokens 790 median 356 (tokenizer adds <|begin_of_text|>: True )
+--- training sample 0 as stored in the dataset (system header cut off)
+<|start_header_id|>user<|end_header_id|>
+
+Q: For every 12 cans you recycle, you receive $0.50, and for every 5 kilograms of newspapers, you receive $1.50. If your family collected 144 cans and 20 kilograms of newspapers, how much money would you receive?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+A: There are 144/12 = <<144/12=12>>12 sets of 12 cans that the family collected.
+So, the family would receive $0.50 x 12 = $<<0.50*12=6>>6 for the cans.
+There are 20/5 = <<20/5=4>>4 sets of 5 kilograms of newspapers that the family collected.
+So, the family would receive $1.50 x 4 = $<<1.50*4=6>>6 for the newspapers.
+Therefore, the family would receive a total of $6 + $6 = $<<6+6=12>>12.
+#### 12<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Q: Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? Let's think step by step. At the end, you MUST write the answer as an integer after '####'.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+A: Natalia sold 48/2 = <<48/2=24>>24 clips in May.
+Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.
+#### 72<|eot_id|>
+--- public question 0 as the generator sees it after training (Python random reseeded with 1126)
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+Cutting Knowledge Date: December 2023
+Today Date: 15 Oct 2026
+
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Q: Frankie's parents let him have many pets. He has six more snakes than he has cats. He has one less parrot than cats. Six of his pets have four legs. He has 2 dogs. How many pets does he have in total?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+A: He has 6 - 2 = <<6-2=4>>4 cats.
+He has 4 - 1 = <<4-1=3>>3 parrots.
+He has 4 + 6 = <<4+6=10>>10 snakes.
+He has a total of 2 + 4 + 3 + 10 = <<2+4+3+10=19>>19 pets.
+#### 19<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Q: Carol and Jennifer are sisters from Los Angeles who love collecting signatures from celebrities. During their summer break from school, the sisters spend every afternoon collecting signatures. After five weeks, Carol and Jennifer compare their autograph books, counting up the number of signatures each sister has collected. Carol has 20 signatures in her book, and Jennifer has 44. The sisters have three more weeks of summer vacation, and they decide they want to reach 100 signatures between them by the end of the summer. How many signatures do the sisters need to collect to reach their goal? Let's think step by step. At the end, you MUST write the answer as an integer after '####'.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+
