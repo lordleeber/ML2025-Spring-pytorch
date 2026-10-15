@@ -16,8 +16,8 @@ Differences from Colab:
 - The raw responses are also saved (`responses.json`), so answers can be re-checked offline.
 - Every hint of the slides' Medium/Strong table is a flag (lr, epochs, weight decay, LoRA
   dropout, n-shot, max_new_tokens, greedy decoding, self-instruct data, checkpoint to evaluate).
-With no flags, the run is the notebook's: `python docs/tools/hw06_det.py HW06/hw6.py --seed 0`
-gives bit-identical checkpoints and outputs to the notebook run the same way.
+With no flags, the run is the notebook's: `HW06_TORCH_SEED=0 python docs/tools/hw06_det.py HW06/hw6.py`
+gives bit-identical checkpoints and outputs to the notebook run the same way on the same day.
 """
 
 import argparse

@@ -12,6 +12,9 @@
 - 官方 `meta-llama/Llama-3.2-1B-Instruct` 是 `gated=manual`（人工審核）。模型從 `alpindale/Llama-3.2-1B-Instruct`（revision `f92201d8185818a9d079b3b52efdab4b68bdd17f`）下載，8 個檔（model.safetensors、config、generation_config、3 個 tokenizer 檔、LICENSE.txt、USE_POLICY.md）與官方 revision `9213176726f574b556790deb65791e0c5aa438b6` 的記錄一致；model.safetensors 2,471,645,608 bytes、sha256 `1ff795ff6a07…`。`unsloth/Llama-3.2-1B-Instruct` 權重相同，但 tokenizer 與 config 改過，沒有用。
 - 在 HF 快取建 `models--meta-llama--…` 條目、`refs/main` 寫官方 revision、檔案 symlink 到鏡像 blob；以 `HF_HUB_OFFLINE=1` 執行，程式裡的 `meta-llama/...` 不改。
 - 模型總覽（transformers 實際載入）：16 層、hidden 2048、32 個 attention 頭、8 個 KV 頭（GQA）、參數 1,235,814,400、詞彙 128,256。bf16 greedy 回答 Natalia 那題得到 72。
+- 每層參數（`docs/tools/hw06_model_overview.py`，輸出 `hw06_model_overview.txt`，CPU bf16 載入）：q_proj (2048, 2048) 4,194,304；k_proj、v_proj (512, 2048) 各 1,048,576；o_proj 4,194,304；gate_proj、up_proj (8192, 2048)、down_proj (2048, 8192) 各 16,777,216；兩個 RMSNorm 各 2,048。一層 attention 10,485,760、MLP 50,331,648、norm 4,096。分組：embed_tokens 262,668,288（占 21%）、attention 167,772,160、MLP 805,306,368、layer norms 65,536、final norm 2,048；lm_head 與 embed_tokens 是同一個張量。head_dim 64、rope_theta 500,000、RoPE llama3 scaling factor 32、max_position_embeddings 131,072。
+- chat template 對單一 user 訊息會自動加 system header：`Cutting Knowledge Date: December 2023` 與 `Today Date: <執行當天，%d %b %Y>`。
+- 第 0 章引用的程式行號以 commit 10f9011 之後的 hw6.py 為準（docstring 第 19–20 行於第 0 章 commit 改寫成實際驗證過的指令，行數不變）。
 - 審查模型（都和官方記錄逐檔一致）：Llama Guard 3 1B（`alpindale/Llama-Guard-3-1B`，官方 revision `acf7aafa60f0…`）、Llama Guard 3 8B（`jy622/Llama-Guard-3-8B`，官方 `7327bd9f6efb…`，32 層）、ShieldGemma 2B（官方 `google/shieldgemma-2b` revision `d1dffc9c8c92…`；tokenizer.json 是 LFS 檔，比 sha256 `3f289bc0…`）。
 - Colab 2025 的執行輸出：`global_step=1868`、`train_loss=0.8524938824345264`、`train_runtime 8991.5782` 秒（T4）。投影片的時間估計：Simple 3 h 微調＋2 h 推論。
 

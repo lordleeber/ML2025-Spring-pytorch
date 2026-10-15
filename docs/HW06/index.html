@@ -331,7 +331,7 @@ code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-v
 
 <h2 id="version">版本聲明</h2>
 <ul>
-<li>教材對應本 repo 的 commit <code>（待填）</code>。書中引用的行號以這個版本為準。</li>
+<li>教材對應本 repo 的 commit <code>10f9011</code>（HW06 拆檔、實驗工具、樣板與大綱）。書中引用的行號以這個版本為準；之後的章節若改動 <code>hw6.py</code>，在該章註明新的 commit。</li>
 <li>環境：Python 3.12、PyTorch 2.11.0+cu128、transformers 4.48.3、peft 0.14.0、trl 0.15.2、datasets 3.3.2、bitsandbytes 0.45.3、accelerate 1.3.0；GPU 為 NVIDIA RTX PRO 4000 Blackwell（24 GB）。</li>
 <li>模型：Llama-3.2-1B-Instruct（官方 revision <code>9213176726f5</code> 的檔案）；審查模型 Llama Guard 3 8B、Llama Guard 3 1B、ShieldGemma 2B。</li>
 <li>實驗工具：<code>docs/tools/hw06_make_ref.py</code>（notebook 原樣串成的參照版）、<code>hw06_det.py</code>（決定性模式）、<code>hw06_compare_runs.py</code>（逐位元比對）、<code>hw06_gen.py</code>（只評估、不訓練）、<code>hw06_judge.py</code>（三個審查模型）。原始數字在 <code>docs/tools/hw06_runs.jsonl</code>、<code>hw06_judge.jsonl</code>、<code>hw06_judge_summary.jsonl</code>；每個數字的出處記在 <code>docs/HW06/FACTS.md</code>。</li>
