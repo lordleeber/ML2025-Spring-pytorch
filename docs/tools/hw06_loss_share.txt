@@ -1,0 +1,1 @@
+1-shot, all 7473 samples: tokens 2736998, answer tokens 771495 = 28.2%; per-sample share median 27.1%, min 6.5%, max 56.5%, 10th pct 17.4%, 90th pct 39.3%
