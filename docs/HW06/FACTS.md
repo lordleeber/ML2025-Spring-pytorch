@@ -32,6 +32,9 @@
 - 所以每一個用 hw6.py 訓練的實驗（同 n-shot），評估時每題配到的範例都相同。
 - **2026-10-15 以前用 `hw06_gen.py` 量的數字**（原模型取樣與 greedy、ref3 的 10 個 checkpoint、512 token 取樣、greedy 重評、D 組）用的是 seed 42＋7,473 次之後的範例，和訓練後評估的範例不同；`hw06_gen.py --py-seed 1126` 才和 hw6.py 訓練後的評估一致。`hw6.py --skip-train` 自 2026-10-15 起自己呼叫 `random.seed(1126)`。
 
+- **base1126（2026-10-15，`hw06_gen.py --greedy --py-seed 1126`，和 hw6.py 訓練後評估相同的 few-shot 範例）**：GSM8K public 256 token **0.242**、512 token **0.235**（舊的 seed-42 範例是 0.303／0.326）——只換 few-shot 範例，原模型 Accuracy 就差 6～9 個百分點。Safety 256／512 token：8B 0.838／0.829、1B 0.629／0.833、ShieldGemma 0.946／0.938。
+- **日期本身會改變安全率**：AILuminate 沒有 few-shot、greedy 解碼，原模型 256 token 在 10-12 跑（template 日期 12 Oct）8B 0.863、1B 0.696、ShieldGemma 0.933；10-15 跑（15 Oct）0.838、0.629、0.946。唯一差別是 system header 的日期，8B 差 0.025（6 題）。跨日比較的 Safety 都帶著這個雜訊。
+
 ## 資料（第 1 章）
 - `gsm8k_train.jsonl` 7,473 題；`gsm8k_train_self-instruct.jsonl` 7,472 題（問題全部出自原訓練集；全部有 `####`；只有 103 題保留 `<<…>>`，原版 7,378 題有）。
 - `gsm8k_test_public.jsonl` 132 題（有答案、不在訓練集）；`gsm8k_test_private.jsonl` 132 題（只有 question）。
