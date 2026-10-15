@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 4 章　生成與 GSM8K Accuracy — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch03.html">← 第 3 章</a><a href="ch05.html">第 5 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 4 章　生成與 GSM8K Accuracy</h1>
+  <p class="chap-lead">訓練完，要讓模型回答 132 道 public 題目，從回答裡抽出數字，算出 Accuracy。這一章讀評估的三個函式：建生成器、抽答案、逐題比對。途中會遇到一行看起來寫錯、實際上卻有作用的程式；一個連單字裡的字母都刪掉的答案抽取；以及一個本書自己猜錯的預測。最後要回答一個比 Accuracy 本身更重要的問題：兩個 Accuracy 相差多少，才算真的不同？</p>
+</header>
+<main>
+
+<h2 id="generator">4.1　生成器怎麼建</h2>
+<figure class="listing"><figcaption>hw6.py:171–192 — make_generator()</figcaption>
+<pre class="py" data-hot="182,187-189,191"><code>def make_generator(sft_model, tokenizer, adapter_path, args):
+    """Cell [21]: text-generation pipeline on sft_model, then load the checkpoint to evaluate.
+
+    The notebook writes `pipeline.model = PeftModel.from_pretrained(sft_model, adapter_path)`,
+    which sets an attribute on the `pipeline` function, not on the generator. It still works:
+    from_pretrained loads the checkpoint into the LoRA layers that already sit inside sft_model,
+    and the generator runs sft_model (checked by docs/tools/hw06_adapter_probe.py). The call is
+    kept as is, assignment included: creating those LoRA layers draws from torch's RNG, and
+    keeping the returned PeftModel alive keeps the GPU memory layout of the notebook run; the
+    sampled answers that follow depend on both.
+    """
+    decoding = {'do_sample': False} if args.greedy else {'do_sample': True, 'temperature': 0.6, 'top_p': 0.9}
+    generator = pipeline(
+        'text-generation',
+        model=sft_model,
+        tokenizer=tokenizer,
+        pad_token_id=tokenizer.eos_token_id,
+        max_new_tokens=args.max_new_tokens,
+        **decoding,
+    )
+    pipeline.model = PeftModel.from_pretrained(sft_model, adapter_path)
+    return generator</code></pre></figure>
+<p>transformers 的 <code>pipeline('text-generation', ...)</code> 把「套 chat template、轉 token、生成、轉回文字」包成一個函式呼叫。範例程式的設定是：</p>
+<ul>
+<li><code>max_new_tokens=256</code>：每個回答最多生成 256 個 token，寫不完就截斷。</li>
+<li><code>do_sample=True, temperature=0.6, top_p=0.9</code>：<strong>取樣解碼</strong>。每一步不是挑機率最高的 token，而是照機率分布隨機抽一個。temperature 0.6 讓分布變尖、偏向高機率的選項；top_p 0.9 只從累積機率前 90% 的 token 裡抽。這兩個數值和 Llama 3.2 的 <code>generation_config.json</code> 預設值相同。</li>
+<li><code>pad_token_id=tokenizer.eos_token_id</code>：用結束 token 當作 pad，避開第 2 章那個不能用的 <code>[PAD]</code>。</li>
+</ul>
+<p>第 182 行是本 repo 加的：給了 <code>--greedy</code> 就改成 <code>do_sample=False</code>，每一步都挑機率最高的 token，這叫 <strong>greedy 解碼</strong>，是投影片 Medium 提示的其中一項。greedy 有一個取樣沒有的好處：同一個模型、同一個 prompt，每次的回答都一樣，評估結果不受亂數影響（4.5 節）。</p>
+<p>這裡有一個容易忽略的細節：模型自帶的 <code>generation_config.json</code> 本身就寫著 <code>"do_sample": true, "temperature": 0.6, "top_p": 0.9</code>。也就是說，就算 pipeline 一個解碼參數都不傳，模型也會用同樣的設定取樣；想要 greedy，必須明確傳 <code>do_sample=False</code>，光是拿掉 temperature 和 top_p 是不夠的。</p>
+<p>回答是怎麼取出來的：</p>
+<figure class="listing"><figcaption>hw6.py:195–197 — get_response()</figcaption>
+<pre class="py"><code>def get_response(generator, chats):
+    gen_text = generator(chats)[0]  # first return sequence
+    return gen_text['generated_text'][-1]['content']</code></pre></figure>
+<p>pipeline 回傳整段對話，最後一則訊息就是模型新生成的 assistant 回答。</p>
+
+<h2 id="pipeline-model">4.2　設錯對象，卻有作用的一行</h2>
+<p>第 191 行照抄 notebook：<code>pipeline.model = PeftModel.from_pretrained(sft_model, adapter_path)</code>。它的用意是「把要評估的 checkpoint 載進生成器」，投影片 Medium 提示的「評估不同 checkpoint」就是要你改這裡的 <code>adapter_path</code>。可是仔細看，等號左邊是 <code>pipeline</code>，也就是 transformers 那個建生成器的<strong>函式</strong>，不是剛建好的 <code>generator</code>。這行只是在函式物件上掛了一個叫 <code>model</code> 的屬性，生成器本身完全沒被碰到。</p>
+<p>讀到這裡，很容易下結論：「這行沒有作用，改 <code>adapter_path</code> 不會換 checkpoint，評估的永遠是記憶體裡訓練完的權重。」本書一開始也是這麼寫進研究筆記的。但這個結論是推論出來的，沒有實測，於是寫了一支探測工具（<code>docs/tools/hw06_adapter_probe.py</code>）：照 notebook 的方式建好模型和生成器，先把記憶體裡的 LoRA B 全部改成 0.01（代表「訓練完的權重」），再原樣執行這一行、載入 <code>checkpoint-187</code>，看生成器手上拿的是哪一份權重：</p>
+<pre class="shell">generator.model is sft_model: True   «1»
+type(generator.model): LlamaForCausalLM
+pipeline.model is a PeftModelForCausalLM (an attribute on the function)   «2»
+LoRA copies of layer 0 q_proj in generator.model: ['model.layers.0.self_attn.q_proj.lora_B.default.weight']   «3»
+generator holds the stand-in (all 0.01): False
+generator holds the checkpoint weights: True   «4»
+checkpoint weights are all 0.01: False</pre>
+<ol class="notes">
+<li><span class="mk">1</span>生成器用的就是 <code>sft_model</code> 本身。</li>
+<li><span class="mk">2</span>那一行確實只是在函式上掛了屬性。</li>
+<li><span class="mk">3</span>模型裡每個位置仍然只有一份 LoRA（名字叫 <code>default</code>），沒有多出第二份。</li>
+<li><span class="mk">4</span>但生成器手上的權重，已經變成 checkpoint 的權重，原本的 0.01 不見了。</li>
+</ol>
+<p>原因在第 2 章：<code>sft_model</code> 裡早就插著 LoRA 層。<code>PeftModel.from_pretrained(sft_model, ...)</code> 對一個已經有 LoRA 層的模型呼叫時，會把 checkpoint 的權重<strong>就地</strong>寫進那些現有的層。生成器用的正是 <code>sft_model</code>，所以它看到的就是新載入的 checkpoint。等號左邊寫錯了，副作用卻剛好做了對的事：改 <code>adapter_path</code> 真的會換 checkpoint。</p>
+<div class="warn"><h4>讀 code 不盡信文件，推論也要實測</h4>
+<p>這一行是本書最好的雙層例子。第一層：程式看起來的意思（設定 pipeline 的模型）和實際做的事（在函式上掛屬性）不一樣，讀 code 時要讀到底。第二層：讀到底之後推出的結論（沒有作用），仍然可能錯，因為還有一個藏在別的函式裡的副作用。能用十幾行程式驗證的事，就不要只靠推論。</p></div>
+<p>本 repo 把這一行原封不動留著，連等號左邊都沒改，原因有兩個：建立 LoRA 層會用掉一次 torch 的亂數，而取樣解碼接下來每一步都要用亂數；保留回傳的物件，也讓 GPU 記憶體的配置和 notebook 一致。改掉這一行，後面每一題的取樣結果都會不同，就無法和 notebook 逐位元比對了。</p>
+
+<h2 id="extract">4.3　抽答案、算 Accuracy</h2>
+<figure class="listing"><figcaption>hw6.py:200–205 — extract_ans_from_response()</figcaption>
+<pre class="py" data-hot="202-204"><code>def extract_ans_from_response(answer):
+    """Cell [23]: the text after the last '####', minus ',', '$', '%' and every 'g'."""
+    answer = answer.split('####')[-1].strip()
+    for remove_char in [',', '$', '%', 'g']:
+        answer = answer.replace(remove_char, '')
+    return answer</code></pre></figure>
+<p>抽取的規則很簡單：用 <code>####</code> 切開，取最後一段，去掉前後空白，再刪掉逗號、錢號、百分號，以及<strong>每一個字母 g</strong>。逐題比對在這裡：</p>
+<figure class="listing"><figcaption>hw6.py:215–227 — evaluate_gsm8k()</figcaption>
+<pre class="py" data-hot="216,218-221"><code>    for i, qna in enumerate(gsm8k_test_public):
+        messages = nshot_chats(nshot_data=gsm8k_train, n=n_shot, question=qna['question'], answer=None, mode='test')
+        response = get_response(generator, messages)
+        pred_ans = extract_ans_from_response(response)
+        true_ans = extract_ans_from_response(qna["answer"])
+        if pred_ans == true_ans:
+            correct += 1
+        gsm8k_predictions.append(pred_ans)
+        raw['gsm8k_public'].append({'response': response, 'pred': pred_ans, 'true': true_ans})
+        gsm8k_progress_bar.set_postfix_str(f'Current Accuracy = {correct/(i+1):.3f}')
+        gsm8k_progress_bar.update()
+    gsm8k_progress_bar.close()
+    print(f'GSM8K Public Test Data Evaluation Complete, Total Accuracy: {correct/gsm8k_total:.3f}')</code></pre></figure>
+<p>第 219 行用同一個函式處理標準答案，第 220 行比的是兩個<strong>字串</strong>是否完全相同。這套規則有幾個值得注意的地方：</p>
+<ul>
+<li><strong>刪 g 的用意是去掉公克的單位</strong>（例如 <code>#### 5g</code>），但它不看位置，答案文字裡任何一個 g 都會被刪。用原版跑的第一次評估裡，有一題模型沒寫 <code>####</code>，整段回答被當成答案，其中的 originally 被抽成了 oriinally。這種答案反正是錯的，刪不刪 g 不影響對錯，但可以看出這個規則的寫法很粗糙。</li>
+<li><strong>字串相等</strong>：<code>72</code> 和 <code>72.0</code>、<code>72 clips</code> 都不相等。檢查第一次評估的 88 題錯誤，沒有任何一題是「數值其實相同、只是字串不同」；88 題裡 86 題是數字本身算錯，另外 2 題是回答裡根本沒有 <code>####</code>。所以在這份作業裡，字串比對沒有冤枉模型。</li>
+<li><strong>沒有 <code>####</code> 的回答</strong>，<code>split</code> 之後的最後一段就是整個回答，一定判錯。最常見的原因是回答太長、被 256 個 token 截斷，還沒寫到 <code>####</code>。</li>
+</ul>
+<div class="note"><h4>動手做：寫一個更穩健的抽取函式</h4>
+<p>一個常見的改法是用正規表示式只取 <code>####</code> 後面的第一個數字（允許負號、小數點與千分位），再轉成數值比較。改了抽取函式，Accuracy 會變，但要記得評分平台用的是原版的抽取，自己的數字和平台不一定一致。本書的數字一律用原版的抽取函式算。</p></div>
+
+<h2 id="truncate">4.4　截斷：原模型寫太長了</h2>
+<p>把每一題的回答都存下來（<code>responses.json</code>），就能數一數有多少題被截斷。用 <code>docs/tools/hw06_gen.py</code> 讓原模型（沒有微調）照 notebook 的取樣設定回答 132 題，再拿 1 epoch 訓練中的兩個 checkpoint 比較：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>模型</th><th class="num">生成滿 256 token 的題數</th><th class="num">回答裡沒有 <code>####</code> 的題數</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">15</td><td class="num">21</td></tr>
+<tr><td><span class="cfg ep1">checkpoint-187</span>（訓練 10%）</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td><span class="cfg ep1">checkpoint-1868</span>（訓練完）</td><td class="num">4</td><td class="num">4</td></tr>
+</tbody>
+</table></div>
+<p>原模型有 15 題寫滿了 256 個 token、被截斷在半途，有 21 題的回答裡沒有 <code>####</code>。兩者大致是同一批題目：寫不完的回答多半還沒寫到最後一行。不過被截斷的回答也可能在中途就寫過一次 <code>####</code>，這次評估的原始回答沒有保留下來，無法逐題確認兩組題目重疊多少。只訓練了 187 步，這兩種情形就幾乎消失。微調最先學會的，是第 1 章看到的那種寫法：短短幾行、最後一行 <code>#### 答案</code>。</p>
+
+<h2 id="noise">4.5　取樣的雜訊有多大</h2>
+<p>取樣解碼的每一步都要抽亂數。同一個模型，只換生成時的 torch 種子，Accuracy 會變多少？原模型跑三個種子：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>GSM8K public Accuracy</th><th class="num">種子 0</th><th class="num">種子 1</th><th class="num">種子 2</th><th class="num">平均</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span>，取樣</td><td class="num">0.318</td><td class="num">0.227</td><td class="num">0.280</td><td class="num">0.275</td></tr>
+<tr><td><span class="cfg ep1">1 epoch</span>，取樣（三次訓練，LoRA 起點不同）</td><td class="num">0.333</td><td class="num">0.356</td><td class="num">0.348</td><td class="num">0.346</td></tr>
+</tbody>
+</table></div>
+<p>原模型自己就在 0.227 到 0.318 之間跳動，最高和最低差了 12 題。132 題的測試集，每一題就是 0.0076，取樣的運氣好壞就能讓結果差上一成。1 epoch 那一列的三個數字，同時混了「LoRA 起點不同」和「取樣的運氣」兩種雜訊。</p>
+<p>改成 greedy 解碼，取樣的雜訊就消失了，同一個模型永遠得到同一個 Accuracy：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>GSM8K public Accuracy，greedy</th><th class="num">結果</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">0.303</td></tr>
+<tr><td><span class="cfg ep1">1 epoch</span>，三個 LoRA 起點</td><td class="num">0.386、0.386、0.341（平均 0.371）</td></tr>
+</tbody>
+</table></div>
+<p>greedy 之後，剩下的差異只來自 LoRA 的起點。微調大約讓 Accuracy 從 0.303 升到 0.371，多對 9 題，比 1 epoch 三個起點之間的差距（最多 6 題）還大。本書第 7 章之後的設定比較一律用 greedy 評估，每個設定跑 3 個種子。</p>
+
+<h2 id="tokens">4.6　多給 token，原模型會變好嗎</h2>
+<p>4.4 節看到原模型有 15 題被截斷，很自然會預測：把 <code>max_new_tokens</code> 加大（投影片 Medium 提示建議 512 到 1024），原模型就能把這些題目寫完，Accuracy 應該會上升；微調後的模型本來就寫得短，應該不受影響。本書先把這個預測寫下來，再去跑。</p>
+<p>第一次用取樣解碼測，結果和預測相反：</p>
+<div class="tablewrap"><table>
+<thead><tr><th><span class="cfg base">原模型</span>，取樣</th><th class="num">種子 0</th><th class="num">種子 1</th><th class="num">種子 2</th><th class="num">平均</th></tr></thead>
+<tbody>
+<tr><td>256 token</td><td class="num">0.318</td><td class="num">0.227</td><td class="num">0.280</td><td class="num">0.275</td></tr>
+<tr><td>512 token</td><td class="num">0.220</td><td class="num">0.280</td><td class="num">0.258</td><td class="num">0.253</td></tr>
+</tbody>
+</table></div>
+<p>平均反而下降，種子 0 甚至從 0.318 掉到 0.220。乍看之下預測錯了。但這個比較其實不公平：同一個種子，只改 token 上限，生成長度就變了，每一題用掉的亂數個數也跟著變，從第一題開始後面每一題的取樣都不一樣。三個種子的平均差 0.022，比種子之間的差距（0.09）小得多，取樣的雜訊把效果整個蓋過去了。</p>
+<p>改用 greedy 重測：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>greedy</th><th class="num">256 token</th><th class="num">512 token</th><th class="num">1024 token</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">0.303</td><td class="num">0.326</td><td class="num">0.326</td></tr>
+<tr><td><span class="cfg ep1">1 epoch</span>（三個起點平均）</td><td class="num">0.371</td><td class="num">0.371</td><td class="num">0.371</td></tr>
+</tbody>
+</table></div>
+<p>這次和預測一致：原模型給到 512 個 token 多對了 3 題，再加到 1024 沒有更多。微調後的模型，三個起點的平均在三種長度下都是 0.371；個別來看，256 到 512 時有兩個起點各變動了 2 題（0.386 → 0.402、0.386 → 0.371，另一個 0.341 不變），一升一降剛好抵消，512 到 1024 則三個都完全相同。教訓是：預測沒錯，第一次的實驗方法錯了。用有雜訊的量法去驗證一個小效果，得到的結論可能剛好相反。</p>
+
+<h2 id="fewshot-seed">4.7　兩套 few-shot 範例</h2>
+<p>還有一件事要交代清楚。第 1 章說過，訓練完再評估時，每一題的 few-shot 範例由 Trainer 設的 <code>random.seed(1126)</code> 決定。可是上面原模型的數字，都是用評估工具 <code>hw06_gen.py</code> 量的，它當時沒有補上這一步，用的是 <code>random.seed(42)</code> 抽完 7,473 次之後的範例。這不影響本章的比較：原模型和 ref1、ref2、ref5 三個 checkpoint 的 greedy 評估都是用同一個工具量的，用的是同一套範例。但它們不能直接和第 7、8 章用 <code>hw6.py</code> 訓練完、直接評估的數字放在同一張表裡比，因為那些用的是 1126 的範例。</p>
+<p>為了讓後面的比較乾淨，評估工具加了 <code>--py-seed 1126</code>，原模型也用和 <code>hw6.py</code> 訓練後相同的範例重新評估了一次：<!-- TODO(本機實測): base1126_t256／base1126_t512 跑完後填入（docs/tools/hw06_runs.jsonl），並說明和 0.303／0.326 差多少 -->結果在所有實驗跑完後補上。第 7、8 章的「原模型」一律用這組數字。</p>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>預設是取樣解碼（temperature 0.6、top_p 0.9，也是模型 generation_config 的預設）、最多 256 個 token；<code>--greedy</code> 明確傳入 <code>do_sample=False</code>，改成每步挑機率最高的 token。</li>
+<li><code>pipeline.model = …</code> 設的是函式的屬性，但 <code>from_pretrained</code> 會把 checkpoint 就地載入 <code>sft_model</code>，所以改 <code>adapter_path</code> 確實會換 checkpoint。推論它沒作用是錯的，實測才知道。</li>
+<li>答案抽取取最後一個 <code>####</code> 之後的文字，刪掉逗號、錢號、百分號與所有的 g，再用字串比對；實測沒有冤枉答對的題目。</li>
+<li>原模型有 15 題被截斷、21 題沒寫出 <code>####</code>；微調 187 步之後兩者都只剩 2 題。</li>
+<li>取樣解碼的雜訊很大：原模型三個種子 0.227～0.318。greedy 後，原模型 0.303，1 epoch 平均 0.371。</li>
+<li>多給 token：取樣時看不出效果；greedy 時原模型 0.303 → 0.326，微調後的平均不變（個別起點有 ±2 題的變動）。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 為什麼不能從「等號左邊是 <code>pipeline</code>」就斷定改 <code>adapter_path</code> 沒有作用？</summary>
+<p>因為等號右邊的 <code>PeftModel.from_pretrained(sft_model, adapter_path)</code> 本身有副作用：<code>sft_model</code> 裡已經有 LoRA 層，它會把 checkpoint 的權重就地寫進這些層。生成器用的正是 <code>sft_model</code>，所以不論結果被指派到哪裡，生成器都已經換成新的權重了。</p></details>
+<details class="quiz"><summary>2. 模型回答「… so the answer is 18 eggs. #### 18 eggs」，會被判對還是錯（標準答案是 18）？</summary>
+<p>錯。抽取函式取 <code>####</code> 之後的「18 eggs」，刪掉字母 g 之後變成「18 es」，和「18」不相等。刪 g 的規則只能處理「5g」這種緊貼數字的單位。</p></details>
+<details class="quiz"><summary>3. 132 題的測試集，原模型取樣三次得到 0.227、0.280、0.318。某個設定取樣一次得到 0.330，能說它比原模型好嗎？</summary>
+<p>不能。原模型自己的三次結果就跨了 0.09，0.330 只比其中最好的一次多 2 題，完全在取樣的雜訊範圍內。要比較，至少要多跑幾個種子取平均，或改用 greedy 解碼去掉取樣的雜訊。</p></details>
+<details class="quiz"><summary>4. 為什麼同一個種子、只把 <code>max_new_tokens</code> 從 256 改成 512，取樣的結果會從第一題就開始不同？</summary>
+<p>其實第一題的前 256 個 token 和原來相同，差別從某一題的回答超過 256 個 token 開始：原本在那裡截斷，現在會繼續生成，多用掉一些亂數。從下一題開始，每一步抽到的亂數都和原來錯開，之後每一題的取樣結果都不同。</p></details>
+<details class="quiz"><summary>5. 如果你只能跑一次評估、又想比較兩個 checkpoint 的 Accuracy，應該選取樣還是 greedy？為什麼？</summary>
+<p>greedy。它對同一個模型、同一個 prompt 永遠給出相同的回答，兩個 checkpoint 的差距只來自模型本身；取樣一次的結果受亂數影響很大，在這份測試集上單次就可能差到一成。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Holtzman et al.，<a href="https://arxiv.org/abs/1904.09751">The Curious Case of Neural Text Degeneration</a>（2019）：top-p（nucleus）取樣的出處。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/transformers/main/en/generation_strategies">Text generation strategies</a>：greedy、取樣、beam search 等解碼方式與參數。</li>
+<li>Meta，<a href="https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/eval_details.md">Llama 3.2 eval details</a>：官方評估 GSM8K 等基準時用的 prompt 與解碼設定，投影片 Strong 提示引用了 Llama 3 的版本。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/peft/main/en/package_reference/peft_model">PeftModel 參考文件</a>：<code>from_pretrained</code> 與載入多個 adapter 的方式。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch03.html">← 第 3 章</a><a href="ch05.html">第 5 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>

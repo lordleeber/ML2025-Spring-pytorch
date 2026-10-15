@@ -54,6 +54,8 @@
 
 ## 生成與 Accuracy（第 4 章）
 - `pipeline.model = PeftModel.from_pretrained(sft_model, adapter_path)`：設在函式上，但會就地把 checkpoint 載入 sft_model 的 LoRA 層，generator 用的確實是該 checkpoint（`hw06_adapter_probe.txt`）。
+- Llama 3.2 的 generation_config.json：do_sample true、temperature 0.6、top_p 0.9（和 notebook 的 pipeline 參數相同），所以 greedy 必須明確傳 do_sample=False。
+- greedy 時 1 epoch 三個起點：256 token 0.386／0.386／0.341；512 token 0.402／0.371／0.341；1024 token 同 512（平均都是 0.371）。
 - 抽取：`split('####')[-1]`、去掉 `, $ % g`、字串相等；ref1 的 88 題錯誤裡 86 題是數字錯、2 題沒有 `####`；第 95 題 `originally` → `oriinally`。
 - 截斷：原模型（取樣、種子 0）15 題生成滿 256 token、21 題沒有 `####`；微調後 checkpoint-187 是 2／2、1868 是 4／4。
 - 取樣的 GSM8K public：原模型種子 0／1／2 0.318／0.227／0.280（平均 0.275）；1 epoch ref1／ref2／ref3 0.333／0.356／0.348（平均 0.346）。
