@@ -295,7 +295,7 @@ $ HF_HUB_OFFLINE=1 HW06/.venv/bin/python HW06/hw6.py --name simple</pre>
 </ul>
 <p>Colab 上的 T4 顯示卡，光是訓練就跑了將近 2.5 小時。這是 notebook 裡留下的執行輸出：</p>
 <pre class="shell">TrainOutput(global_step=1868, training_loss=0.8524938824345264, metrics={'train_runtime': 8991.5782, 'train_samples_per_second': 0.831, 'train_steps_per_second': 0.208, 'total_flos': 1.607244560805888e+16, 'train_loss': 0.8524938824345264})</pre>
-<p>本機的訓練一個 epoch 約 17 分鐘（決定性模式下量到 1,033～1,046 秒），快了 8 倍多。評估部分要生成 504 個回答，每個最多 256 個 token，在本機約 30 分鐘。<!-- TODO(本機實測): H 組正式計時跑完後，換成 GPU 上沒有其他工作時量到的整條流程時間（docs/tools/hw06_runs.jsonl 的 timing） -->整條流程在 GPU 上沒有其他工作時的正式計時，會在所有實驗跑完後補上。</p>
+<p>本機的正式計時（GPU 上沒有其他工作，前後用 <code>nvidia-smi</code> 確認，<code>/usr/bin/time</code> 量整條流程）：<code>hw6.py</code> 照預設設定從頭跑到寫出 504 筆，一共 <strong>39 分 11 秒</strong>。其中訓練 861 秒（14.4 分鐘），比 Colab 的 T4 快 10.4 倍；剩下約 25 分鐘是載入模型、格式化訓練資料，以及生成 504 個回答（每個最多 256 個 token）。之前在決定性模式下量到的訓練時間是 1,033～1,046 秒，決定性演算法比較慢，所以不當作正式數字。</p>
 
 <h2 id="model">0.3　模型總覽：Llama-3.2-1B-Instruct</h2>
 <p>先看模型長什麼樣子。下面的數字不是從論文抄來的，是在本機用 transformers 載入模型後，逐層印出來的（<code>docs/tools/hw06_model_overview.py</code>）：</p>

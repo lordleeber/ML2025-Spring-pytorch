@@ -1,0 +1,78 @@
+{
+ "source": "HW06/outputs/runs/timing/sft/checkpoint-1868/trainer_state.json (hw6.py --seed 0, default 1-epoch setting, official timing run 2026-10-16)",
+ "train_loss": 0.8528101102187751,
+ "log_history": [
+  {
+   "step": 187,
+   "epoch": 0.10009367054730363,
+   "loss": 0.9812,
+   "mean_token_accuracy": 0.7640613315895917,
+   "learning_rate": 0.00017997858672376876,
+   "grad_norm": 0.6081828474998474
+  },
+  {
+   "step": 374,
+   "epoch": 0.20018734109460726,
+   "loss": 0.8956,
+   "mean_token_accuracy": 0.7784563524519058,
+   "learning_rate": 0.0001599571734475375,
+   "grad_norm": 0.6441613435745239
+  },
+  {
+   "step": 561,
+   "epoch": 0.3002810116419109,
+   "loss": 0.8845,
+   "mean_token_accuracy": 0.7801439972484813,
+   "learning_rate": 0.0001399357601713062,
+   "grad_norm": 0.5258678197860718
+  },
+  {
+   "step": 748,
+   "epoch": 0.4003746821892145,
+   "loss": 0.8585,
+   "mean_token_accuracy": 0.7849259245045045,
+   "learning_rate": 0.00011991434689507495,
+   "grad_norm": 0.7271280288696289
+  },
+  {
+   "step": 935,
+   "epoch": 0.5004683527365181,
+   "loss": 0.8446,
+   "mean_token_accuracy": 0.7874541660362386,
+   "learning_rate": 9.989293361884369e-05,
+   "grad_norm": 0.6751644611358643
+  },
+  {
+   "step": 1122,
+   "epoch": 0.6005620232838218,
+   "loss": 0.8324,
+   "mean_token_accuracy": 0.7902176843129377,
+   "learning_rate": 7.987152034261243e-05,
+   "grad_norm": 0.6104413866996765
+  },
+  {
+   "step": 1309,
+   "epoch": 0.7006556938311254,
+   "loss": 0.8227,
+   "mean_token_accuracy": 0.793418637173061,
+   "learning_rate": 5.9850107066381156e-05,
+   "grad_norm": 0.6411408185958862
+  },
+  {
+   "step": 1496,
+   "epoch": 0.800749364378429,
+   "loss": 0.8046,
+   "mean_token_accuracy": 0.7971566274044986,
+   "learning_rate": 3.9828693790149895e-05,
+   "grad_norm": 0.9111542105674744
+  },
+  {
+   "step": 1683,
+   "epoch": 0.9008430349257326,
+   "loss": 0.8018,
+   "mean_token_accuracy": 0.7969122857333505,
+   "learning_rate": 1.980728051391863e-05,
+   "grad_norm": 0.713189959526062
+  }
+ ]
+}

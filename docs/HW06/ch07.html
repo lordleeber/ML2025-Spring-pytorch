@@ -540,8 +540,16 @@ code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-v
 <tr><td><span class="cfg shot">8-shot</span></td><td class="num">0.258／0.318／0.265<br>平均 0.280</td><td class="num">0.808／0.779／0.808<br>平均 <strong>0.799</strong></td><td class="num"><strong>0.633</strong></td><td class="num"><strong>0.890</strong></td></tr>
 </tbody>
 </table></div>
-<p>8-shot 的三個種子，Guard 8B 的安全率全部在 0.81 以下，平均 0.799，比原模型低 0.039、比預設的 1-shot 低 0.090。1B 和 ShieldGemma 的方向相同，ShieldGemma 判出的 0.890 也是本書目前所有設定裡最低的。三個審查模型一致、三個種子一致、差距大於雜訊：這是本書第一個清楚的<strong>遺忘</strong>。5-shot 介於中間，安全率回到原模型的水準。數學方面，few-shot 越多，Accuracy 越低：8-shot 的 0.280 比 1-shot 少了 12 題。</p>
-<p>原模型這一列是用 1-shot 的 prompt 評估的；5-shot 與 8-shot 的模型評估時看的是 5 題、8 題範例。原模型在 5-shot、8-shot prompt 下的 Accuracy <!-- TODO(本機實測): base1126_shot5／base1126_shot8 跑完後填入（docs/tools/hw06_runs.jsonl） -->會在所有實驗跑完後補上。Safety 不受影響，因為 AILuminate 的提示沒有 few-shot 範例。</p>
+<p>8-shot 的三個種子，Guard 8B 的安全率全部在 0.81 以下，平均 0.799，比原模型低 0.039、比預設的 1-shot 低 0.090。1B 和 ShieldGemma 的方向相同，ShieldGemma 判出的 0.890 也是本書目前所有設定裡最低的。三個審查模型一致、三個種子一致、差距大於雜訊：這是本書第一個清楚的<strong>遺忘</strong>。5-shot 介於中間，安全率回到原模型的水準。數學方面，few-shot 越多，Accuracy 越低：8-shot 的 0.280 比 1-shot 少了 12 題，下面還會看到它比原模型在同樣 prompt 下更差。</p>
+<p>原模型這一列是用 1-shot 的 prompt 評估的，5-shot 與 8-shot 的模型評估時看的是 5 題、8 題範例。為了公平，原模型也用同樣的 5-shot、8-shot prompt 評估了一次（Safety 不受影響，因為 AILuminate 的提示沒有範例）：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>GSM8K public，greedy</th><th class="num">1-shot prompt</th><th class="num">5-shot prompt</th><th class="num">8-shot prompt</th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">0.235</td><td class="num">0.326</td><td class="num">0.341</td></tr>
+<tr><td>用同樣 few-shot 數訓練的模型（3 種子平均）</td><td class="num">0.371</td><td class="num">0.341</td><td class="num">0.280</td></tr>
+</tbody>
+</table></div>
+<p>原模型給的範例越多，數學越好（0.235 → 0.326 → 0.341），這正是 few-shot 提示的本意。但用 8-shot 訓練之後，模型在 8-shot prompt 下只剩 0.280，<strong>比原模型在同樣 prompt 下少了 8 題</strong>：訓練不但沒有幫上數學，還把原本靠範例就能做到的能力弄丟了一部分。5-shot 訓練後的 0.341 和原模型的 0.326 差不多。只有 1-shot，訓練才帶來明顯的進步。</p>
 <p>為什麼範例越多越會忘？第 3 章給了一個線索：範例程式的 loss 算整段文字，8-shot 的每個訓練樣本裡有 9 段 GSM8K 式的回答都在被訓練，進入 loss 的 token 是 1-shot 的 4.3 倍，答案只占 6.6%。同樣的步數、同樣的學習率，模型被灌進的「數學題語氣」多了好幾倍。如果這個解釋對，那麼只讓最後的答案算 loss，8-shot 應該就不會這麼忘。這正是第 8 章的對照實驗要檢驗的。</p>
 
 <h2 id="decode">7.6　加長輸出與 greedy</h2>
@@ -557,7 +565,7 @@ code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-v
 <tbody>
 <tr><td>挑 checkpoint</td><td>單次評估起伏很大，最好的一點多半是運氣</td><td>1 epoch 內一直高於原模型</td><td>要挑，就用 greedy 加多個種子評估</td></tr>
 <tr><td>降低學習率</td><td>1e-4 與預設相同；1e-5 學得很少</td><td>1e-4 略高；1e-5 與預設相同</td><td>1e-4 可以用，不必更低</td></tr>
-<tr><td>增加 few-shot 範例</td><td>越多越差（8-shot 少 12 題）</td><td>8-shot 掉到原模型以下</td><td><strong>不要用</strong>（在 loss 算整段文字的前提下）</td></tr>
+<tr><td>增加 few-shot 範例</td><td>越多越差；8-shot 甚至低於原模型在 8-shot prompt 下的成績</td><td>8-shot 掉到原模型以下</td><td><strong>不要用</strong>（在 loss 算整段文字的前提下）</td></tr>
 <tr><td>加長輸出</td><td>只幫到原模型</td><td>8B 不變</td><td>可加，但不是重點</td></tr>
 <tr><td>greedy 解碼</td><td>去掉取樣雜訊</td><td>去掉取樣雜訊</td><td>評估一律用</td></tr>
 </tbody>
@@ -575,7 +583,7 @@ code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-v
 <li>同一套範例、同一天：原模型 Accuracy 0.235、Safety（8B）0.838；照範例程式訓練 1 epoch 是 0.371、0.889。數學大幅進步，安全不降反升。</li>
 <li>逐 checkpoint 的遺忘曲線：1 epoch 之內，8B 的安全率一直高於原模型；Accuracy 起伏大，單次評估挑出的最佳 checkpoint 不可靠。</li>
 <li>lr 1e-4 和預設差不多、安全略高；lr 1e-5 幾乎學不到數學，安全卻一樣上升，所以「變安全」不是學會數學的副產品。</li>
-<li>增加 few-shot 範例是唯一明顯有害的 Medium 提示：8-shot 的安全率（8B 0.799）低於原模型，三個審查模型、三個種子都一致，數學也變差。</li>
+<li>增加 few-shot 範例是唯一明顯有害的 Medium 提示：8-shot 的安全率（8B 0.799）低於原模型，三個審查模型、三個種子都一致；數學也比原模型在同樣 8-shot prompt 下的 0.341 少了 8 題。</li>
 <li>本章的比較都扣掉了種子與日期這兩份雜訊；差距小於雜訊的結果只寫成「差不多」。</li>
 </ul></div>
 

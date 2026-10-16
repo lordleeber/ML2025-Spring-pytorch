@@ -77,7 +77,16 @@ def medium_safety():
                     aria='Medium 提示各設定的 Safety Rate（Guard 8B），三個種子與平均')
 
 
-CHARTS = {'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
+def loss_curve():
+    d = json.load(open(os.path.join(ROOT, 'docs/tools/hw06_loss_curve.json')))
+    h = d['log_history']
+    s = [{'name': 'loss', 'label': 'loss', 'values': [x['loss'] for x in h], 'color': C['ep1']}]
+    return line_chart(s, len(h), 0.75, 1.0, [0.75, 0.8, 0.85, 0.9, 0.95, 1.0], xlabel='訓練步數', ylabel='這一段 187 步的平均 loss',
+                      aria='1 epoch 訓練中每 187 步的平均 loss，種子 0，從 0.981 降到 0.802',
+                      xticks=[(i, str(x['step'])) for i, x in enumerate(h)], fmt='{:.4f}', xname=lambda i: f"第 {h[i]['step']} 步")
+
+
+CHARTS = {'loss_curve': loss_curve, 'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
 
 for page in sys.argv[1:]:
     s = open(page).read()
