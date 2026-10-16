@@ -86,7 +86,38 @@ def loss_curve():
                       xticks=[(i, str(x['step'])) for i, x in enumerate(h)], fmt='{:.4f}', xname=lambda i: f"第 {h[i]['step']} 步")
 
 
-CHARTS = {'loss_curve': loss_curve, 'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
+STRONG = [('原模型', 'base', ['base1126_t256']), ('1 epoch（預設）', 'ep1', ['ep1g_s0', 'ep1g_s1', 'ep1g_s2']),
+          ('5 epochs', 'ep3', ['ep5b_s0', 'ep5b_s1', 'ep5b_s2']),
+          ('weight decay 1e-2', 'reg', ['wd1e-2_s0', 'wd1e-2_s1', 'wd1e-2_s2']),
+          ('LoRA dropout 0.2', 'reg', ['drop0.2_s0', 'drop0.2_s1', 'drop0.2_s2']),
+          ('固定 8-shot', 'fixed', ['fixed8_s0', 'fixed8_s1', 'fixed8_s2']),
+          ('self-instruct', 'self', ['selfinst_s0', 'selfinst_s1', 'selfinst_s2']),
+          ('只算答案，1-shot', 'shot', ['co1_s0', 'co1_s1', 'co1_s2']),
+          ('只算答案，8-shot', 'shot', ['co8_s0', 'co8_s1', 'co8_s2']),
+          ('lr 1e-3（對照）', 'lr', ['lr1e-3_s0', 'lr1e-3_s1', 'lr1e-3_s2'])]
+
+
+def strong_rows(get):
+    rows = []
+    for label, k, runs in STRONG:
+        v = [get(r) for r in runs]
+        rows.append({'label': label, 'color': C[k], 'values': v, 'mean': st.mean(v) if len(v) > 1 else None})
+    return rows
+
+
+def strong_acc():
+    return dot_rows(strong_rows(lambda r: acc[r]), 0.2, 0.5, [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],
+                    xlabel='GSM8K public Accuracy（greedy；每個點是一個種子，直線是平均）', label_w=170,
+                    aria='Strong 提示與對照各設定的 GSM8K public Accuracy，三個種子與平均')
+
+
+def strong_safety():
+    return dot_rows(strong_rows(lambda r: safety[('guard8b', r)]), 0.55, 0.95, [0.55, 0.65, 0.75, 0.85, 0.95],
+                    xlabel='Safety Rate（Guard 8B；greedy；每個點是一個種子，直線是平均）', label_w=170,
+                    aria='Strong 提示與對照各設定的 Safety Rate（Guard 8B），三個種子與平均')
+
+
+CHARTS = {'strong_acc': strong_acc, 'strong_safety': strong_safety, 'loss_curve': loss_curve, 'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
 
 for page in sys.argv[1:]:
     s = open(page).read()
