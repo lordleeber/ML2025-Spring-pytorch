@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 7 章　遺忘曲線與 Medium 提示 — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch06.html">← 第 6 章</a><a href="ch08.html">第 8 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 7 章　遺忘曲線與 Medium 提示</h1>
+  <p class="chap-lead">前六章把量法弄清楚了，這一章開始拿它回答作業的問題。先用同一套 few-shot 範例、同一天，把原模型和照範例程式訓練 1 epoch 的模型並排；再沿著訓練過程逐一評估 10 個 checkpoint，畫出遺忘曲線。最後逐項實測投影片的 Medium 提示：降低學習率、增加 few-shot 範例、加長輸出、改用 greedy。其中有一項沒有幫上忙，反而讓模型明顯忘掉了安全行為。</p>
+</header>
+<main>
+
+<h2 id="setup">7.1　怎麼比</h2>
+<p>照第 6 章的規則：每個設定跑 3 個種子（只改 LoRA 起點），用 greedy 評估，三個審查模型都判，主線看 Guard 8B。原模型用第 4 章說的方法，以和訓練後評估相同的 few-shot 範例重新評估過。</p>
+<p>還有兩份和設定無關的雜訊要記在心上。第一是種子：同一設定三個種子的 Accuracy 常差 0.05 左右，Safety 多半差 0.03 到 0.05。第二是日期：這一章的實驗分散在 10 月 13 日到 15 日跑，第 6 章量到光是 prompt 裡的日期不同，原模型的 Safety 就能差 0.025。所以本章只對「平均差距明顯大於這些雜訊、三個審查模型方向一致」的結果下結論。</p>
+
+<h2 id="base-vs-ep1">7.2　原模型對 1 epoch</h2>
+<p>兩者都在 10 月 15 日評估，few-shot 範例相同：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>greedy</th><th class="num">GSM8K public</th><th class="num">Safety <span class="cfg j8b">8B</span></th><th class="num">Safety <span class="cfg j1b">1B</span></th><th class="num">Safety <span class="cfg jsg">ShieldGemma</span></th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">0.235</td><td class="num">0.838</td><td class="num">0.629</td><td class="num">0.946</td></tr>
+<tr><td><span class="cfg ep1">1 epoch</span>（種子 0／1／2）</td><td class="num">0.394／0.371／0.348<br>平均 0.371</td><td class="num">0.871／0.904／0.892<br>平均 0.889</td><td class="num">平均 0.731</td><td class="num">平均 0.929</td></tr>
+</tbody>
+</table></div>
+<p>數學大幅進步：132 題多對了約 18 題，三個種子裡最差的一個也比原模型多對 15 題。Safety 方面，兩個 Llama Guard 都判 1 epoch 的模型<strong>比原模型更安全</strong>（8B 多 0.051，超過種子全距 0.033 與日期雜訊；1B 多 0.102），ShieldGemma 判為略差（少 0.017，在雜訊範圍內）。結論和第 5 章用另一套範例、另一天量到的一致：照範例程式的預設設定，看不到遺忘。</p>
+<p>注意原模型這次的 Accuracy 是 0.235，比第 4 章用另一套 few-shot 範例量到的 0.303 低了 9 題。原模型對範例很敏感，微調後的模型則學會了固定的作答格式，不太依賴範例。這也是為什麼比較一定要用同一套範例：用錯範例，微調的效果會被低估一半。</p>
+
+<h2 id="curve">7.3　遺忘曲線：逐 checkpoint 評估</h2>
+<p>投影片 Medium 提示的第一項是「評估不同 checkpoint」。1 epoch 存了 10 個 checkpoint（第 3 章），第 4 章也證實改 <code>adapter_path</code> 真的會換 checkpoint。逐一評估，就能看到模型在訓練過程中的變化，也就是<strong>遺忘曲線</strong>。這組實驗是早期做的：用評估工具 <code>hw06_gen.py</code> 載入 ref3 的 10 個 checkpoint（種子 0），取樣解碼，few-shot 範例是第 4 章那套舊的（seed 42）。所以它只能和同一套條件下的原模型（取樣、種子 0）比，不能和 7.2 節的數字放在一起。</p>
+<figure class="fig">
+<!-- CHART:ckpt_acc -->
+<div class="legend"><span><i style="background:#3987e5"></i>1 epoch（ref3）</span><span><i style="background:#8b949e"></i>原模型</span></div><svg viewBox="0 0 900 360" role="img" aria-label="1 epoch 訓練中 10 個 checkpoint 的 GSM8K public Accuracy，取樣解碼、種子 0，原模型 0.318 以虛線表示">
+<line x1="56" y1="314.0" x2="780" y2="314.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="318.0" text-anchor="end">0.2</text>
+<line x1="56" y1="216.0" x2="780" y2="216.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="220.0" text-anchor="end">0.3</text>
+<line x1="56" y1="118.0" x2="780" y2="118.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="122.0" text-anchor="end">0.4</text>
+<line x1="56" y1="20.0" x2="780" y2="20.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="24.0" text-anchor="end">0.5</text>
+<text class="s-mono" x="56.0" y="332" text-anchor="middle">187</text>
+<text class="s-mono" x="136.4" y="332" text-anchor="middle">374</text>
+<text class="s-mono" x="216.9" y="332" text-anchor="middle">561</text>
+<text class="s-mono" x="297.3" y="332" text-anchor="middle">748</text>
+<text class="s-mono" x="377.8" y="332" text-anchor="middle">935</text>
+<text class="s-mono" x="458.2" y="332" text-anchor="middle">1122</text>
+<text class="s-mono" x="538.7" y="332" text-anchor="middle">1309</text>
+<text class="s-mono" x="619.1" y="332" text-anchor="middle">1496</text>
+<text class="s-mono" x="699.6" y="332" text-anchor="middle">1683</text>
+<text class="s-mono" x="780.0" y="332" text-anchor="middle">1868</text>
+<line x1="56" y1="314" x2="780" y2="314" stroke="#4d4a5c" stroke-width="1"/>
+<text class="s-sm" x="418.0" y="354" text-anchor="middle">checkpoint（訓練步數）</text>
+<text class="s-sm" x="14" y="167.0" text-anchor="middle" transform="rotate(-90 14 167.0)">GSM8K public Accuracy</text>
+<polyline points="56.0,227.8 136.4,175.8 216.9,235.6 297.3,183.7 377.8,227.8 458.2,169.0 538.7,183.7 619.1,79.8 699.6,146.4 780.0,175.8" fill="none" stroke="#3987e5" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="56.0,198.4 136.4,198.4 216.9,198.4 297.3,198.4 377.8,198.4 458.2,198.4 538.7,198.4 619.1,198.4 699.6,198.4 780.0,198.4" fill="none" stroke="#8b949e" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<rect x="786.0" y="171.8" width="8" height="8" rx="2" fill="#3987e5"/>
+<text class="s-lbl" x="798.0" y="179.8">1 epoch（ref3）</text>
+<rect x="786.0" y="194.4" width="8" height="8" rx="2" fill="#8b949e"/>
+<text class="s-lbl" x="798.0" y="202.4">原模型</text>
+<rect x="15.8" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-187：1 epoch（ref3） 0.288　原模型 0.318"/>
+<rect x="96.2" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-374：1 epoch（ref3） 0.341　原模型 0.318"/>
+<rect x="176.7" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-561：1 epoch（ref3） 0.280　原模型 0.318"/>
+<rect x="257.1" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-748：1 epoch（ref3） 0.333　原模型 0.318"/>
+<rect x="337.6" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-935：1 epoch（ref3） 0.288　原模型 0.318"/>
+<rect x="418.0" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1122：1 epoch（ref3） 0.348　原模型 0.318"/>
+<rect x="498.4" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1309：1 epoch（ref3） 0.333　原模型 0.318"/>
+<rect x="578.9" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1496：1 epoch（ref3） 0.439　原模型 0.318"/>
+<rect x="659.3" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1683：1 epoch（ref3） 0.371　原模型 0.318"/>
+<rect x="739.8" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1868：1 epoch（ref3） 0.341　原模型 0.318"/>
+</svg>
+<!-- /CHART:ckpt_acc -->
+<figcaption>圖 7-1　10 個 checkpoint 的 GSM8K public Accuracy（取樣解碼、種子 0）。虛線是同樣條件下的原模型。滑鼠移到圖上可以看每個 checkpoint 的數值。</figcaption>
+</figure>
+<figure class="fig">
+<!-- CHART:ckpt_safety -->
+<div class="legend"><span><i style="background:#9085e9"></i>Guard 8B</span><span><i style="background:#d55181"></i>Guard 1B</span><span><i style="background:#c98500"></i>ShieldGemma</span><span><i style="background:#8b949e"></i>原模型（8B）</span></div><svg viewBox="0 0 900 360" role="img" aria-label="同樣 10 個 checkpoint 的 Safety Rate，三個審查模型各一條線；原模型以 Guard 8B 判的 0.850 用虛線表示">
+<line x1="56" y1="314.0" x2="780" y2="314.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="318.0" text-anchor="end">0.6</text>
+<line x1="56" y1="240.5" x2="780" y2="240.5" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="244.5" text-anchor="end">0.7</text>
+<line x1="56" y1="167.0" x2="780" y2="167.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="171.0" text-anchor="end">0.8</text>
+<line x1="56" y1="93.5" x2="780" y2="93.5" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="97.5" text-anchor="end">0.9</text>
+<line x1="56" y1="20.0" x2="780" y2="20.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="48" y="24.0" text-anchor="end">1.0</text>
+<text class="s-mono" x="56.0" y="332" text-anchor="middle">187</text>
+<text class="s-mono" x="136.4" y="332" text-anchor="middle">374</text>
+<text class="s-mono" x="216.9" y="332" text-anchor="middle">561</text>
+<text class="s-mono" x="297.3" y="332" text-anchor="middle">748</text>
+<text class="s-mono" x="377.8" y="332" text-anchor="middle">935</text>
+<text class="s-mono" x="458.2" y="332" text-anchor="middle">1122</text>
+<text class="s-mono" x="538.7" y="332" text-anchor="middle">1309</text>
+<text class="s-mono" x="619.1" y="332" text-anchor="middle">1496</text>
+<text class="s-mono" x="699.6" y="332" text-anchor="middle">1683</text>
+<text class="s-mono" x="780.0" y="332" text-anchor="middle">1868</text>
+<line x1="56" y1="314" x2="780" y2="314" stroke="#4d4a5c" stroke-width="1"/>
+<text class="s-sm" x="418.0" y="354" text-anchor="middle">checkpoint（訓練步數）</text>
+<text class="s-sm" x="14" y="167.0" text-anchor="middle" transform="rotate(-90 14 167.0)">Safety Rate</text>
+<polyline points="56.0,114.9 136.4,124.1 216.9,114.9 297.3,108.8 377.8,111.9 458.2,78.2 538.7,102.7 619.1,111.9 699.6,105.8 780.0,90.4" fill="none" stroke="#9085e9" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="56.0,234.4 136.4,237.4 216.9,216.0 297.3,206.8 377.8,219.1 458.2,191.5 538.7,216.0 619.1,237.4 699.6,222.1 780.0,225.2" fill="none" stroke="#d55181" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="56.0,72.1 136.4,84.3 216.9,65.9 297.3,72.1 377.8,72.1 458.2,72.1 538.7,75.1 619.1,75.1 699.6,78.2 780.0,90.4" fill="none" stroke="#c98500" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="56.0,130.2 136.4,130.2 216.9,130.2 297.3,130.2 377.8,130.2 458.2,130.2 538.7,130.2 619.1,130.2 699.6,130.2 780.0,130.2" fill="none" stroke="#8b949e" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<rect x="786.0" y="86.4" width="8" height="8" rx="2" fill="#9085e9"/>
+<text class="s-lbl" x="798.0" y="94.4">Guard 8B</text>
+<rect x="786.0" y="100.4" width="8" height="8" rx="2" fill="#c98500"/>
+<text class="s-lbl" x="798.0" y="108.4">ShieldGemma</text>
+<rect x="786.0" y="126.2" width="8" height="8" rx="2" fill="#8b949e"/>
+<text class="s-lbl" x="798.0" y="134.2">原模型（8B）</text>
+<rect x="786.0" y="221.2" width="8" height="8" rx="2" fill="#d55181"/>
+<text class="s-lbl" x="798.0" y="229.2">Guard 1B</text>
+<rect x="15.8" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-187：Guard 8B 0.871　Guard 1B 0.708　ShieldGemma 0.929　原模型（8B） 0.850"/>
+<rect x="96.2" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-374：Guard 8B 0.858　Guard 1B 0.704　ShieldGemma 0.912　原模型（8B） 0.850"/>
+<rect x="176.7" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-561：Guard 8B 0.871　Guard 1B 0.733　ShieldGemma 0.938　原模型（8B） 0.850"/>
+<rect x="257.1" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-748：Guard 8B 0.879　Guard 1B 0.746　ShieldGemma 0.929　原模型（8B） 0.850"/>
+<rect x="337.6" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-935：Guard 8B 0.875　Guard 1B 0.729　ShieldGemma 0.929　原模型（8B） 0.850"/>
+<rect x="418.0" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1122：Guard 8B 0.921　Guard 1B 0.767　ShieldGemma 0.929　原模型（8B） 0.850"/>
+<rect x="498.4" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1309：Guard 8B 0.887　Guard 1B 0.733　ShieldGemma 0.925　原模型（8B） 0.850"/>
+<rect x="578.9" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1496：Guard 8B 0.875　Guard 1B 0.704　ShieldGemma 0.925　原模型（8B） 0.850"/>
+<rect x="659.3" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1683：Guard 8B 0.883　Guard 1B 0.725　ShieldGemma 0.921　原模型（8B） 0.850"/>
+<rect x="739.8" y="20" width="80.4" height="294" fill="transparent" data-tip="checkpoint-1868：Guard 8B 0.904　Guard 1B 0.721　ShieldGemma 0.904　原模型（8B） 0.850"/>
+</svg>
+<!-- /CHART:ckpt_safety -->
+<figcaption>圖 7-2　同樣 10 個 checkpoint 的 Safety Rate，三個審查模型各一條線；虛線是原模型（Guard 8B）。</figcaption>
+</figure>
+<div class="tablewrap"><table>
+<thead><tr><th>checkpoint</th><th class="num">187</th><th class="num">374</th><th class="num">561</th><th class="num">748</th><th class="num">935</th><th class="num">1122</th><th class="num">1309</th><th class="num">1496</th><th class="num">1683</th><th class="num">1868</th></tr></thead>
+<tbody>
+<tr><td>GSM8K public</td><td class="num">0.288</td><td class="num">0.341</td><td class="num">0.280</td><td class="num">0.333</td><td class="num">0.288</td><td class="num">0.348</td><td class="num">0.333</td><td class="num">0.439</td><td class="num">0.371</td><td class="num">0.341</td></tr>
+<tr><td>Safety <span class="cfg j8b">8B</span></td><td class="num">0.871</td><td class="num">0.858</td><td class="num">0.871</td><td class="num">0.879</td><td class="num">0.875</td><td class="num">0.921</td><td class="num">0.887</td><td class="num">0.875</td><td class="num">0.883</td><td class="num">0.904</td></tr>
+<tr><td>Safety <span class="cfg j1b">1B</span></td><td class="num">0.708</td><td class="num">0.704</td><td class="num">0.733</td><td class="num">0.746</td><td class="num">0.729</td><td class="num">0.767</td><td class="num">0.733</td><td class="num">0.704</td><td class="num">0.725</td><td class="num">0.721</td></tr>
+<tr><td>Safety <span class="cfg jsg">ShieldGemma</span></td><td class="num">0.929</td><td class="num">0.912</td><td class="num">0.938</td><td class="num">0.929</td><td class="num">0.929</td><td class="num">0.929</td><td class="num">0.925</td><td class="num">0.925</td><td class="num">0.921</td><td class="num">0.904</td></tr>
+</tbody>
+</table></div>
+<p>原模型在同樣條件下是 Accuracy 0.318、Safety（8B）0.850。兩張圖說的是同一件事：<strong>在一個 epoch 之內，看不到遺忘</strong>。Guard 8B 的安全率從第一個 checkpoint 起就在原模型之上，一路在 0.86 到 0.92 之間。Accuracy 則在 0.28 到 0.44 之間上下跳，沒有明顯的上升趨勢，而且大多數 checkpoint 和原模型差不多。</p>
+<p>checkpoint-1496 的 0.439 是曲線上最高的一點，很容易讓人想「那就交這個 checkpoint」。但它只是一個種子、取樣解碼的一次結果，第 4 章量到取樣本身的雜訊就有 0.09；前後兩個 checkpoint 是 0.333 和 0.371。用單次評估挑最好的 checkpoint，挑到的多半是運氣最好的那一次，換一個種子重評，優勢很可能消失。要用挑 checkpoint 這個方法，至少要 greedy 評估、最好再加幾個種子。</p>
+
+<h2 id="lr">7.4　降低學習率</h2>
+<p>投影片建議把學習率從 2e-4 降到 1e-4 到 1e-5 之間（<code>--lr</code>）。兩個極端各跑 3 個種子：</p>
+<figure class="fig">
+<!-- CHART:medium_acc -->
+<svg viewBox="0 0 900 300" role="img" aria-label="Medium 提示各設定的 GSM8K public Accuracy，三個種子與平均">
+<line x1="150.0" y1="16" x2="150.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="150.0" y="274" text-anchor="middle">0.2</text>
+<line x1="294.0" y1="16" x2="294.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="294.0" y="274" text-anchor="middle">0.25</text>
+<line x1="438.0" y1="16" x2="438.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="438.0" y="274" text-anchor="middle">0.3</text>
+<line x1="582.0" y1="16" x2="582.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="582.0" y="274" text-anchor="middle">0.35</text>
+<line x1="726.0" y1="16" x2="726.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="726.0" y="274" text-anchor="middle">0.4</text>
+<line x1="870.0" y1="16" x2="870.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="870.0" y="274" text-anchor="middle">0.45</text>
+<text class="s-sm" x="510.0" y="294" text-anchor="middle">GSM8K public Accuracy（greedy；每個點是一個種子，直線是平均）</text>
+<text class="s-lbl" x="138" y="40.0" text-anchor="end">原模型</text>
+<circle cx="250.8" cy="36.0" r="5" fill="#8b949e" stroke="#1b1a22" stroke-width="2" data-tip="原模型：0.235"/>
+<text class="s-mono" x="262.8" y="40.0">0.235</text>
+<rect x="0" y="16.0" width="900" height="40" fill="transparent" data-tip="原模型：0.235"/>
+<text class="s-lbl" x="138" y="80.0" text-anchor="end">1 epoch（預設）</text>
+<line x1="576.2" y1="76.0" x2="708.7" y2="76.0" stroke="#3987e5" stroke-width="2" opacity="0.6"/>
+<circle cx="708.7" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.394"/>
+<circle cx="642.5" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.371"/>
+<circle cx="576.2" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.348"/>
+<line x1="642.5" y1="65.0" x2="642.5" y2="87.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="720.7" y="80.0">0.371</text>
+<rect x="0" y="56.0" width="900" height="40" fill="transparent" data-tip="1 epoch（預設）：0.394、0.371、0.348（平均 0.371）"/>
+<text class="s-lbl" x="138" y="120.0" text-anchor="end">lr 1e-4</text>
+<line x1="556.1" y1="116.0" x2="731.8" y2="116.0" stroke="#199e70" stroke-width="2" opacity="0.6"/>
+<circle cx="556.1" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.341"/>
+<circle cx="731.8" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.402"/>
+<circle cx="599.3" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.356"/>
+<line x1="629.0" y1="105.0" x2="629.0" y2="127.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="743.8" y="120.0">0.366</text>
+<rect x="0" y="96.0" width="900" height="40" fill="transparent" data-tip="lr 1e-4：0.341、0.402、0.356（平均 0.366）"/>
+<text class="s-lbl" x="138" y="160.0" text-anchor="end">lr 1e-5</text>
+<line x1="423.6" y1="156.0" x2="512.9" y2="156.0" stroke="#199e70" stroke-width="2" opacity="0.6"/>
+<circle cx="423.6" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.295"/>
+<circle cx="446.6" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.303"/>
+<circle cx="512.9" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.326"/>
+<line x1="461.0" y1="145.0" x2="461.0" y2="167.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="524.9" y="160.0">0.308</text>
+<rect x="0" y="136.0" width="900" height="40" fill="transparent" data-tip="lr 1e-5：0.295、0.303、0.326（平均 0.308）"/>
+<text class="s-lbl" x="138" y="200.0" text-anchor="end">5-shot</text>
+<line x1="512.9" y1="196.0" x2="622.3" y2="196.0" stroke="#c98500" stroke-width="2" opacity="0.6"/>
+<circle cx="512.9" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.326"/>
+<circle cx="622.3" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.364"/>
+<circle cx="533.0" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.333"/>
+<line x1="556.1" y1="185.0" x2="556.1" y2="207.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="634.3" y="200.0">0.341</text>
+<rect x="0" y="176.0" width="900" height="40" fill="transparent" data-tip="5-shot：0.326、0.364、0.333（平均 0.341）"/>
+<text class="s-lbl" x="138" y="240.0" text-anchor="end">8-shot</text>
+<line x1="317.0" y1="236.0" x2="489.8" y2="236.0" stroke="#c98500" stroke-width="2" opacity="0.6"/>
+<circle cx="317.0" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.258"/>
+<circle cx="489.8" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.318"/>
+<circle cx="337.2" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.265"/>
+<line x1="381.4" y1="225.0" x2="381.4" y2="247.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="501.8" y="240.0">0.280</text>
+<rect x="0" y="216.0" width="900" height="40" fill="transparent" data-tip="8-shot：0.258、0.318、0.265（平均 0.280）"/>
+</svg>
+<!-- /CHART:medium_acc -->
+<figcaption>圖 7-3　Medium 提示各設定的 GSM8K public Accuracy（greedy）。每個點是一個種子，直線是三個種子的平均；原模型只有一次評估。</figcaption>
+</figure>
+<figure class="fig">
+<!-- CHART:medium_safety -->
+<svg viewBox="0 0 900 300" role="img" aria-label="Medium 提示各設定的 Safety Rate（Guard 8B），三個種子與平均">
+<line x1="150.0" y1="16" x2="150.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="150.0" y="274" text-anchor="middle">0.75</text>
+<line x1="330.0" y1="16" x2="330.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="330.0" y="274" text-anchor="middle">0.8</text>
+<line x1="510.0" y1="16" x2="510.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="510.0" y="274" text-anchor="middle">0.85</text>
+<line x1="690.0" y1="16" x2="690.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="690.0" y="274" text-anchor="middle">0.9</text>
+<line x1="870.0" y1="16" x2="870.0" y2="256" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="870.0" y="274" text-anchor="middle">0.95</text>
+<text class="s-sm" x="510.0" y="294" text-anchor="middle">Safety Rate（Guard 8B；greedy；每個點是一個種子，直線是平均）</text>
+<text class="s-lbl" x="138" y="40.0" text-anchor="end">原模型</text>
+<circle cx="465.0" cy="36.0" r="5" fill="#8b949e" stroke="#1b1a22" stroke-width="2" data-tip="原模型：0.838"/>
+<text class="s-mono" x="477.0" y="40.0">0.838</text>
+<rect x="0" y="16.0" width="900" height="40" fill="transparent" data-tip="原模型：0.838"/>
+<text class="s-lbl" x="138" y="80.0" text-anchor="end">1 epoch（預設）</text>
+<line x1="585.0" y1="76.0" x2="705.0" y2="76.0" stroke="#3987e5" stroke-width="2" opacity="0.6"/>
+<circle cx="585.0" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.871"/>
+<circle cx="705.0" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.904"/>
+<circle cx="660.0" cy="76.0" r="5" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：0.892"/>
+<line x1="650.0" y1="65.0" x2="650.0" y2="87.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="717.0" y="80.0">0.889</text>
+<rect x="0" y="56.0" width="900" height="40" fill="transparent" data-tip="1 epoch（預設）：0.871、0.904、0.892（平均 0.889）"/>
+<text class="s-lbl" x="138" y="120.0" text-anchor="end">lr 1e-4</text>
+<line x1="735.0" y1="116.0" x2="750.0" y2="116.0" stroke="#199e70" stroke-width="2" opacity="0.6"/>
+<circle cx="750.0" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.917"/>
+<circle cx="735.0" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.912"/>
+<circle cx="735.0" cy="116.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：0.912"/>
+<line x1="740.0" y1="105.0" x2="740.0" y2="127.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="762.0" y="120.0">0.914</text>
+<rect x="0" y="96.0" width="900" height="40" fill="transparent" data-tip="lr 1e-4：0.917、0.912、0.912（平均 0.914）"/>
+<text class="s-lbl" x="138" y="160.0" text-anchor="end">lr 1e-5</text>
+<line x1="615.0" y1="156.0" x2="660.0" y2="156.0" stroke="#199e70" stroke-width="2" opacity="0.6"/>
+<circle cx="660.0" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.892"/>
+<circle cx="615.0" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.879"/>
+<circle cx="630.0" cy="156.0" r="5" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：0.883"/>
+<line x1="635.0" y1="145.0" x2="635.0" y2="167.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="672.0" y="160.0">0.885</text>
+<rect x="0" y="136.0" width="900" height="40" fill="transparent" data-tip="lr 1e-5：0.892、0.879、0.883（平均 0.885）"/>
+<text class="s-lbl" x="138" y="200.0" text-anchor="end">5-shot</text>
+<line x1="480.0" y1="196.0" x2="525.0" y2="196.0" stroke="#c98500" stroke-width="2" opacity="0.6"/>
+<circle cx="525.0" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.854"/>
+<circle cx="480.0" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.842"/>
+<circle cx="510.0" cy="196.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="5-shot：0.850"/>
+<line x1="505.0" y1="185.0" x2="505.0" y2="207.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="537.0" y="200.0">0.849</text>
+<rect x="0" y="176.0" width="900" height="40" fill="transparent" data-tip="5-shot：0.854、0.842、0.850（平均 0.849）"/>
+<text class="s-lbl" x="138" y="240.0" text-anchor="end">8-shot</text>
+<line x1="255.0" y1="236.0" x2="360.0" y2="236.0" stroke="#c98500" stroke-width="2" opacity="0.6"/>
+<circle cx="360.0" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.808"/>
+<circle cx="255.0" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.779"/>
+<circle cx="360.0" cy="236.0" r="5" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot：0.808"/>
+<line x1="325.0" y1="225.0" x2="325.0" y2="247.0" stroke="#e9e6ef" stroke-width="2"/>
+<text class="s-mono" x="372.0" y="240.0">0.799</text>
+<rect x="0" y="216.0" width="900" height="40" fill="transparent" data-tip="8-shot：0.808、0.779、0.808（平均 0.799）"/>
+</svg>
+<!-- /CHART:medium_safety -->
+<figcaption>圖 7-4　同樣設定的 Safety Rate（Guard 8B，greedy）。</figcaption>
+</figure>
+<div class="tablewrap"><table>
+<thead><tr><th>greedy，3 種子平均</th><th class="num">GSM8K public</th><th class="num">Safety <span class="cfg j8b">8B</span></th><th class="num">Safety <span class="cfg j1b">1B</span></th><th class="num">Safety <span class="cfg jsg">ShieldGemma</span></th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span></td><td class="num">0.235</td><td class="num">0.838</td><td class="num">0.629</td><td class="num">0.946</td></tr>
+<tr><td><span class="cfg ep1">1 epoch</span>（lr 2e-4，預設）</td><td class="num">0.371</td><td class="num">0.889</td><td class="num">0.731</td><td class="num">0.929</td></tr>
+<tr><td><span class="cfg lr">lr 1e-4</span></td><td class="num">0.366</td><td class="num">0.914</td><td class="num">0.762</td><td class="num">0.947</td></tr>
+<tr><td><span class="cfg lr">lr 1e-5</span></td><td class="num">0.308</td><td class="num">0.885</td><td class="num">0.731</td><td class="num">0.932</td></tr>
+</tbody>
+</table></div>
+<p><strong>lr 1e-4</strong> 的數學和預設幾乎一樣（0.366 對 0.371），安全率稍高（8B 0.914 對 0.889），差距和種子全距同一個量級，三個審查模型都略高。可以說它不比預設差，安全上可能略好，但不能說它明顯更好。</p>
+<p><strong>lr 1e-5</strong> 是一個很有用的對照。學習率小了 20 倍，一個 epoch 下來，數學只比原模型多對約 10 題，遠不如預設的 18 題；但安全率（8B 0.885、1B 0.731）和預設幾乎一樣高，同樣明顯高於原模型。也就是說，第 5 章看到的「微調後更安全」，<strong>並不需要真的學會數學</strong>：模型只要被訓練一點點，就開始更常拒絕危險要求。這支持第 5 章的猜測，變安全來自回答方式的改變（更短、更直接），而不是數學能力本身。</p>
+
+<h2 id="fewshot">7.5　增加 few-shot 範例</h2>
+<p>投影片建議把 few-shot 範例從 1 題加到 5 到 8 題，而且訓練與測試要設成一樣（<code>--train-n-shot</code>、<code>--test-n-shot</code>）。這是本章唯一一個明顯有害的提示：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>greedy，3 種子</th><th class="num">GSM8K public</th><th class="num">Safety <span class="cfg j8b">8B</span></th><th class="num">Safety <span class="cfg j1b">1B</span></th><th class="num">Safety <span class="cfg jsg">ShieldGemma</span></th></tr></thead>
+<tbody>
+<tr><td><span class="cfg base">原模型</span>（1-shot 評估）</td><td class="num">0.235</td><td class="num">0.838</td><td class="num">0.629</td><td class="num">0.946</td></tr>
+<tr><td><span class="cfg ep1">1-shot</span>（預設）</td><td class="num">0.371</td><td class="num">0.889</td><td class="num">0.731</td><td class="num">0.929</td></tr>
+<tr><td><span class="cfg shot">5-shot</span></td><td class="num">0.326／0.364／0.333<br>平均 0.341</td><td class="num">0.854／0.842／0.850<br>平均 0.849</td><td class="num">0.701</td><td class="num">0.911</td></tr>
+<tr><td><span class="cfg shot">8-shot</span></td><td class="num">0.258／0.318／0.265<br>平均 0.280</td><td class="num">0.808／0.779／0.808<br>平均 <strong>0.799</strong></td><td class="num"><strong>0.633</strong></td><td class="num"><strong>0.890</strong></td></tr>
+</tbody>
+</table></div>
+<p>8-shot 的三個種子，Guard 8B 的安全率全部在 0.81 以下，平均 0.799，比原模型低 0.039、比預設的 1-shot 低 0.090。1B 和 ShieldGemma 的方向相同，ShieldGemma 判出的 0.890 也是本書目前所有設定裡最低的。三個審查模型一致、三個種子一致、差距大於雜訊：這是本書第一個清楚的<strong>遺忘</strong>。5-shot 介於中間，安全率回到原模型的水準。數學方面，few-shot 越多，Accuracy 越低：8-shot 的 0.280 比 1-shot 少了 12 題。</p>
+<p>原模型這一列是用 1-shot 的 prompt 評估的；5-shot 與 8-shot 的模型評估時看的是 5 題、8 題範例。原模型在 5-shot、8-shot prompt 下的 Accuracy <!-- TODO(本機實測): base1126_shot5／base1126_shot8 跑完後填入（docs/tools/hw06_runs.jsonl） -->會在所有實驗跑完後補上。Safety 不受影響，因為 AILuminate 的提示沒有 few-shot 範例。</p>
+<p>為什麼範例越多越會忘？第 3 章給了一個線索：範例程式的 loss 算整段文字，8-shot 的每個訓練樣本裡有 9 段 GSM8K 式的回答都在被訓練，進入 loss 的 token 是 1-shot 的 4.3 倍，答案只占 6.6%。同樣的步數、同樣的學習率，模型被灌進的「數學題語氣」多了好幾倍。如果這個解釋對，那麼只讓最後的答案算 loss，8-shot 應該就不會這麼忘。這正是第 8 章的對照實驗要檢驗的。</p>
+
+<h2 id="decode">7.6　加長輸出與 greedy</h2>
+<p>最後兩項 Medium 提示在第 4、5 章已經實測過，這裡只整理結論：</p>
+<ul>
+<li><strong>加長輸出（<code>--max-new-tokens</code> 512 或 1024）</strong>：對原模型的 Accuracy 有一點幫助（greedy，0.303 → 0.326，舊的範例），對微調後的模型沒有影響，因為它的回答本來就短。安全率方面，Guard 8B 幾乎不變，Guard 1B 卻會大幅上升，因為它會把被截斷的回答判成不安全。用 8B 當主線時，這一項不會改變結論。</li>
+<li><strong>greedy 解碼（<code>--greedy</code>）</strong>：本身不一定讓分數變高，但去掉了取樣的雜訊，讓比較變得可能。本書從第 4 章起所有的設定比較都用 greedy。</li>
+</ul>
+
+<h2 id="summary">7.7　Medium 提示實測總表</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>提示</th><th>對數學</th><th>對安全（8B）</th><th>本書的建議</th></tr></thead>
+<tbody>
+<tr><td>挑 checkpoint</td><td>單次評估起伏很大，最好的一點多半是運氣</td><td>1 epoch 內一直高於原模型</td><td>要挑，就用 greedy 加多個種子評估</td></tr>
+<tr><td>降低學習率</td><td>1e-4 與預設相同；1e-5 學得很少</td><td>1e-4 略高；1e-5 與預設相同</td><td>1e-4 可以用，不必更低</td></tr>
+<tr><td>增加 few-shot 範例</td><td>越多越差（8-shot 少 12 題）</td><td>8-shot 掉到原模型以下</td><td><strong>不要用</strong>（在 loss 算整段文字的前提下）</td></tr>
+<tr><td>加長輸出</td><td>只幫到原模型</td><td>8B 不變</td><td>可加，但不是重點</td></tr>
+<tr><td>greedy 解碼</td><td>去掉取樣雜訊</td><td>去掉取樣雜訊</td><td>評估一律用</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="why">7.8　為什麼看不到投影片說的遺忘</h2>
+<p>投影片用一個例子說明遺忘：微調前，模型會拒絕「白帽駭客問罪犯怎麼用 keylogger 入侵」；微調後，它開始列出步驟。可是本章的實測顯示，照範例程式的預設設定訓練，三個審查模型都沒有看到這種退步，兩個 Llama Guard 甚至判定模型更安全。兩者怎麼兜得起來？能確定的事實和只能推測的部分要分開講。</p>
+<p>確定的事實有三件。第一，投影片的 Simple 基準線 Safety 是 0.558，本書三個審查模型對原模型的評分都在 0.62 以上（8B 是 0.84），助教的審查模型顯然嚴格得多；在一個更嚴格的審查模型下，微調前後的差異可能長得不一樣，本書無從驗證。第二，遺忘確實會發生，只是需要更重的訓練訊號：8-shot 就讓三個審查模型一致判定變差（第 8 章還會看到更多 epoch 的情形）。第三，個別的例子不能代表平均：240 題裡總有一些題目微調後變差、另一些變好，投影片挑一個變差的例子來說明現象並沒有錯，但平均起來的方向可能相反。</p>
+<p>推測的部分：預設設定只訓練 1 個 epoch、學習率線性降到 0、只動 0.454% 的參數，訓練訊號本來就不大；而 GSM8K 的答案又短又直接，模型學到的「回答方式」在面對危險要求時，可能表現成更乾脆的拒絕。這些推測和 lr 1e-5 的結果相容，但本書沒有設計實驗去直接證明它們。</p>
+
+<p>如果只能從 Medium 提示裡挑設定交作業，依本章的實測：維持 1-shot，學習率用預設或 1e-4，評估用 greedy、輸出長度給到 512，挑 checkpoint 時用 greedy 評估最後幾個、選平均最好的，而不是單次最高的。這樣的數學大約落在 Medium 基準線 0.379 附近（本章 1 epoch 與 lr 1e-4 的六個種子介於 0.341 到 0.402，平均約 0.37），不保證穩定超過；安全則不會比原模型差，但要記得本書的 Safety 不能和基準線直接比。想要穩定超過，第 8 章的 Strong 提示裡有更有效的一項。</p>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>同一套範例、同一天：原模型 Accuracy 0.235、Safety（8B）0.838；照範例程式訓練 1 epoch 是 0.371、0.889。數學大幅進步，安全不降反升。</li>
+<li>逐 checkpoint 的遺忘曲線：1 epoch 之內，8B 的安全率一直高於原模型；Accuracy 起伏大，單次評估挑出的最佳 checkpoint 不可靠。</li>
+<li>lr 1e-4 和預設差不多、安全略高；lr 1e-5 幾乎學不到數學，安全卻一樣上升，所以「變安全」不是學會數學的副產品。</li>
+<li>增加 few-shot 範例是唯一明顯有害的 Medium 提示：8-shot 的安全率（8B 0.799）低於原模型，三個審查模型、三個種子都一致，數學也變差。</li>
+<li>本章的比較都扣掉了種子與日期這兩份雜訊；差距小於雜訊的結果只寫成「差不多」。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 同學 A 在 checkpoint-1496 量到 0.439，宣稱「訓練到 80% 時最好」。用本章的數字說明這個說法的問題。</summary>
+<p>0.439 是單一種子、取樣解碼的一次結果；取樣的雜訊在原模型上就有 0.09，前後兩個 checkpoint 分別是 0.333 與 0.371。曲線本身沒有明顯趨勢，最高點很可能只是運氣。要支持這個說法，至少要用 greedy 評估、再加上多個種子。</p></details>
+<details class="quiz"><summary>2. lr 1e-5 的實驗為什麼對理解「微調後更安全」特別有用？</summary>
+<p>它幾乎沒學會數學（比預設少 8 題左右），安全率卻和預設一樣明顯高於原模型。如果變安全是學會數學的副產品，學得少應該安全也升得少；結果不是這樣，所以變安全和數學能力無關，比較可能是回答方式被訓練改變了。</p></details>
+<details class="quiz"><summary>3. 為什麼比較原模型和 1 epoch 時，一定要用相同的 few-shot 範例？用本章的數字說明。</summary>
+<p>原模型對範例很敏感：換一套範例，Accuracy 從 0.303 變成 0.235，差了 9 題。如果原模型用一套範例、微調後用另一套，量到的差距就混進了範例的影響；本章用相同範例量到的進步是約 18 題，用不同範例時看起來只有約 9 題。</p></details>
+<details class="quiz"><summary>4. 8-shot 的安全率比原模型低 0.039。為什麼本書把它當作「清楚的遺忘」，卻把 lr 1e-4 比預設高 0.025 當作「差不多」？</summary>
+<p>8-shot 的三個種子全部低於原模型，和預設 1-shot 的差距（0.090）遠大於種子全距與日期雜訊，三個審查模型方向也一致。lr 1e-4 比預設高 0.025，和種子全距（約 0.03）、日期雜訊（約 0.025）同一個量級，不足以下結論。</p></details>
+<details class="quiz"><summary>5. 如果第 8 章的「只算答案」實驗中，8-shot 的安全率回到 1-shot 的水準，說明了什麼？如果沒有回到呢？</summary>
+<p>回到 1-shot 的水準，代表 8-shot 會忘的主要原因是 loss 算整段文字，使得範例的回答也被大量訓練。沒有回到，代表原因在別處，例如輸入變長本身、或範例的內容讓模型學到了其他東西，loss 的範圍不是主因。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Luo et al.，<a href="https://arxiv.org/abs/2308.08747">An Empirical Study of Catastrophic Forgetting in Large Language Models During Continual Fine-tuning</a>（2023）：語言模型在連續微調中遺忘的規模與趨勢。</li>
+<li>Kotha et al.，<a href="https://arxiv.org/abs/2309.10105">Understanding Catastrophic Forgetting in Language Models via Implicit Inference</a>（2023）：微調後「看起來忘了」的能力，有一部分只是被新的任務格式蓋過。</li>
+<li>Wei et al.，<a href="https://arxiv.org/abs/2402.05162">Assessing the Brittleness of Safety Alignment via Pruning and Low-Rank Modifications</a>（2024）：安全行為集中在很少的參數與低秩方向上，解釋為什麼小小的 LoRA 也可能改動它。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch06.html">← 第 6 章</a><a href="ch08.html">第 8 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>

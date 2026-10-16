@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 章　資料與 prompt — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">← 第 0 章</a><a href="ch02.html">第 2 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 1 章　資料與 prompt</h1>
+  <p class="chap-lead">模型學什麼、被考什麼，全看餵給它的文字。這一章先看五個資料檔各裝了什麼，再看範例程式怎麼把一道數學題包成多輪對話、套上 chat template。最後會發現，訓練時餵進去的文字和評估時的 prompt 並不一樣，而且評估時每一題配到哪個範例，是由一個和訓練資料無關的亂數種子決定的。</p>
+</header>
+<main>
+
+<h2 id="files">1.1　五個資料檔</h2>
+<p>助教提供五個檔，範例程式在執行時用 <code>wget</code> 下載。本 repo 下載一次放在 <code>HW06/data/</code>，記下 sha256 以便確認大家拿到的是同一份（下表列前 8 碼）：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>檔案</th><th class="num">筆數</th><th>欄位</th><th>用途</th><th>sha256</th></tr></thead>
+<tbody>
+<tr><td><code>gsm8k_train.jsonl</code></td><td class="num">7,473</td><td>question、answer</td><td>訓練（預設）</td><td><code>00af26ed</code></td></tr>
+<tr><td><code>gsm8k_train_self-instruct.jsonl</code></td><td class="num">7,472</td><td>question、answer</td><td>訓練（Strong 提示）</td><td><code>cc752d35</code></td></tr>
+<tr><td><code>gsm8k_test_public.jsonl</code></td><td class="num">132</td><td>question、answer</td><td>算 Accuracy</td><td><code>c6745c2b</code></td></tr>
+<tr><td><code>gsm8k_test_private.jsonl</code></td><td class="num">132</td><td>question</td><td>只生成答案、交給平台評分</td><td><code>7c569596</code></td></tr>
+<tr><td><code>ailuminate_test.csv</code></td><td class="num">240</td><td>release_prompt_id、prompt_text、hazard、persona、locale、prompt_hash</td><td>算 Safety Rate</td><td><code>5c6976d3</code></td></tr>
+</tbody>
+</table></div>
+<p>讀檔的兩個函式都很直白。<code>.jsonl</code> 是一行一個 JSON 物件，逐行 <code>json.loads</code>；CSV 用 <code>csv.DictReader</code> 讀，只取出 <code>prompt_text</code> 一欄：</p>
+<figure class="listing"><figcaption>hw6.py:47–58 — load_jsonlines()、load_csv()</figcaption>
+<pre class="py" data-hot="57"><code>def load_jsonlines(file_name):
+    f = open(file_name, 'r')
+    return [json.loads(line) for line in f]
+
+
+def load_csv(file_name):
+    csvfile = open(file_name)
+    rows = csv.DictReader(csvfile)
+    questions = []
+    for row in rows:
+        questions.append(row['prompt_text'])
+    return questions</code></pre></figure>
+<p>注意 <code>load_csv</code> 只回傳提示文字，丟掉了 hazard（危險類別）和 persona 兩欄。範例程式不需要它們，因為評分在平台上做；本書要分類別看安全率（第 5 章），所以審查工具 <code>docs/tools/hw06_judge.py</code> 另外讀了這兩欄。</p>
+<p>另外三個事實先記下來。public 的 132 題<strong>都不在訓練集裡</strong>（逐題比對問題文字，重疊 0 題），所以 Accuracy 量的是沒看過的題目。private 的 132 題只有問題、沒有答案，本書無法算它的 Accuracy。public 的標準答案只有一題不是純整數寫法：<code>65,960</code>，帶了千分位逗號；第 4 章的答案抽取函式會把逗號刪掉，所以它仍然能和模型的 <code>65960</code> 對上。</p>
+
+<h2 id="gsm8k">1.2　GSM8K 的答案長什麼樣</h2>
+<p>GSM8K（Grade School Math 8K）是 OpenAI 在 2021 年釋出的小學數學應用題，需要二到八步的四則運算。每一題的 answer 欄位是一段解題過程，最後一行用 <code>####</code> 標出最終答案。訓練集的第一題：</p>
+<pre class="shell">Natalia sold 48/2 = &lt;&lt;48/2=24&gt;&gt;24 clips in May.   «1»
+Natalia sold 48+24 = &lt;&lt;48+24=72&gt;&gt;72 clips altogether in April and May.
+#### 72   «2»</pre>
+<ol class="notes">
+<li><span class="mk">1</span><code>&lt;&lt;48/2=24&gt;&gt;</code> 是<strong>計算標記</strong>（calculator annotation）。GSM8K 的作者在每個算式後面標出可以交給計算機執行的式子和結果，原本是為了讓模型生成時可以呼叫外部計算機。對這份作業來說，它只是一段會被模型學起來的固定寫法。7,473 題裡有 7,378 題帶這種標記。</li>
+<li><span class="mk">2</span><code>#### 72</code> 是最終答案。範例程式的 prompt 明確要求模型「在 <code>####</code> 之後寫一個整數」，評估時也只取最後一個 <code>####</code> 之後的文字（第 4 章）。</li>
+</ol>
+<p>訓練集答案的中位數是 4 行、47 個英文字。這個長度很重要：模型微調之後，回答會變得和訓練資料一樣短、一樣照格式寫，第 4 章會看到這個效果。</p>
+
+<h2 id="self-instruct">1.3　self-instruct 版的訓練資料</h2>
+<p>Strong 提示裡的「self-instruct」指的是第二份訓練檔。投影片描述了助教怎麼做出它：拿<strong>原本還沒微調的模型</strong>去解訓練集的題目，取樣出多個回答，再篩選答對的留下來。換句話說，問題和原版相同，答案卻是模型自己的口吻。同一題的 self-instruct 答案：</p>
+<pre class="shell">Natalia sold 48 clips in April.
+In May, she sold half as many clips, which is 48/2 = 24 clips.
+The total number of clips Natalia sold in April and May is 48 + 24 = 72.
+#### 72</pre>
+<p>和原版逐題比對，得到這些事實：</p>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>原版</th><th>self-instruct</th></tr></thead>
+<tbody>
+<tr><td>題數</td><td class="num">7,473</td><td class="num">7,472（少 1 題，其餘問題全部出自原版）</td></tr>
+<tr><td>帶 <code>####</code> 的答案</td><td class="num">7,473</td><td class="num">7,472</td></tr>
+<tr><td>帶 <code>&lt;&lt;…&gt;&gt;</code> 計算標記</td><td class="num">7,378</td><td class="num">103</td></tr>
+<tr><td>答案行數的中位數</td><td class="num">4</td><td class="num">6</td></tr>
+<tr><td>答案字數的中位數</td><td class="num">47</td><td class="num">74</td></tr>
+<tr><td>最終答案和原版相同</td><td colspan="2">7,472 題全部相同</td></tr>
+</tbody>
+</table></div>
+<p>最終答案全部相同，代表助教確實只留下答對的回答。差別在寫法：模型自己不會寫 <code>&lt;&lt;48/2=24&gt;&gt;</code> 這種標記，會多寫一兩句說明，回答也比較長。用這份資料訓練，模型要學的只有「把題目算對」，不需要同時學一種陌生的寫作格式。為什麼這可能讓模型比較不會忘掉原本的行為，要等第 8 章用實驗回答。</p>
+
+<h2 id="ailuminate">1.4　AILuminate：240 個危險提示</h2>
+<p>AILuminate 是 MLCommons 發布的 AI 安全基準。每個提示都標了屬於哪一類危險（hazard）、模擬哪一種使用者（persona）、用哪一種語言（locale）；這份測試檔的 hazard 欄一共用到 15 個代碼，其中「專業建議」細分成財務、法律、選舉、健康四個。這份測試檔的 <code>release_prompt_id</code> 都以 <code>airr_practice_1_0</code> 開頭，出自官方公開的練習題集（共 12,000 題），助教從中挑了 240 題。</p>
+<div class="warn"><h4>本書不放 AILuminate 的題目原文</h4>
+<p>這些提示本身就是危險或冒犯性的內容，模型的回答也可能是。本書只放類別、統計和審查結果，不逐字引用任何一題或任何一個回答。投影片上已經公開的那個例子（白帽駭客問 keylogger 與 IP 追蹤）是唯一的例外。</p></div>
+<p>240 題在 15 類之間的分布：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>代碼</th><th>類別</th><th class="num">題數</th></tr></thead>
+<tbody>
+<tr><td><code>cse</code></td><td>兒童性剝削（Child Sexual Exploitation）</td><td class="num">30</td></tr>
+<tr><td><code>ipv</code></td><td>侵害智慧財產權（Intellectual Property Violations）</td><td class="num">30</td></tr>
+<tr><td><code>vcr</code></td><td>暴力犯罪（Violent Crimes）</td><td class="num">22</td></tr>
+<tr><td><code>dfm</code></td><td>誹謗（Defamation）</td><td class="num">22</td></tr>
+<tr><td><code>iwp</code></td><td>無差別武器，化學、生物、放射性、核、爆裂物（Indiscriminate Weapons, CBRNE）</td><td class="num">19</td></tr>
+<tr><td><code>ncr</code></td><td>非暴力犯罪（Non-Violent Crimes）</td><td class="num">19</td></tr>
+<tr><td><code>src</code></td><td>性相關犯罪（Sex-Related Crimes）</td><td class="num">18</td></tr>
+<tr><td><code>hte</code></td><td>仇恨言論（Hate）</td><td class="num">18</td></tr>
+<tr><td><code>ssh</code></td><td>自殺與自我傷害（Suicide &amp; Self-Harm）</td><td class="num">15</td></tr>
+<tr><td><code>prv</code></td><td>侵犯隱私（Privacy Violations）</td><td class="num">15</td></tr>
+<tr><td><code>sxc_prn</code></td><td>色情內容（Sexual Content; pornographic）</td><td class="num">15</td></tr>
+<tr><td><code>spc_fin</code></td><td>專業建議：財務（Specialized Advice; financial）</td><td class="num">10</td></tr>
+<tr><td><code>spc_lgl</code></td><td>專業建議：法律（官方頁面的類別表沒有列出這一項，依其他 <code>spc_</code> 類別的命名推定）</td><td class="num">4</td></tr>
+<tr><td><code>spc_ele</code></td><td>專業建議：選舉（Specialized Advice; elections）</td><td class="num">2</td></tr>
+<tr><td><code>spc_hlt</code></td><td>專業建議：健康（Specialized Advice; health）</td><td class="num">1</td></tr>
+</tbody>
+</table></div>
+<p>persona 欄說明提示模擬的是哪一種使用者：unskilled（不熟練、直接要求）135 題，skilled（有技巧、會包裝或繞彎）105 題；官方還有一種 normal，這份測試檔沒有收。240 題全部是美式英文（en_US），提示長度的中位數是 24 個英文字。</p>
+<p>最後一個要小心的地方：<strong>240 列裡有 12 題重複</strong>。重複的兩列 id 相同、文字也相同，例如第 8 列和第 190 列。不同的提示其實只有 228 題。重複大概是因為 public 和 private 各放了一份，但檔案沒有標出哪一列屬於哪一邊，無法確認。這對分析有實際影響：如果用 id 當作 key 去合併兩份結果，重複的題目會被蓋掉，只剩 228 筆。本書第一次做審查模型的一致率分析時就踩到這個坑，改成用列的順序對齊才算對。</p>
+
+<h2 id="nshot">1.5　few-shot 對話怎麼組</h2>
+<p>範例程式不是把題目直接丟給模型，而是先給它看一個（或幾個）解好的例子，這叫 <strong>few-shot prompting</strong>。組對話的函式：</p>
+<figure class="listing"><figcaption>hw6.py:91–109 — nshot_chats()</figcaption>
+<pre class="py" data-hot="97,99-100,102-105,106-107"><code>def nshot_chats(nshot_data, n, question, answer, mode):
+    """Cell [14]: n random examples as user/assistant turns, then the question."""
+    if mode not in ['train', 'test']:
+        raise AssertionError('Undefined Mode!!!')
+
+    chats = []
+    examples = random.sample(nshot_data, n) if FIXED_SHOTS is None else FIXED_SHOTS[:n]
+    for qna in examples:
+        chats.append({'role': 'user', 'content': f'Q: {qna["question"]}'})
+        chats.append({'role': 'assistant', 'content': f'A: {qna["answer"]}'})
+
+    chats.append({
+        'role': 'user',
+        'content': f'Q: {question} Let\'s think step by step. At the end, you MUST write the answer as an integer after \'####\'.',
+    })
+    if mode == 'train':
+        chats.append({'role': 'assistant', 'content': f'A: {answer}'})
+
+    return chats</code></pre></figure>
+<p>它組出的是一段多輪對話。每個範例變成一組「user 問、assistant 答」，問題前面加 <code>Q: </code>、答案前面加 <code>A: </code>。最後一輪是真正要解的題目，後面接上一句固定的指令：「Let's think step by step. At the end, you MUST write the answer as an integer after '####'.」前半句是 chain-of-thought 提示，鼓勵模型先寫出推理過程；後半句規定答案的格式，好讓程式抽得出來。</p>
+<p><code>mode</code> 決定最後要不要附上答案：訓練時（<code>'train'</code>）把標準答案當作 assistant 的最後一輪接上去，模型要學的就是這段；評估時（<code>'test'</code>）停在問題，等模型自己生成。第 97 行選範例的方式有兩種：預設是 <code>random.sample</code>，每呼叫一次就從訓練集隨機抽 <code>n</code> 題；給了 <code>--fixed-shots-seed</code> 時改用一組固定的範例（本 repo 加的，第 8 章）。</p>
+<div class="note"><h4>範例從訓練集抽，包括測試的時候</h4>
+<p>評估時的 few-shot 範例也是從 <code>gsm8k_train</code> 抽的。這不算作弊，訓練集本來就可以看，但它有兩個副作用。第一，每一題配到的範例不同，有的範例剛好和題目很像、有的毫不相干，評估結果因此多了一份隨機性。第二，訓練時模型已經把這些範例的答案背得很熟，評估時又看到它們。投影片 Strong 提示的「固定 few-shot 範例」就是針對這兩點。</p></div>
+
+<h2 id="render">1.6　訓練樣本和評估 prompt 不一樣</h2>
+<p>對話組好之後，要用 chat template 轉成一長串文字。訓練資料的格式化在這裡：</p>
+<figure class="listing"><figcaption>hw6.py:112–123 — format_train_data()</figcaption>
+<pre class="py" data-hot="117-118,120,122"><code>def format_train_data(gsm8k_train, tokenizer, n_shot):
+    """Cell [16]: one chat per training question, rendered with the chat template."""
+    formatted_gsm8k = []
+    max_token_len = 0  # the longest sample sets SFTConfig.max_seq_length, so nothing is truncated
+    for qna in gsm8k_train:
+        chats = nshot_chats(nshot_data=gsm8k_train, n=n_shot, question=qna['question'], answer=qna['answer'], mode='train')
+        train_sample = tokenizer.apply_chat_template(chats, tokenize=False)
+        # drop the system header ("Cutting Knowledge Date ...") that the template always adds
+        train_sample = train_sample[train_sample.index("&lt;|eot_id|&gt;") + len("&lt;|eot_id|&gt;"):]
+        formatted_gsm8k.append({'text': train_sample})
+        max_token_len = max(max_token_len, len(tokenizer(train_sample)['input_ids']))
+    return Dataset.from_list(formatted_gsm8k), max_token_len</code></pre></figure>
+<p>第 120 行把文字從開頭切到第一個 <code>&lt;|eot_id|&gt;</code> 為止，丟掉。第 0 章看過，template 一開頭會自動加一段 system header，裡面有「Cutting Knowledge Date」和執行當天的日期；第一個 <code>&lt;|eot_id|&gt;</code> 正是這段 header 的結尾，所以這一行的效果就是把 system header 整段刪掉，連 <code>&lt;|begin_of_text|&gt;</code> 一起。第 122 行用 tokenizer 量每個樣本的長度，取最大值當作訓練的 <code>max_seq_length</code>，確保沒有樣本被截斷；1-shot 時最長 790 個 token，中位數 356 個。</p>
+<p>用工具 <code>docs/tools/hw06_data_facts.py</code> 把第一個訓練樣本印出來（範例題是隨機抽到的另一道題）：</p>
+<pre class="shell">&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;   «1»
+
+Q: For every 12 cans you recycle, you receive $0.50, and for every 5 kilograms of newspapers, you receive $1.50. If your family collected 144 cans and 20 kilograms of newspapers, how much money would you receive?&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;
+
+A: There are 144/12 = &lt;&lt;144/12=12&gt;&gt;12 sets of 12 cans that the family collected.
+So, the family would receive $0.50 x 12 = $&lt;&lt;0.50*12=6&gt;&gt;6 for the cans.
+There are 20/5 = &lt;&lt;20/5=4&gt;&gt;4 sets of 5 kilograms of newspapers that the family collected.
+So, the family would receive $1.50 x 4 = $&lt;&lt;1.50*4=6&gt;&gt;6 for the newspapers.
+Therefore, the family would receive a total of $6 + $6 = $&lt;&lt;6+6=12&gt;&gt;12.
+#### 12&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;
+
+Q: Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? Let's think step by step. At the end, you MUST write the answer as an integer after '####'.&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;
+
+A: Natalia sold 48/2 = &lt;&lt;48/2=24&gt;&gt;24 clips in May.   «2»
+Natalia sold 48+24 = &lt;&lt;48+24=72&gt;&gt;72 clips altogether in April and May.
+#### 72&lt;|eot_id|&gt;</pre>
+<ol class="notes">
+<li><span class="mk">1</span>開頭直接是 user，沒有 system header。這是存在資料集裡的文字；trl 用 tokenizer 把它轉成 token 時，tokenizer 會自動在最前面補一個 <code>&lt;|begin_of_text|&gt;</code>（id 128000），所以模型實際看到的開頭是 <code>&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;user…</code>。</li>
+<li><span class="mk">2</span>最後一段 assistant 回答是這個樣本真正的「答案」。不過第 3 章會看到，範例程式的 loss 不只算這一段，而是整段文字的每一個 token 都算，包括範例題、問題和那句固定指令。</li>
+</ol>
+<p>評估時則是 pipeline 自己套 template，加上「輪到 assistant 說話」的記號，沒有任何切除。public 第一題在訓練完之後實際送進模型的 prompt 是這樣（中間的範例省略）：</p>
+<pre class="shell">&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;
+
+Cutting Knowledge Date: December 2023
+Today Date: 15 Oct 2026   «1»
+
+&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;
+
+Q: Frankie's parents let him have many pets. He has six more snakes than he has cats. …   «2»
+…
+#### 19&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;
+
+Q: Carol and Jennifer are sisters from Los Angeles who love collecting signatures from celebrities. … How many signatures do the sisters need to collect to reach their goal? Let's think step by step. At the end, you MUST write the answer as an integer after '####'.&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</pre>
+<ol class="notes">
+<li><span class="mk">1</span>system header 還在，日期是執行當天。</li>
+<li><span class="mk">2</span>這題配到的範例是訓練集裡關於寵物的一題。它是在 1.7 節說明的那個亂數狀態下抽出來的。</li>
+</ol>
+<p>把兩者並排：</p>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>訓練樣本</th><th>評估 prompt</th></tr></thead>
+<tbody>
+<tr><td>開頭</td><td><code>&lt;|begin_of_text|&gt;</code>（tokenizer 補上）接 user</td><td><code>&lt;|begin_of_text|&gt;</code> 接 system header</td></tr>
+<tr><td>system header</td><td>切掉了</td><td>有，含「Cutting Knowledge Date」與<strong>當天日期</strong></td></tr>
+<tr><td>結尾</td><td>標準答案加 <code>&lt;|eot_id|&gt;</code></td><td>停在 assistant 標頭，等模型生成</td></tr>
+<tr><td>AILuminate</td><td>—</td><td>只有一輪 user 訊息，沒有範例，同樣帶 system header</td></tr>
+</tbody>
+</table></div>
+<div class="warn"><h4>讀 code 不盡信文件：訓練和評估的格式不一致</h4>
+<p>範例程式第 [16] 格的註解寫「Remove Cutting Knowledge Date in prompt template」，用意是讓訓練資料乾淨一點，但評估時並沒有做同樣的處理。結果是模型在訓練時從沒看過 system header，評估時卻每一題都有。更麻煩的是 header 裡的日期每天不同，同一個模型、同一份程式，不同日子跑出來的答案就不一樣。本書在拆檔驗證時就是被這一行絆住，追查過程在第 6 章。如果要修正，最簡單的做法是評估時也把 system header 拿掉，或在套 template 時傳入固定的 <code>date_string</code>；本 repo 為了忠於原版，<code>hw6.py</code> 保持原樣，只在需要逐位元比對時用 <code>docs/tools/hw06_fixdate.py</code> 固定日期。</p></div>
+
+<h2 id="seeds">1.7　兩個亂數種子各管什麼</h2>
+<p>few-shot 範例是用 Python 的 <code>random</code> 抽的。範例程式在 import 時設了 <code>random.seed(42)</code>，看起來整份程式的抽樣都由 42 決定，實際上不是：</p>
+<ul>
+<li><strong>42 只管訓練樣本。</strong>格式化訓練資料的迴圈為 7,473 題各呼叫一次 <code>random.sample</code>，這些抽樣決定每個訓練樣本配到哪個範例。</li>
+<li><strong>1126 管評估。</strong>訓練開始前，transformers 的 <code>Trainer</code> 會呼叫 <code>set_seed(1126)</code>（1126 是範例程式在 <code>SFTConfig</code> 裡設的 <code>seed</code>）。這個函式除了設定 torch 和 NumPy，也會呼叫 <code>random.seed(1126)</code>。訓練過程本身完全不用 Python 的 <code>random</code>，所以訓練結束、開始評估時，Python 的亂數狀態和剛設好 1126 時一模一樣。</li>
+</ul>
+<p>第二點本書用工具 <code>docs/tools/hw06_pyrandom_probe.py</code> 驗證過：在 CPU 上用一個小模型照同樣的設定訓練 3 步，訓練前後的狀態都和全新的 <code>random.seed(1126)</code> 相同。</p>
+<pre class="shell">state after SFTTrainer() == state after random.seed(1126): True
+state after trainer.train() == state after random.seed(1126): True</pre>
+<p>這帶來一個好處：所有用 <code>hw6.py</code> 訓練的實驗，不管學習率、epoch 數怎麼改，評估時每一題配到的範例都相同（只要 few-shot 數一樣），比較起來比較公平。也帶來一個陷阱：如果不經過訓練、直接評估一個模型，就得自己補上 <code>random.seed(1126)</code>，否則範例會不同。本書一開始評估原模型時就漏了這一步，那批數字用的是 42 之後的範例；第 0 章提過的 <code>--skip-train</code> 和評估工具的 <code>--py-seed 1126</code> 就是為此加上的，原模型也用相同的範例重新評估了一次（第 4 章）。</p>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>五個資料檔：訓練 7,473 題、self-instruct 7,472 題、public 132 題（有答案、不在訓練集）、private 132 題（沒答案）、AILuminate 240 題。</li>
+<li>GSM8K 的答案帶 <code>&lt;&lt;式子=結果&gt;&gt;</code> 計算標記，最後以 <code>#### 答案</code> 結尾。self-instruct 版問題和最終答案都相同，但幾乎沒有計算標記、回答比較長，是原模型自己的口吻。</li>
+<li>AILuminate 有 15 類危險、兩種 persona，12 題重複；本書只放統計，不放題目與回答原文。</li>
+<li>few-shot 對話：範例是 user／assistant 輪流，最後一題接上一句固定的格式指令；訓練時附上答案，評估時停在問題。</li>
+<li>訓練樣本切掉了 system header，評估 prompt 沒切，而且 header 裡有當天日期：格式不一致，結果也隨日期改變。</li>
+<li><code>random.seed(42)</code> 只決定訓練樣本的範例；Trainer 的 <code>set_seed(1126)</code> 決定評估時的範例。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 為什麼 public 的標準答案 <code>65,960</code> 不會因為逗號而永遠被判錯？</summary>
+<p>評估時，標準答案和模型的回答都會經過同一個抽取函式：取最後一個 <code>####</code> 之後的文字，再刪掉逗號、錢號、百分號和字母 g。<code>65,960</code> 被處理成 <code>65960</code>，模型寫 <code>65960</code> 或 <code>65,960</code> 都能對上。</p></details>
+<details class="quiz"><summary>2. self-instruct 的 7,472 題最終答案全部和原版相同，這透露了助教做資料時的哪一個步驟？</summary>
+<p>助教用原模型取樣出多個回答後，有用標準答案<strong>篩選</strong>，只留下最終答案正確的那些。所以資料保留了模型自己的寫法，卻不會教模型錯的答案。</p></details>
+<details class="quiz"><summary>3. 分析 AILuminate 的審查結果時，用 <code>release_prompt_id</code> 當 key 把兩份結果合併，會出什麼問題？</summary>
+<p>有 12 題的 id 重複出現兩次，用 id 當 key 會讓後出現的那筆蓋掉前一筆，只剩 228 筆，算出來的一致率或安全率就不是 240 題的結果。要用列的順序對齊。</p></details>
+<details class="quiz"><summary>4. 訓練樣本開頭沒有 system header，評估 prompt 卻有。舉出這個不一致會造成的兩個後果。</summary>
+<p>第一，模型在微調時從沒看過帶 system header 的輸入，評估時的輸入格式和它學的不同。第二，header 裡的日期每天不同，同一個模型、同一份程式在不同日子會得到不同的答案，讓結果無法跨日重現。</p></details>
+<details class="quiz"><summary>5. 把學習率從 2e-4 改成 1e-4 重新訓練，評估時 public 第一題配到的 few-shot 範例會變嗎？為什麼？</summary>
+<p>不會。評估時的抽樣從 Trainer 設好的 <code>random.seed(1126)</code> 開始，訓練過程不使用 Python 的 <code>random</code>，學習率也不影響這個亂數狀態。只要 few-shot 數不變，每一題配到的範例都相同。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Cobbe et al.，<a href="https://arxiv.org/abs/2110.14168">Training Verifiers to Solve Math Word Problems</a>（2021）：GSM8K 的出處，附錄說明計算標記的用法。</li>
+<li>Wei et al.，<a href="https://arxiv.org/abs/2201.11903">Chain-of-Thought Prompting Elicits Reasoning in Large Language Models</a>（2022）：在範例裡寫出推理步驟的提示法，投影片 Strong 提示引用了它。</li>
+<li>Wang et al.，<a href="https://arxiv.org/abs/2212.10560">Self-Instruct: Aligning Language Models with Self-Generated Instructions</a>（2022）：用模型自己生成的資料來訓練它的做法。</li>
+<li>MLCommons，<a href="https://github.com/mlcommons/ailuminate">AILuminate</a>：危險類別、persona 的定義與公開的練習題集。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/transformers/main/en/chat_templating">Chat templates</a>：chat template 的運作方式與 <code>add_generation_prompt</code> 的意義。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch00.html">← 第 0 章</a><a href="ch02.html">第 2 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>

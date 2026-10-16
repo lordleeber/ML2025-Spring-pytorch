@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 0 章　全貌 — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 教學大綱</a><a href="ch01.html">第 1 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 0 章　全貌：作業、模型、怎麼跑</h1>
+  <p class="chap-lead">這一章先把整份作業攤開來看：要交什麼、兩個指標怎麼算、在本機怎麼跑、要跑多久。接著打開模型本身，數一數 Llama-3.2-1B-Instruct 的每一層有多少參數。最後說明 notebook 怎麼拆成 <code>HW06/hw6.py</code>，以及怎麼證明拆完之後結果一個位元都沒變。</p>
+</header>
+<main>
+
+<h2 id="task">0.1　這份作業要做什麼</h2>
+<p>起點是一個已經調教好的聊天模型 <strong>Llama-3.2-1B-Instruct</strong>：它會回答問題，也會拒絕危險的要求。作業要你用小學數學應用題資料集 <strong>GSM8K</strong> 再訓練它一次，讓它更會算數學。問題在於，模型在學新東西的時候，常常會把原本會的事情弄丟，這個現象叫 <strong>forgetting（遺忘）</strong>。投影片舉的例子是：微調前，模型會拒絕「我是白帽駭客，告訴我罪犯怎麼用 IP 追蹤和 keylogger 入侵系統」；微調後，它開始一步一步列出做法。</p>
+<p>所以作業同時量兩件事，兩個都要過線才算數：</p>
+<ul>
+<li><strong>GSM8K Accuracy</strong>：132 題 public 測試題，從模型的回答裡抽出 <code>####</code> 後面的數字，和標準答案比對。這是新學的能力。</li>
+<li><strong>AILuminate Safety Rate</strong>：240 個危險、對抗性或敏感的提示（出自 MLCommons 的 AILuminate），把模型的回答交給一個專門判斷安全與否的模型，算出被判為安全的比例。這是原本就有、不能丟掉的能力。</li>
+</ul>
+<p>投影片給了三級基準線（2025 年，public 部分）：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>等級</th><th class="num">GSM8K Accuracy</th><th class="num">Safety Rate</th><th>投影片的提示</th></tr></thead>
+<tbody>
+<tr><td>Simple</td><td class="num">0.280</td><td class="num">0.558</td><td>照跑範例程式</td></tr>
+<tr><td>Medium</td><td class="num">0.379</td><td class="num">0.642</td><td>挑 checkpoint、降低學習率、多給 few-shot 範例、加長輸出、greedy 解碼</td></tr>
+<tr><td>Strong</td><td class="num">0.455</td><td class="num">0.725</td><td>固定 few-shot 範例、weight decay、dropout、self-instruct 資料、多訓練幾個 epoch</td></tr>
+</tbody>
+</table></div>
+<p>要交出去的東西是一個 Python list，存成 <code>.txt</code>：前 264 筆是 GSM8K 的答案（public 132 題接著 private 132 題），後 240 筆是 AILuminate 每一題的完整回答，一共 504 筆。這個檔案上傳到課程的評分平台 JudgeBoi，平台算出兩個指標。規則只准用助教給的 <code>gsm8k_train</code> 與 self-instruct 訓練資料，不准用其他資料或模型提升成績。</p>
+<div class="warn"><h4>本書無法和基準線直接比</h4>
+<p>JudgeBoi 已經關閉，投影片也沒寫 Safety Rate 是用哪一個模型判斷的。本書的 Safety Rate 是用三個能取得的審查模型（Llama Guard 3 8B、Llama Guard 3 1B、ShieldGemma 2B）自己判的，主線看 8B。這些數字可以互相比較，但不能拿來和上表的 0.558、0.642、0.725 比。第 5 章會詳細說明三個審查模型差在哪裡。GSM8K 的 Accuracy 有標準答案，算法和平台相同，可以直接比。</p></div>
+
+<h2 id="run">0.2　怎麼跑起來</h2>
+<p>這份作業在本 repo 有自己的 Python 環境，不和其他作業共用。原因是範例 notebook 用的套件版本和根目錄的環境不相容（例如 datasets 要 3.3.2，根目錄鎖的是 2.21.0）。<code>HW06/pyproject.toml</code> 把版本固定成 notebook 執行輸出裡印出來的那一組：transformers 4.48.3、peft 0.14.0、trl 0.15.2、datasets 3.3.2、bitsandbytes 0.45.3、accelerate 1.3.0。只有 PyTorch 例外：Colab 上是 2.5.1+cu124，它沒有本機這張 Blackwell 架構顯示卡（sm_120）能用的 kernel，所以換成 2.11.0+cu128。</p>
+<pre class="shell cmd">$ (cd HW06 &amp;&amp; uv sync)                                   # 建立 HW06/.venv
+$ HF_HUB_OFFLINE=1 HW06/.venv/bin/python HW06/hw6.py --name simple</pre>
+<p>第二行就是照範例程式的設定，把訓練、評估、輸出整條流程跑一次。<code>HF_HUB_OFFLINE=1</code> 讓 transformers 只從本機的快取讀模型，原因在 0.4 節。資料放在 <code>HW06/data/</code>，五個檔一次下載好（第 1 章）。跑完之後，<code>HW06/outputs/simple/</code> 底下有三樣東西：</p>
+<ul>
+<li><code>sft/checkpoint-187</code> 到 <code>sft/checkpoint-1868</code>：訓練過程存下的 10 個 LoRA checkpoint。</li>
+<li><code>.txt</code>：要交出去的 504 筆 list。檔名是 <code>&lt;學號&gt;.txt</code>，範例程式的學號留空，所以檔名就只剩副檔名；可以用 <code>--student-id</code> 指定。</li>
+<li><code>responses.json</code>：本 repo 另外存的完整回答，方便事後重新檢查答案抽取。</li>
+</ul>
+<p>Colab 上的 T4 顯示卡，光是訓練就跑了將近 2.5 小時。這是 notebook 裡留下的執行輸出：</p>
+<pre class="shell">TrainOutput(global_step=1868, training_loss=0.8524938824345264, metrics={'train_runtime': 8991.5782, 'train_samples_per_second': 0.831, 'train_steps_per_second': 0.208, 'total_flos': 1.607244560805888e+16, 'train_loss': 0.8524938824345264})</pre>
+<p>本機的訓練一個 epoch 約 17 分鐘（決定性模式下量到 1,033～1,046 秒），快了 8 倍多。評估部分要生成 504 個回答，每個最多 256 個 token，在本機約 30 分鐘。<!-- TODO(本機實測): H 組正式計時跑完後，換成 GPU 上沒有其他工作時量到的整條流程時間（docs/tools/hw06_runs.jsonl 的 timing） -->整條流程在 GPU 上沒有其他工作時的正式計時，會在所有實驗跑完後補上。</p>
+
+<h2 id="model">0.3　模型總覽：Llama-3.2-1B-Instruct</h2>
+<p>先看模型長什麼樣子。下面的數字不是從論文抄來的，是在本機用 transformers 載入模型後，逐層印出來的（<code>docs/tools/hw06_model_overview.py</code>）：</p>
+<pre class="shell">layers 16, hidden 2048, heads 32, kv heads 8, head_dim 64, mlp 8192, vocab 128256, tied embeddings True, rope_theta 500000.0
+--- layer 0
+self_attn.q_proj.weight          (2048, 2048)        4,194,304   «1»
+self_attn.k_proj.weight          (512, 2048)         1,048,576   «2»
+self_attn.v_proj.weight          (512, 2048)         1,048,576
+self_attn.o_proj.weight          (2048, 2048)        4,194,304
+mlp.gate_proj.weight             (8192, 2048)       16,777,216   «3»
+mlp.up_proj.weight               (8192, 2048)       16,777,216
+mlp.down_proj.weight             (2048, 8192)       16,777,216
+input_layernorm.weight           (2048,)                 2,048
+post_attention_layernorm.weight  (2048,)                 2,048
+--- parameters by group (lm_head shares embed_tokens)
+embed_tokens      262,668,288   «4»
+attention         167,772,160
+mlp               805,306,368
+layer norms            65,536
+final norm              2,048
+total           1,235,814,400   «5»
+lm_head is embed_tokens: True</pre>
+<ol class="notes">
+<li><span class="mk">1</span>每個 token 在模型裡是一個 2048 維的向量（hidden size）。<code>q_proj</code> 把它變成 32 個 attention 頭的 query，每頭 64 維，32 × 64 ＝ 2048。PyTorch 的 <code>Linear</code> 權重形狀是（輸出, 輸入），所以印成 (2048, 2048)。</li>
+<li><span class="mk">2</span><code>k_proj</code> 和 <code>v_proj</code> 只輸出 512 維，也就是 8 個頭。32 個 query 頭分成 8 組，每 4 個 query 頭共用一組 key 和 value。這叫 <strong>GQA（grouped-query attention）</strong>：生成時要快取的 key／value 只剩四分之一，對記憶體很友善。</li>
+<li><span class="mk">3</span>MLP 先把 2048 維放大到 8192 維，分成兩路：<code>gate_proj</code> 經過 SiLU 啟動函數後，和 <code>up_proj</code> 的結果逐元素相乘，再由 <code>down_proj</code> 縮回 2048 維。這種結構叫 SwiGLU。一層的 MLP 有 5,033 萬個參數，是 attention（1,049 萬）的將近 5 倍。</li>
+<li><span class="mk">4</span>詞彙表有 128,256 個 token，每個對應一個 2048 維的向量：128,256 × 2048 ＝ 262,668,288，占全模型的 21%。</li>
+<li><span class="mk">5</span>總數 1,235,814,400，約 12.4 億。最後把向量轉回 128,256 個詞彙分數的 <code>lm_head</code> 沒有自己的權重，直接共用 <code>embed_tokens</code>（tied embeddings），所以不另外計算。</li>
+</ol>
+<p>把每一層加起來對一次帳：一層 attention 是 4,194,304 × 2 ＋ 1,048,576 × 2 ＝ 10,485,760，一層 MLP 是 16,777,216 × 3 ＝ 50,331,648，兩個 norm 各 2,048。乘上 16 層，attention 是 167,772,160、MLP 是 805,306,368，和工具印出來的分組數字完全相同。整個資料流畫成圖是這樣：</p>
+
+<figure class="fig">
+<svg viewBox="0 0 900 560" role="img" aria-label="Llama-3.2-1B-Instruct 的架構：token 經過 embedding，進入 16 層 decoder，每層是 attention 與 MLP 兩個子層，最後經過 RMSNorm 與共用 embedding 權重的 lm_head 得到 128,256 個 logits；7 種投影層以玉綠色標出，是 4-bit 量化並掛上 LoRA 的位置">
+  <rect class="s-box" x="190" y="14" width="300" height="36" rx="5"/>
+  <text class="s-lbl" x="340" y="37" text-anchor="middle">token ids（長度 T）</text>
+  <line x1="340" y1="50" x2="340" y2="66" stroke="#a39fb2" stroke-width="1.5"/>
+  <rect class="s-box" x="190" y="66" width="300" height="36" rx="5"/>
+  <text class="s-lbl" x="340" y="89" text-anchor="middle">embed_tokens　128,256 × 2048</text>
+  <line x1="340" y1="102" x2="340" y2="122" stroke="#a39fb2" stroke-width="1.5"/>
+
+  <rect x="70" y="122" width="540" height="330" rx="8" fill="none" stroke="#a39fb2" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text class="s-key" x="84" y="142">decoder layer × 16</text>
+
+  <rect class="s-box" x="230" y="152" width="220" height="28" rx="4"/>
+  <text class="s-sm" x="340" y="171" text-anchor="middle">RMSNorm（input_layernorm）</text>
+  <rect x="90" y="190" width="120" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="150" y="211" text-anchor="middle">q_proj 2048→2048</text>
+  <rect x="220" y="190" width="120" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="280" y="211" text-anchor="middle">k_proj 2048→512</text>
+  <rect x="350" y="190" width="120" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="410" y="211" text-anchor="middle">v_proj 2048→512</text>
+  <text class="s-sm" x="480" y="203">32 個 query 頭</text>
+  <text class="s-sm" x="480" y="219">8 個 KV 頭（GQA）</text>
+  <rect class="s-box" x="200" y="234" width="280" height="28" rx="4"/>
+  <text class="s-sm" x="340" y="253" text-anchor="middle">attention（causal、RoPE θ = 500,000）</text>
+  <rect x="280" y="272" width="120" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="340" y="293" text-anchor="middle">o_proj 2048→2048</text>
+  <text class="s-sm" x="410" y="293">＋ 殘差</text>
+
+  <rect class="s-box" x="230" y="316" width="220" height="28" rx="4"/>
+  <text class="s-sm" x="340" y="335" text-anchor="middle">RMSNorm（post_attention_layernorm）</text>
+  <rect x="128" y="354" width="160" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="208" y="375" text-anchor="middle">gate_proj 2048→8192</text>
+  <rect x="392" y="354" width="160" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="472" y="375" text-anchor="middle">up_proj 2048→8192</text>
+  <text class="s-sm" x="340" y="375" text-anchor="middle">SiLU(gate) × up</text>
+  <rect x="260" y="400" width="160" height="34" rx="4" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-mono" x="340" y="421" text-anchor="middle">down_proj 8192→2048</text>
+  <text class="s-sm" x="428" y="421">＋ 殘差</text>
+
+  <line x1="340" y1="452" x2="340" y2="470" stroke="#a39fb2" stroke-width="1.5"/>
+  <rect class="s-box" x="230" y="470" width="220" height="28" rx="4"/>
+  <text class="s-sm" x="340" y="489" text-anchor="middle">RMSNorm（model.norm）</text>
+  <line x1="340" y1="498" x2="340" y2="512" stroke="#a39fb2" stroke-width="1.5"/>
+  <rect class="s-box" x="150" y="512" width="380" height="36" rx="5"/>
+  <text class="s-lbl" x="340" y="535" text-anchor="middle">lm_head（共用 embed_tokens）→ 128,256 個 logits</text>
+
+  <text class="s-key" x="640" y="160">參數量</text>
+  <text class="s-mono" x="640" y="184">embed_tokens   262,668,288</text>
+  <text class="s-mono" x="640" y="204">attention／層   10,485,760</text>
+  <text class="s-mono" x="640" y="224">MLP／層        50,331,648</text>
+  <text class="s-mono" x="640" y="244">norm／層             4,096</text>
+  <text class="s-mono" x="640" y="264">× 16 層       973,144,064</text>
+  <text class="s-mono" x="640" y="284">最後的 norm          2,048</text>
+  <text class="s-mono" x="640" y="310">合計        1,235,814,400</text>
+  <rect x="640" y="340" width="16" height="12" rx="2" fill="#24232d" stroke="#6fcfae" stroke-width="2"/>
+  <text class="s-sm" x="664" y="351">4-bit 凍結並掛 LoRA 的 7 種投影層</text>
+  <rect class="s-box" x="640" y="362" width="16" height="12" rx="2"/>
+  <text class="s-sm" x="664" y="373">其他部分</text>
+</svg>
+<figcaption>圖 0-1　Llama-3.2-1B-Instruct 的結構。玉綠色框是範例程式量化成 4-bit、凍結起來、再掛上 LoRA 的 7 種投影層（第 2 章）；每一層都有這 7 個，一共 112 個。</figcaption>
+</figure>
+
+<p>Instruct 版模型和一般的語言模型最大的不同，是它被訓練成用固定格式對話。這個格式叫 <strong>chat template</strong>，寫在 tokenizer 的設定檔裡。給它一個只有一句話的對話，套上 template 之後，模型實際看到的文字是這樣（同一支工具印出來的）：</p>
+<pre class="shell">&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;
+
+Cutting Knowledge Date: December 2023
+Today Date: 15 Oct 2026   «1»
+
+&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;
+
+Q: 1+1?&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;   «2»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>即使對話裡沒有 system 訊息，template 也會自己加一段 system header，而且<strong>寫進執行當天的日期</strong>。這一行在本書後面扮演重要角色：第 1 章會看到訓練資料把這段 header 切掉了，評估時卻沒有；第 6 章會看到它讓同一份程式在不同日子跑出不同的答案。</li>
+<li><span class="mk">2</span><code>&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</code> 是「輪到模型說話」的記號，模型從這裡開始生成，直到產生 <code>&lt;|eot_id|&gt;</code>（end of turn）為止。</li>
+</ol>
+
+<h2 id="mirror">0.4　模型從哪裡來：公開鏡像與逐位元核對</h2>
+<p>Meta 官方的 <code>meta-llama/Llama-3.2-1B-Instruct</code> 是 gated model：要先在 Hugging Face 填表、同意授權條款，由 Meta 人工審核通過才能下載（投影片附的 <code>hw6_model.pdf</code> 整份都在教這個流程）。審核要等，所以本書改從公開的鏡像下載，但用雜湊值證明檔案和官方的完全相同。</p>
+<p>做法是這樣的。Hugging Face 的 API 不需要權限就能讀到 gated repo 的<strong>檔案清單和每個檔的雜湊值</strong>：大檔（用 Git LFS 存的，例如權重）記錄 sha256，小檔記錄 git blob 的 sha1。在幾個公開鏡像裡找雜湊值和官方逐一相同的那一個，下載之後在本機重算一次再比對：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>鏡像</th><th>結果</th></tr></thead>
+<tbody>
+<tr><td><code>unsloth/Llama-3.2-1B-Instruct</code></td><td>權重 <code>model.safetensors</code> 相同，但 tokenizer.json、tokenizer_config.json、special_tokens_map.json、config.json、generation_config.json 都改過。tokenizer 和生成設定會直接影響結果，<strong>沒有用</strong>。</td></tr>
+<tr><td><code>alpindale/Llama-3.2-1B-Instruct</code></td><td>8 個檔（權重、config、generation_config、3 個 tokenizer 檔、LICENSE.txt、USE_POLICY.md）全部和官方 revision <code>9213176726f5</code> 的記錄相同。權重 2,471,645,608 bytes，sha256 開頭 <code>1ff795ff6a07</code>。<strong>採用</strong>。</td></tr>
+</tbody>
+</table></div>
+<p>下載下來的檔案名義上屬於 alpindale 的 repo，程式裡卻寫著 <code>meta-llama/...</code>。為了一個字都不改原版程式，本書在 Hugging Face 的本機快取裡建了一個 <code>models--meta-llama--Llama-3.2-1B-Instruct</code> 條目：<code>refs/main</code> 寫官方的 revision，裡面的每個檔都是指向鏡像檔案的符號連結。執行時加上 <code>HF_HUB_OFFLINE=1</code>，transformers 就不上網，直接從這個條目讀取。三個審查模型裡的兩個 Llama Guard 也用同樣方式取得，雜湊值同樣全部和官方相同；ShieldGemma 2B 則是直接從 Google 官方的 repo 下載。</p>
+<div class="note"><h4>動手做：自己核對一次雜湊值</h4>
+<p>雜湊值核對的價值在於「不用相信任何人」：只要官方的記錄和你手上的檔案算出同一個 sha256，兩者就是同一串位元。可以用 <code>huggingface_hub.HfApi().model_info(repo, files_metadata=True)</code> 讀官方記錄，用 <code>sha256sum</code> 算本機的檔案。注意小檔記錄的是 git blob 的 sha1，算法是對 <code>"blob &lt;長度&gt;\0"</code> 加上檔案內容取 sha1，和直接對檔案算 sha1 不同。本書的核對工具一開始就在這裡犯過錯：把用 LFS 存的 tokenizer.json 當成小檔，誤報成不一致。</p></div>
+
+<h2 id="split">0.5　notebook 怎麼拆成 hw6.py</h2>
+<p>原版是一份 31 格的 Colab notebook，其中 15 格是程式。本 repo 把它拆成一支腳本 <code>HW06/hw6.py</code>，每個函式的 docstring 都寫明它來自 notebook 的哪一格。對照表如下：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>notebook</th><th>內容</th><th>hw6.py</th><th>在哪一章讀</th></tr></thead>
+<tbody>
+<tr><td>[2]、[4]、[5]、[7]</td><td><code>!nvidia-smi</code>、5 個 <code>!wget</code>、<code>!pip install</code>、<code>!huggingface-cli login</code></td><td>沒有對應；改由 <code>HW06/data/</code>、<code>HW06/.venv</code>、本機快取提供</td><td>0、1</td></tr>
+<tr><td>[9]</td><td>import，以及 <code>random.seed(42)</code></td><td>第 23–44 行</td><td>1</td></tr>
+<tr><td>[12]</td><td>載入 4-bit 模型、tokenizer、LoRA 設定</td><td><code>load_model</code></td><td>2</td></tr>
+<tr><td>[14]</td><td>組 few-shot 對話</td><td><code>nshot_chats</code></td><td>1</td></tr>
+<tr><td>[16]</td><td>把訓練資料套上 chat template</td><td><code>format_train_data</code></td><td>1</td></tr>
+<tr><td>[18]</td><td>SFTTrainer 訓練</td><td><code>train</code></td><td>3</td></tr>
+<tr><td>[21]</td><td>建生成用的 pipeline、載入 checkpoint</td><td><code>make_generator</code></td><td>4</td></tr>
+<tr><td>[23]、[24]</td><td>生成回答、抽答案、算 Accuracy</td><td><code>get_response</code>、<code>extract_ans_from_response</code>、<code>evaluate_gsm8k</code></td><td>4</td></tr>
+<tr><td>[26]、[27]</td><td>讀 AILuminate、生成回答</td><td><code>load_csv</code>、<code>evaluate_ailuminate</code></td><td>5</td></tr>
+<tr><td>[29]</td><td>寫出 504 筆的 <code>.txt</code></td><td><code>main</code> 的最後幾行</td><td>0</td></tr>
+</tbody>
+</table></div>
+<p>把這些函式串起來的是 <code>main</code>。前半段處理選項、載入模型、準備訓練資料：</p>
+<figure class="listing"><figcaption>hw6.py:287–302 — main()</figcaption>
+<pre class="py" data-hot="291-292,294,301"><code>    args = parser.parse_args()
+    if args.out_dir is None:
+        args.out_dir = HW_DIR / 'outputs' / args.name
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+
+    sft_model, sft_tokenizer, peft_config, peft_model = load_model(args.lora_dropout)
+    gsm8k_train = load_jsonlines(args.data_dir / TRAIN_FILES[args.train_data])
+    if args.fixed_shots_seed is not None:
+        global FIXED_SHOTS
+        FIXED_SHOTS = random.Random(args.fixed_shots_seed).sample(gsm8k_train, max(args.train_n_shot, args.test_n_shot))
+    # Trainer's __init__ calls set_seed(1126), random.seed included, so the test questions' few-shot
+    # draws start from seed 1126 (training itself never touches Python's random)
+    dataset, max_token_len = format_train_data(gsm8k_train, sft_tokenizer, args.train_n_shot)
+    print(f'{len(dataset)} training samples, {args.train_n_shot}-shot, max token length {max_token_len}')</code></pre></figure>
+<p>第 291–292 行是本 repo 加的：notebook 從頭到尾沒有設定 torch 的亂數種子，而 LoRA 的初始值又是在 <code>load_model</code> 裡用 torch 的亂數產生的，所以原版每跑一次，訓練的起點就不同（第 2 章）。不給 <code>--seed</code> 時這兩行什麼都不做，行為和原版相同。第 296–298 行同樣是本 repo 加的，對應投影片 Strong 提示的「固定 few-shot 範例」：給了 <code>--fixed-shots-seed</code> 才會用固定種子從訓練集抽出一組範例，所有題目共用（第 8 章）。第 299–300 行的註解記下一個不容易注意到的細節：格式化訓練資料時呼叫了 7,473 次 <code>random.sample</code>，但這些抽樣<strong>不會</strong>影響評估時每一題配到哪個 few-shot 範例。原因是 transformers 的 <code>Trainer</code> 建立時會呼叫 <code>set_seed(1126)</code>，連 Python 的 <code>random</code> 一起重設；訓練過程本身又完全不用 Python 的 <code>random</code>（本書用一個小模型實測過，訓練完的亂數狀態和剛設好 1126 時一模一樣）。所以不管訓練設定怎麼改，評估時的 few-shot 範例都由 1126 決定（第 1 章）。</p>
+<p>後半段訓練、評估、寫檔：</p>
+<figure class="listing"><figcaption>hw6.py:304–323 — main()</figcaption>
+<pre class="py" data-hot="307-309,313,320-322"><code>    if not args.skip_train:
+        trainer = train(peft_model, peft_config, sft_tokenizer, dataset, max_token_len, args)
+        if args.adapter is None:
+            args.adapter = str(args.out_dir / 'sft' / f'checkpoint-{trainer.state.global_step}')
+    else:
+        random.seed(1126)  # what Trainer would have done, so the test prompts match a trained run
+    if args.adapter is None:
+        parser.error('--skip-train needs --adapter')
+
+    generator = make_generator(sft_model, sft_tokenizer, args.adapter, args)
+    raw = {'args': {k: str(v) for k, v in vars(args).items()},
+           'gsm8k_public': [], 'gsm8k_private': [], 'ailuminate': []}
+    gsm8k_predictions = evaluate_gsm8k(generator, gsm8k_train, args.data_dir, args.test_n_shot, raw)
+    ailuminate_predictions = evaluate_ailuminate(generator, args.data_dir, raw)
+
+    # cell [29]: one Python list in a .txt file, as JudgeBoi expected
+    with open(args.out_dir / f'{args.student_id}.txt', 'w') as output_f:
+        print(gsm8k_predictions + ailuminate_predictions, file=output_f)
+    json.dump(raw, open(args.out_dir / 'responses.json', 'w'), ensure_ascii=False, indent=1)
+    print(f'wrote {args.out_dir}')</code></pre></figure>
+<p>第 307 行用 <code>trainer.state.global_step</code> 算出最後一個 checkpoint 的路徑；notebook 是把 <code>sft/checkpoint-1868</code> 直接寫死在程式裡，資料量或 epoch 數一改，路徑就錯了。第 308–309 行是 <code>--skip-train</code>（只評估一個現成的 checkpoint）時的處理：沒有 <code>Trainer</code> 幫忙重設亂數，就自己呼叫 <code>random.seed(1126)</code>，讓評估的 prompt 和訓練完再評估時相同。第 320–321 行和 notebook 的最後一格一模一樣：用 <code>print</code> 把 list 印進檔案，所以檔案內容就是 Python 的 list 寫法，讀回來要用 <code>ast.literal_eval</code>。第 322 行的 <code>responses.json</code> 是本 repo 加的。</p>
+<p>拆檔時刻意<strong>保留</strong>了幾個看起來可以順手改掉的地方，因為它們會影響結果：</p>
+<ul>
+<li><code>make_generator</code> 裡那行 <code>pipeline.model = PeftModel.from_pretrained(...)</code>，設定的對象是 <code>pipeline</code> 這個函式，不是生成器。它看起來是錯的，實際上卻有作用；而且它會用掉一次 torch 的亂數，拿掉之後後面每一題的取樣結果都不同（第 4 章）。</li>
+<li>import 時的 <code>random.seed(42)</code>，以及評估時 few-shot 範例從訓練集每題重抽的寫法（第 1 章）。</li>
+<li>tokenizer 加了 <code>[PAD]</code> 卻沒有擴大 embedding（第 2 章）。</li>
+</ul>
+
+<h2 id="verify">0.6　怎麼證明拆完沒有改變結果</h2>
+<p>拆檔最怕的是不知不覺改到行為。驗證的方法是做一份<strong>參照版</strong>：把 notebook 的程式格原封不動串成一支腳本，只把 8 行 <code>!</code> 開頭的 shell 指令註解掉，然後讓參照版和 <code>hw6.py</code> 各跑一次，逐位元比對結果。</p>
+<figure class="listing"><figcaption>docs/tools/hw06_make_ref.py:9–24 — 產生參照版</figcaption>
+<pre class="py" data-hot="16-19"><code>nb = json.load(open(sys.argv[1]))
+out = []
+for i, cell in enumerate(nb['cells']):
+  if cell['cell_type'] != 'code':
+    continue
+  lines = []
+  for line in ''.join(cell['source']).split('\n'):
+    if line.lstrip().startswith('!'):
+      # nvidia-smi / wget / pip / huggingface-cli login: data is in HW06/data, packages are in
+      # HW06/.venv, and the model is read from the local HF cache (HF_HUB_OFFLINE=1)
+      lines.append('# [ref] ' + line)
+    else:
+      lines.append(line)
+  out.append(f'# ---- cell [{i}] ----\n' + '\n'.join(lines) + '\n')
+
+open(sys.argv[2], 'w').write('\n'.join(out))</code></pre></figure>
+<p>只靠「同一份程式跑兩次」還不夠，因為 GPU 上的計算預設不保證每次都一樣。比對時兩邊都用同一個 wrapper 執行：它打開 PyTorch 的決定性模式，並固定 torch 的啟動種子，然後才執行目標腳本，腳本本身一字不改：</p>
+<figure class="listing"><figcaption>docs/tools/hw06_det.py:15–18 — 決定性模式的 wrapper</figcaption>
+<pre class="py" data-hot="15-16"><code>torch.use_deterministic_algorithms(True)
+torch.manual_seed(int(os.environ.get('HW06_TORCH_SEED', '0')))
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name='__main__')</code></pre></figure>
+<p>比對工具 <code>docs/tools/hw06_compare_runs.py</code> 把兩次執行的 10 個 checkpoint 逐一用 <code>torch.equal</code> 比對每個張量，再把兩份 504 筆的 list 逐筆比對。同一天各跑一次參照版和 <code>hw6.py</code>，結果是：</p>
+<pre class="shell">  checkpoint-187: 224 tensors, identical
+  checkpoint-374: 224 tensors, identical
+  checkpoint-561: 224 tensors, identical
+  checkpoint-748: 224 tensors, identical
+  checkpoint-935: 224 tensors, identical
+ checkpoint-1122: 224 tensors, identical
+ checkpoint-1309: 224 tensors, identical
+ checkpoint-1496: 224 tensors, identical
+ checkpoint-1683: 224 tensors, identical
+ checkpoint-1868: 224 tensors, identical
+submission: 504 vs 504 entries, 0 differ</pre>
+<p>每個 checkpoint 有 224 個張量：16 層 × 7 種投影層 × 每層 LoRA 的兩個小矩陣（A 和 B）。權重完全相同，交出去的 504 筆答案一筆都沒有不同。兩邊的 GSM8K public Accuracy 都是 0.326，train_loss 都是 0.852828219820141。</p>
+<p>這個結果有兩個前提，要說清楚：</p>
+<ul>
+<li><strong>必須同一天跑。</strong>一開始拿前一天的參照版來比，checkpoint 完全相同，504 筆答案卻有 407 筆不同。追查了很久，最後發現原因是 0.3 節那行 <code>Today Date</code>：評估的每一個 prompt 都帶著當天日期，日期一變，答案就跟著變。把日期固定成前一天之後重跑，就和前一天的結果逐位元相同。整個追查過程在第 6 章。</li>
+<li><strong>比對的是加選項之前的版本。</strong>逐位元驗證之後，<code>hw6.py</code> 又多了 <code>--fixed-shots-seed</code> 和 <code>--completion-only-loss</code> 兩個選項。新增的程式都包在「有給選項才執行」的條件裡：不給選項時，few-shot 照樣呼叫原本的 <code>random.sample</code>，SFTTrainer 收到的參數也和原本一樣，所以預設行為沒有改變。</li>
+</ul>
+
+<h2 id="y2026">0.7　2025 和 2026 兩版範例差在哪</h2>
+<p>2026 年的 HW5 Finetuning without Forgetting 用的是幾乎相同的投影片與資料，範例程式也很像。本書的主線是 2025 年的版本，因為它的 notebook 留有 Colab 上的執行輸出可以對照。兩版的差別整理如下；本書沒有實際跑 2026 版，表中關於 2026 版行為的敘述，是讀程式碼得到的。</p>
+<div class="tablewrap"><table>
+<thead><tr><th>項目</th><th>2025 HW6</th><th>2026 HW5</th></tr></thead>
+<tbody>
+<tr><td>資料來源</td><td>助教個人網頁上的 5 個檔（<code>wget</code>）</td><td>Google Drive（<code>gdown</code>）</td></tr>
+<tr><td>few-shot 數</td><td><code>TRAIN_N_SHOT</code>、<code>TEST_N_SHOT</code> 兩個變數</td><td>一個 <code>N_SHOT</code> 同時管訓練與測試</td></tr>
+<tr><td>交給 SFTTrainer 的模型</td><td>先自己用 <code>get_peft_model</code> 包好 LoRA</td><td>原始的 4-bit 模型，連同 <code>peft_config</code> 交給 trl 處理</td></tr>
+<tr><td>結果</td><td colspan="2">以 trl 0.15.2 的程式碼來看，收到已經包好的 PeftModel 時會原樣使用，跳過 <code>prepare_model_for_kbit_training</code>（開啟 gradient checkpointing、把 layer norm 轉成 fp32）與 bf16 轉型；2026 版會做這兩步。兩年的訓練其實不完全一樣（第 3 章）。</td></tr>
+<tr><td>log 與 checkpoint</td><td>每 10% 的步數一次（<code>logging_steps=0.1</code>）</td><td>每 100 步一次</td></tr>
+<tr><td>最大長度的參數名</td><td><code>max_seq_length</code></td><td><code>max_length</code>（新版 trl 改名）</td></tr>
+<tr><td>預設評估的 checkpoint</td><td><code>checkpoint-1868</code></td><td><code>checkpoint-1869</code>（本書沒有跑 2026 版，無法確認這個步數）</td></tr>
+<tr><td>基準線（public）</td><td>Accuracy 0.280／0.379／0.455，Safety 0.558／0.642／0.725</td><td>Accuracy 0.212／0.379／0.445，Safety 0.558／0.631／0.813</td></tr>
+</tbody>
+</table></div>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>作業要同時提升 GSM8K Accuracy、守住 AILuminate Safety Rate；交出去的是 264 個答案加 240 個回答，共 504 筆的 list。</li>
+<li>Safety Rate 靠另一個模型判斷，課程沒說是哪一個；本書用三個審查模型，數字只能互相比較，不能和投影片的基準線比。</li>
+<li>Llama-3.2-1B-Instruct：16 層、hidden 2048、32 個 query 頭與 8 個 KV 頭（GQA）、MLP 8192、詞彙 128,256、embedding 和 lm_head 共用，總共 1,235,814,400 個參數。</li>
+<li>chat template 會自己加一段 system header，裡面有執行當天的日期。</li>
+<li>模型從雜湊值和官方完全相同的公開鏡像取得，透過本機快取讓程式照用官方名稱。</li>
+<li><code>hw6.py</code> 和 notebook 原樣串成的參照版，在同一天、決定性模式下跑出逐位元相同的 checkpoint 與答案。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 為什麼本書的 Safety Rate 不能和投影片的基準線 0.558 比較，GSM8K Accuracy 卻可以？</summary>
+<p>Accuracy 有標準答案，抽數字比對的方法和評分平台相同。Safety Rate 是由一個審查模型判斷回答安不安全，投影片沒寫助教用的是哪個模型；本書換用的三個審查模型寬嚴不同，對同一批回答給出的比例差很多，所以只能拿本書自己的數字互相比較。</p></details>
+<details class="quiz"><summary>2. 用 0.3 節的數字算一下：如果把 k_proj 和 v_proj 也做成 32 個頭（不用 GQA），一層 attention 會多出多少參數？</summary>
+<p>k_proj 和 v_proj 會從 (512, 2048) 變成 (2048, 2048)，各多 2048 × 2048 − 512 × 2048 ＝ 3,145,728 個，兩個合計多 6,291,456 個。一層 attention 會從 10,485,760 變成 16,777,216，16 層總共多出約 1 億個參數。GQA 也讓生成時要快取的 key、value 只剩四分之一。</p></details>
+<details class="quiz"><summary>3. 為什麼核對鏡像時不能只比權重檔，tokenizer 和 generation_config 也要比？</summary>
+<p>tokenizer 決定文字怎麼切成 token、chat template 長什麼樣、哪些是特殊 token；generation_config 提供生成時的預設參數。unsloth 的鏡像權重和官方相同，但這幾個檔改過，用它跑出來的 prompt 或生成行為就可能和官方模型不同，結果也就不能代表原版作業。</p></details>
+<details class="quiz"><summary>4. 格式化訓練資料時抽了 7,473 次 few-shot 範例，為什麼評估時每一題配到的範例卻和這些抽樣無關？只做評估（<code>--skip-train</code>）時，hw6.py 怎麼讓 prompt 和訓練過的流程一致？</summary>
+<p>訓練開始前，<code>Trainer</code> 會呼叫 <code>set_seed(1126)</code>，把 Python 的 <code>random</code> 也重設成 1126，而訓練過程不使用 Python 的 <code>random</code>，所以評估時的抽樣一律從「剛設好 1126」的狀態開始。<code>--skip-train</code> 時沒有建立 <code>Trainer</code>，hw6.py 就自己呼叫 <code>random.seed(1126)</code> 補上這一步（第 308–309 行）。</p></details>
+<details class="quiz"><summary>5. 參照版和 hw6.py 拿不同天的結果來比，會發生什麼事？為什麼 checkpoint 卻完全相同？</summary>
+<p>交出去的答案會有大量不同（實測 504 筆有 407 筆不同），因為評估的 prompt 裡有 chat template 寫入的當天日期，日期不同 prompt 就不同。訓練資料在格式化時把含有日期的 system header 切掉了，所以訓練和日期無關，checkpoint 完全相同。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Meta，<a href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct">Llama-3.2-1B-Instruct 模型卡</a>：模型的訓練資料、用途限制與授權條款。</li>
+<li>Ainslie et al.，<a href="https://arxiv.org/abs/2305.13245">GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</a>（2023）：GQA 的原始論文。</li>
+<li>Cobbe et al.，<a href="https://arxiv.org/abs/2110.14168">Training Verifiers to Solve Math Word Problems</a>（2021）：GSM8K 資料集的出處。</li>
+<li>MLCommons，<a href="https://github.com/mlcommons/ailuminate">AILuminate</a>：AILuminate 的危險類別定義與公開的練習題集。</li>
+<li>台大《機器學習 2025 Spring》<a href="https://speech.ee.ntu.edu.tw/~hylee/ml/2025-spring.php">課程網頁</a>：HW6 的投影片與範例程式連結。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="outline.html">← 教學大綱</a><a href="ch01.html">第 1 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>

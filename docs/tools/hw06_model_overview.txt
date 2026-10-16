@@ -1,0 +1,30 @@
+layers 16, hidden 2048, heads 32, kv heads 8, head_dim 64, mlp 8192, vocab 128256, tied embeddings True, rope_theta 500000.0
+--- layer 0
+self_attn.q_proj.weight          (2048, 2048)        4,194,304
+self_attn.k_proj.weight          (512, 2048)         1,048,576
+self_attn.v_proj.weight          (512, 2048)         1,048,576
+self_attn.o_proj.weight          (2048, 2048)        4,194,304
+mlp.gate_proj.weight             (8192, 2048)       16,777,216
+mlp.up_proj.weight               (8192, 2048)       16,777,216
+mlp.down_proj.weight             (2048, 8192)       16,777,216
+input_layernorm.weight           (2048,)                 2,048
+post_attention_layernorm.weight  (2048,)                 2,048
+--- parameters by group (lm_head shares embed_tokens)
+embed_tokens      262,668,288
+attention         167,772,160
+mlp               805,306,368
+layer norms            65,536
+final norm              2,048
+total           1,235,814,400
+lm_head is embed_tokens: True
+--- chat template, one user turn, add_generation_prompt=True
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+Cutting Knowledge Date: December 2023
+Today Date: 15 Oct 2026
+
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Q: 1+1?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+

@@ -1,0 +1,2 @@
+state after SFTTrainer() == state after random.seed(1126): True
+state after trainer.train() == state after random.seed(1126): True

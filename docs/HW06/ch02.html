@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 章　QLoRA — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch01.html">← 第 1 章</a><a href="ch03.html">第 3 章 →</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 2 章　QLoRA：4-bit 底模加 LoRA</h1>
+  <p class="chap-lead">範例程式不訓練模型原本的 12.4 億個參數，而是把它們壓成 4-bit、凍結起來，只在旁邊掛上 563 萬個可以訓練的小參數。這一章讀 <code>load_model</code>：4-bit 量化怎麼設定、實際壓了哪些層、LoRA 掛在哪裡、從什麼值開始訓練。最後看兩個藏在這個函式裡的問題：多出來的 <code>[PAD]</code>，以及讓原版每次都跑出不同結果的 LoRA 初始值。</p>
+</header>
+<main>
+
+<h2 id="idea">2.1　為什麼要 QLoRA</h2>
+<p>微調一個語言模型，最直接的做法是把所有參數都拿來訓練，叫<strong>全參數微調</strong>（full fine-tuning）。對 12.4 億個參數來說，這代價很高：bf16 的權重本身要 2.5 GB，梯度又要 2.5 GB，Adam 優化器還要為每個參數存兩份狀態，用 fp32 存就是 10 GB。Colab 的 T4 只有 15 GB 顯示記憶體，再加上訓練時的中間結果，放不下。</p>
+<p><strong>LoRA</strong>（Low-Rank Adaptation）換一個想法：原本的權重矩陣 W 完全不動，在旁邊加兩個很瘦的矩陣 A 和 B，讓它們的乘積去表示「要對 W 做多少修改」。一個 2048 × 2048 的矩陣有 419 萬個數字；如果修改量用兩個 rank 8 的矩陣（2048 × 8 和 8 × 2048）相乘來表示，只需要 32,768 個數字，是原本的 0.8%。只訓練 A 和 B，梯度和優化器狀態都跟著縮小到同樣的比例。</p>
+<p><strong>QLoRA</strong> 再往前一步：既然 W 凍結不動，就把它壓成 4-bit 存放，計算時再臨時還原。權重的記憶體從 2.5 GB 降到 1 GB 左右，1B 的模型在 T4 上綽綽有餘。投影片在 Simple 提示裡還引用了一篇 LoRA 的實務文章，說只改少量參數本身就有減輕遺忘的效果，這也是範例程式選 LoRA 的理由之一。</p>
+<div class="eq">一般的線性層：　h = W x
+掛上 LoRA 之後：　h = W x ＋ (α ／ r) · B (A x)
+　　W：原本的權重（凍結，4-bit 存放）　A：r × 輸入維度　B：輸出維度 × r　α ／ r：縮放倍數</div>
+
+<h2 id="quant">2.2　4-bit 量化的設定</h2>
+<p><code>load_model</code> 的前半段載入 4-bit 的底模和 tokenizer：</p>
+<figure class="listing"><figcaption>hw6.py:61–76 — load_model()</figcaption>
+<pre class="py" data-hot="63-68,76"><code>def load_model(lora_dropout):
+    """Cell [12]: 4-bit base model, tokenizer with an extra [PAD], LoRA injected into the model."""
+    sft_bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    sft_model = AutoModelForCausalLM.from_pretrained(
+        pretrained_model_name_or_path=MODEL_ID,
+        quantization_config=sft_bnb_config,
+        low_cpu_mem_usage=True,
+    )
+    sft_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=MODEL_ID)
+    # adds token 128256, but the embedding is not resized: fine only because batch size 1 never pads
+    sft_tokenizer.add_special_tokens({'pad_token': '[PAD]'})</code></pre></figure>
+<p><code>BitsAndBytesConfig</code> 的四個設定各有意義：</p>
+<ul>
+<li><code>load_in_4bit=True</code>：用 bitsandbytes 函式庫，在載入時把線性層的權重量化成 4 bit。</li>
+<li><code>bnb_4bit_quant_type="nf4"</code>：<strong>NF4</strong>（4-bit NormalFloat）是 QLoRA 論文提出的格式。4 bit 只能表示 16 個值，NF4 把這 16 個值放在常態分布的分位點上，正好符合神經網路權重大致呈常態分布的特性，比平均切成 16 等份的整數格式誤差小。</li>
+<li><code>bnb_4bit_use_double_quant=True</code>：量化時每一小塊權重要存一個縮放係數（量化常數），double quantization 把這些常數本身也再量化一次，每個參數再省下零點幾個 bit。</li>
+<li><code>bnb_4bit_compute_dtype=torch.bfloat16</code>：4-bit 只是儲存格式，真正做矩陣乘法時，先把權重還原成 bf16 再算。</li>
+</ul>
+<p>實際載入之後量量看（<code>docs/tools/hw06_qlora_probe.py</code>，照 <code>hw6.py</code> 的 <code>load_model</code> 原樣建立模型）：</p>
+<pre class="shell">GPU memory allocated after load_model (GB): 1.051   «1»
+module types (projections, base layers, embeddings, lm_head): {'Embedding': 1, 'Linear4bit': 224, 'Linear': 1}   «2»
+embed_tokens Embedding torch.float16 | lm_head Linear torch.float16   «3»
+layer norm dtype torch.float16
+q_proj: Linear4bit | base layer Linear4bit | base weight torch.uint8 (2097152, 1)   «4»</pre>
+<ol class="notes">
+<li><span class="mk">1</span>連同 LoRA 在內，整個模型只佔 1.05 GB 的顯示記憶體。原本 bf16 的權重檔是 2.47 GB。</li>
+<li><span class="mk">2</span>被量化的只有線性層。16 層 × 7 種投影層 ＝ 112 個，每個在掛上 LoRA 之後，外層是 peft 的 <code>Linear4bit</code>、裡面的 <code>base_layer</code> 是 bitsandbytes 的 <code>Linear4bit</code>，所以數到 224 個。embedding 和 lm_head 沒有被量化。</li>
+<li><span class="mk">3</span>沒被量化的部分是 <strong>float16</strong>，不是 bf16。因為 <code>from_pretrained</code> 沒有指定 <code>torch_dtype</code>，transformers 載入量化模型時，其餘部分預設用 float16。fp16 能表示的範圍比 bf16 小，不過訓練時會開 bf16 的自動混合精度（第 3 章），這裡沒有造成問題。</li>
+<li><span class="mk">4</span>4-bit 權重以 uint8 存放，一個位元組裝兩個 4-bit 數值：2048 × 2048 ÷ 2 ＝ 2,097,152 個位元組，攤平成一行。</li>
+</ol>
+<p>第 76 行替 tokenizer 加了一個 <code>[PAD]</code> 特殊 token，2.5 節再回來看它。</p>
+
+<h2 id="lora">2.3　LoRA 掛在哪裡、有多少參數</h2>
+<p>後半段設定 LoRA，並把它掛進模型：</p>
+<figure class="listing"><figcaption>hw6.py:77–88 — load_model()</figcaption>
+<pre class="py" data-hot="79-80,84,87"><code>    lora_kwargs = {} if lora_dropout is None else {'lora_dropout': lora_dropout}
+    peft_config = LoraConfig(
+        r=8,
+        lora_alpha=16,
+        **lora_kwargs,
+        bias='none',
+        task_type='CAUSAL_LM',
+        target_modules=['up_proj', 'down_proj', 'gate_proj', 'k_proj', 'q_proj', 'v_proj', 'o_proj'],
+    )
+    # get_peft_model wraps sft_model and also injects the LoRA layers into it in place
+    peft_model = get_peft_model(sft_model, peft_config)
+    return sft_model, sft_tokenizer, peft_config, peft_model</code></pre></figure>
+<p>第 77 行和第 81 行是本 repo 加的：投影片的 Strong 提示要調 LoRA 的 dropout，notebook 在這裡留了一行 <code>TODO: Adds dropout</code>；不給 <code>--lora-dropout</code> 時不傳這個參數，和原版一樣用 peft 的預設值 0。其餘照抄：</p>
+<ul>
+<li><code>r=8</code>：A 和 B 的秩（rank），也就是中間那一維的寬度。</li>
+<li><code>lora_alpha=16</code>：縮放倍數的分子，實際乘上的倍數是 α ／ r ＝ 16 ／ 8 ＝ 2。</li>
+<li><code>target_modules</code>：attention 的 q、k、v、o 四個投影層，加上 MLP 的 gate、up、down 三個，第 0 章架構圖裡所有玉綠色的框都掛上了。</li>
+<li><code>task_type='CAUSAL_LM'</code>：告訴 peft 這是由左到右生成的語言模型，決定外層包裝的類別。</li>
+</ul>
+<p>每個投影層掛上的 LoRA 參數量是 r ×（輸入維度 ＋ 輸出維度），探測工具逐類加總 16 層的結果：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>投影層</th><th>W 的形狀</th><th class="num">一層的 LoRA 參數</th><th class="num">16 層合計</th></tr></thead>
+<tbody>
+<tr><td><code>q_proj</code>、<code>o_proj</code></td><td>2048 × 2048</td><td class="num">8 × (2048 ＋ 2048) ＝ 32,768</td><td class="num">各 524,288</td></tr>
+<tr><td><code>k_proj</code>、<code>v_proj</code></td><td>512 × 2048</td><td class="num">8 × (2048 ＋ 512) ＝ 20,480</td><td class="num">各 327,680</td></tr>
+<tr><td><code>gate_proj</code>、<code>up_proj</code>、<code>down_proj</code></td><td>8192 × 2048 或 2048 × 8192</td><td class="num">8 × (2048 ＋ 8192) ＝ 81,920</td><td class="num">各 1,310,720</td></tr>
+<tr><td>合計</td><td></td><td class="num">352,256</td><td class="num">5,636,096</td></tr>
+</tbody>
+</table></div>
+<pre class="shell">trainable params: 5,636,096 || all params: 1,241,450,496 || trainable%: 0.4540</pre>
+<p>peft 印出的 all params 是 1,235,814,400 ＋ 5,636,096 ＝ 1,241,450,496，可訓練的部分只占 0.454%。注意 MLP 的三個投影層就占了 LoRA 參數的 70%，和底模裡 MLP 參數占大多數的情形一致。</p>
+<p>第 87 行的 <code>get_peft_model</code> 有一個在第 4 章會變得很重要的行為：它回傳一個包裝好的 <code>PeftModel</code>，但 LoRA 層是<strong>直接插進</strong>原本的 <code>sft_model</code> 裡的。也就是說，函式結束後 <code>sft_model</code> 和 <code>peft_model</code> 共用同一批 LoRA 參數，訓練 <code>peft_model</code> 就等於改變了 <code>sft_model</code>。後面的生成器用的正是 <code>sft_model</code>。</p>
+
+<h2 id="init">2.4　LoRA 從什麼值開始</h2>
+<p>peft 0.14.0 建立 LoRA 層時（<code>peft/tuners/lora/layer.py</code> 的 <code>reset_lora_parameters</code>），A 用 <code>kaiming_uniform_</code> 隨機初始化，B 全部設成 0。探測工具確認了這兩點，也確認了 LoRA 參數是 float32：</p>
+<pre class="shell">lora_A (8, 2048) torch.float32 | lora_B (2048, 8) | scaling 2.0
+B all zero: True</pre>
+<p><code>kaiming_uniform_</code> 在 <code>a=√5</code> 時，從 −1／√n 到 1／√n 的均勻分布取值，n 是輸入的維度：輸入 2048 維的投影層（q、k、v、o、gate、up），A 的每個數字落在 ±0.0221 之間；<code>down_proj</code> 的輸入是 8192 維，範圍縮小一半，±0.0110。這和 PyTorch 的 <code>nn.Linear</code> 預設的初始化方式相同。</p>
+<p>B 等於 0，所以 B (A x) 一開始就是 0，掛上 LoRA 的模型在訓練第一步之前，輸出和原本的模型完全相同。這是刻意的設計：微調從原模型出發，而不是從一個被隨機擾動過的模型出發。</p>
+<p>這也帶來一個有趣的後果：第一步的梯度裡，A 的梯度全部是 0。因為對 A 的梯度要乘上 B，而 B 還是 0；B 的梯度則不是 0，因為它乘的是 A x。第一步只有 B 被更新，從第二步開始兩者才一起動。本書在建環境時實測過：224 個 LoRA 張量的梯度裡，正好有 112 個（全部的 A）是 0。</p>
+<div class="note"><h4>動手做：算一下縮放倍數的作用</h4>
+<p>α ／ r 讓「改 r」和「改學習率」分開。如果只把 r 從 8 調成 16，A、B 變大，B A 的數值量級也跟著變；固定 α ／ r 的比例，換 r 時就不必重調學習率。本作業固定 r＝8、α＝16，倍數是 2，投影片沒有建議調整它們。</p></div>
+
+<h2 id="pad">2.5　多出來的 [PAD]</h2>
+<p>回到第 76 行：tokenizer 加了一個 <code>[PAD]</code>。Llama 3 的 tokenizer 本來沒有 pad token，把多個長短不同的樣本湊成一個 batch 時，短的要補 pad 才能對齊，所以範例程式補上一個。問題是它<strong>只改了 tokenizer，沒有改模型</strong>：</p>
+<pre class="shell">tokenizer size 128257 pad id 128256 embedding rows 128256
+forward with [PAD]: AcceleratorError CUDA error: device-side assert triggered</pre>
+<p><code>[PAD]</code> 拿到的 id 是 128256，而 embedding 只有 128,256 列（id 0 到 128255）。只要有任何一個 <code>[PAD]</code> 真的送進模型，embedding 查表就會越界，在 GPU 上的表現是 CUDA 的 device-side assert，程式直接中止。探測工具把 id 128256 送進模型，觸發的正是這個錯誤（還印出了 640 行斷言訊息）。</p>
+<p>範例程式之所以沒出事，是因為它從來沒有真的補過 pad：</p>
+<ul>
+<li>訓練時 <code>per_device_train_batch_size=1</code>，一個 batch 只有一個樣本，不需要對齊（第 3 章）。</li>
+<li>評估時生成器一次處理一個 prompt，而且建 pipeline 時傳了 <code>pad_token_id=tokenizer.eos_token_id</code>，用 <code>&lt;|eot_id|&gt;</code> 之類的結尾 token 當 pad。</li>
+</ul>
+<div class="warn"><h4>讀 code 不盡信文件：加了 pad token，卻不能用</h4>
+<p>如果照直覺把 batch size 調大，訓練時資料會被補上 <code>[PAD]</code>，程式就會在第一步崩潰。正確的做法有兩種：加完 token 之後呼叫 <code>model.resize_token_embeddings(len(tokenizer))</code> 擴大 embedding；或者乾脆不加新 token，把 pad 設成一個既有的 token（例如 Llama 3 保留的 <code>&lt;|finetune_right_pad_id|&gt;</code>）。本 repo 照原版保留這一行，batch size 也保持 1。</p></div>
+
+<h2 id="seed">2.6　LoRA 初始值讓原版每次都不一樣</h2>
+<p>A 是隨機初始化的，那這個「隨機」由誰決定？範例程式在 import 時設了 <code>random.seed(42)</code>，但那是 Python 的亂數，LoRA 用的是 torch 的亂數。<code>SFTConfig(seed=1126)</code> 會讓 Trainer 呼叫 <code>set_seed(1126)</code> 設定 torch 的種子，可是 Trainer 是在第 [18] 格才建立的，<code>get_peft_model</code> 早在第 [12] 格就把 A 初始化完了。torch 在程式啟動時的種子是隨機的，所以<strong>原版每跑一次，LoRA 的起點都不同</strong>。</p>
+<p>本書最早用原版跑了兩次（ref1、ref2），設定一字不差，結果：</p>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th class="num">ref1</th><th class="num">ref2</th></tr></thead>
+<tbody>
+<tr><td>train_loss</td><td class="num">0.852923</td><td class="num">0.853471</td></tr>
+<tr><td>GSM8K public Accuracy（取樣解碼）</td><td class="num">0.333</td><td class="num">0.356</td></tr>
+<tr><td>10 個 checkpoint</td><td colspan="2">全部不同</td></tr>
+<tr><td>交出去的 504 筆</td><td colspan="2">416 筆不同</td></tr>
+</tbody>
+</table></div>
+<p>一開始懷疑是 GPU 的計算不穩定。為了排除，本書用一支探測工具（<code>docs/tools/hw06_nondet_probe.py</code>）在決定性模式下，把同一個 batch 重複做 4 次 forward 與 backward，4-bit 與 bf16、有沒有掛 LoRA 都試：</p>
+<pre class="shell">4bit forward only (no LoRA): logits identical over 4 runs: True
+4bit + LoRA: losses ['3.1220397949', '3.1220397949', '3.1220397949', '3.1220397949']
+4bit + LoRA: loss identical: True | all grads identical: True
+bf16 forward only (no LoRA): logits identical over 4 runs: True
+bf16 + LoRA: losses ['3.1319835186', '3.1319835186', '3.1319835186', '3.1319835186']
+bf16 + LoRA: loss identical: True | all grads identical: True</pre>
+<p>計算本身是穩定的，問題出在起點。印出兩個不同 process 的 torch 啟動種子，一次是 1323…、一次是 1451…，LoRA 初始值的雜湊也不同。在載入模型之前先固定 torch 的種子，兩次的 LoRA 初始值就一模一樣，整條流程也就逐位元相同了（第 0 章的拆檔驗證就是這樣做的）。<code>hw6.py</code> 的 <code>--seed</code> 選項做的正是這件事。第 0 章拆檔驗證時用的是另一個入口：wrapper <code>hw06_det.py</code> 讀環境變數 <code>HW06_TORCH_SEED</code>，在執行腳本之前固定種子。兩者都是在 LoRA 初始化之前固定 torch 的種子，差別是 wrapper 從外面設定，不必改動腳本，所以連原版 notebook 串成的參照版也能用。</p>
+<p>反過來看，這也提供了一個量雜訊的方法：固定所有其他設定，只換 <code>--seed</code>，得到的差異就是「LoRA 起點不同」造成的雜訊。本書所有的設定比較都跑 3 個種子（0、1、2），差距要比種子之間的差距大，才當作是設定造成的（第 6 章）。</p>
+
+<h2 id="forget">2.7　只改 0.454% 的參數，就不會忘了嗎</h2>
+<p>投影片把 LoRA 當成減輕遺忘的第一道防線，理由很直觀：原本的 12.4 億個參數完全凍結，模型原本會的東西都還存在那些權重裡，被改動的只有旁邊那 563 萬個參數。讀過 ML2022 HW14（終身學習）的讀者會認出這個想法：持續學習的方法分成三大類，replay（重播舊資料）、regularization（懲罰重要參數的變動，例如 EWC）、parameter isolation（不同任務用不同的參數）。LoRA 最接近第三類，凍結舊參數、只在新增的小參數上學新任務。</p>
+<p>但「參數凍結」不等於「行為不變」。LoRA 的輸出是直接加在原本的輸出上的，B A 只要學到夠大的修改量，一樣能把模型的回答方式整個改掉。本書後面的實驗會給出兩面的證據：</p>
+<ul>
+<li>照範例程式的預設（學習率 2e-4、1 個 epoch、1-shot），用三個審查模型判，微調後的模型反而<strong>比原模型更常拒絕</strong>危險要求（第 5、7 章）。</li>
+<li>同樣是 LoRA，只把訓練時的 few-shot 範例從 1 題加到 8 題，安全率就明顯掉到原模型以下；多訓練幾個 epoch 也有類似的趨勢（第 7、8 章）。</li>
+</ul>
+<p>換句話說，LoRA 限制的是「能改多少參數」，不是「能把行為改多少」。真正決定會不會忘的，是訓練資料讓那 563 萬個參數往哪裡學、學了多少。第 3 章會看到，範例程式的 loss 不只算答案、而是整段文字都算，這一點和「學了多少」直接相關。</p>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>QLoRA：底模的線性層量化成 4-bit NF4 凍結，計算時還原成 bf16；只訓練旁邊掛的 LoRA 矩陣 A、B。整個模型只佔 1.05 GB。</li>
+<li>只有 112 個投影層被量化；embedding、lm_head、RMSNorm 留在 float16（沒指定 <code>torch_dtype</code> 的預設）。</li>
+<li>LoRA：r＝8、α＝16（倍數 2），掛在全部 7 種投影層，可訓練 5,636,096 個參數，占 0.454%，其中 70% 在 MLP。</li>
+<li>A 隨機、B 為 0，訓練開始前模型輸出和原模型相同；第一步 A 的梯度全為 0。</li>
+<li>tokenizer 加了 <code>[PAD]</code>（id 128256）卻沒有擴大 embedding；batch size 1 才沒出錯，送進模型就會觸發 CUDA 斷言。</li>
+<li>LoRA 在 <code>set_seed(1126)</code> 之前初始化，原版每次跑的起點都不同；<code>--seed</code> 先固定 torch 的種子。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 如果把 LoRA 只掛在 q_proj 和 v_proj（早期 LoRA 論文的做法），可訓練參數會是多少？</summary>
+<p>q_proj 每層 32,768、v_proj 每層 20,480，合計 53,248；乘上 16 層是 851,968 個，約為現在 5,636,096 的 15%。</p></details>
+<details class="quiz"><summary>2. 為什麼 LoRA 要把 B 初始化成 0，而不是兩個都隨機？</summary>
+<p>B＝0 讓 B A x 一開始就是 0，掛上 LoRA 的模型在訓練前和原模型完全相同，微調從原模型的能力出發。如果兩個都隨機，模型一開始就被加上一個隨機的擾動，訓練得先把這個擾動修掉。</p></details>
+<details class="quiz"><summary>3. 把 <code>per_device_train_batch_size</code> 改成 4，最可能發生什麼事？要怎麼改才能正常訓練？</summary>
+<p>同一個 batch 的樣本長度不同，collator 會用 <code>[PAD]</code>（id 128256）補齊；embedding 只有 128,256 列，查表越界，CUDA 觸發 device-side assert，訓練中止。修法是加完 token 後呼叫 <code>resize_token_embeddings</code>，或把 pad 設成既有的 token（例如 <code>&lt;|finetune_right_pad_id|&gt;</code>）。</p></details>
+<details class="quiz"><summary>4. 範例程式設了 <code>random.seed(42)</code>，也在 SFTConfig 設了 <code>seed=1126</code>，為什麼 LoRA 的初始值還是每次不同？</summary>
+<p>LoRA 用 torch 的亂數初始化，<code>random.seed(42)</code> 只管 Python 的亂數。<code>seed=1126</code> 要等 Trainer 建立時才會設定 torch 的種子，而 LoRA 在那之前（<code>get_peft_model</code>）就初始化完了，當時 torch 的種子是程式啟動時隨機產生的。</p></details>
+<details class="quiz"><summary>5. 探測工具量到模型只佔 1.05 GB。用 2.2 節的數字估算：如果不量化、直接用 bf16 載入並掛 LoRA，大約要多少？</summary>
+<p>bf16 權重檔是 2.47 GB，再加上 563 萬個 float32 的 LoRA 參數（約 0.02 GB），大約 2.5 GB。4-bit 量化把權重的記憶體減少了一半以上；沒有減到四分之一，是因為 embedding（2.6 億個參數）沒有被量化，以 float16 存放就占了約 0.5 GB。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Hu et al.，<a href="https://arxiv.org/abs/2106.09685">LoRA: Low-Rank Adaptation of Large Language Models</a>（2021）：LoRA 的原始論文，包括 B 初始化為 0 與 α ／ r 縮放的說明。</li>
+<li>Dettmers et al.，<a href="https://arxiv.org/abs/2305.14314">QLoRA: Efficient Finetuning of Quantized LLMs</a>（2023）：NF4、double quantization 與 paged optimizer 的出處。</li>
+<li>Biderman et al.，<a href="https://arxiv.org/abs/2405.09673">LoRA Learns Less and Forgets Less</a>（2024）：比較 LoRA 與全參數微調在學習與遺忘上的取捨。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/peft/main/en/developer_guides/lora">PEFT 的 LoRA 說明</a>：<code>LoraConfig</code> 各參數與初始化選項。</li>
+<li>Hugging Face，<a href="https://huggingface.co/docs/transformers/main/en/quantization/bitsandbytes">bitsandbytes 量化說明</a>：<code>BitsAndBytesConfig</code> 的選項與哪些模組不會被量化。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch01.html">← 第 1 章</a><a href="ch03.html">第 3 章 →</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>
