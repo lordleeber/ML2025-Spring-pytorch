@@ -410,7 +410,7 @@ checkpoint weights are all 0.01: False</pre>
 
 <h2 id="fewshot-seed">4.7　兩套 few-shot 範例</h2>
 <p>還有一件事要交代清楚。第 1 章說過，訓練完再評估時，每一題的 few-shot 範例由 Trainer 設的 <code>random.seed(1126)</code> 決定。可是上面原模型的數字，都是用評估工具 <code>hw06_gen.py</code> 量的，它當時沒有補上這一步，用的是 <code>random.seed(42)</code> 抽完 7,473 次之後的範例。這不影響本章的比較：原模型和 ref1、ref2、ref5 三個 checkpoint 的 greedy 評估都是用同一個工具量的，用的是同一套範例。但它們不能直接和第 7、8 章用 <code>hw6.py</code> 訓練完、直接評估的數字放在同一張表裡比，因為那些用的是 1126 的範例。</p>
-<p>為了讓後面的比較乾淨，評估工具加了 <code>--py-seed 1126</code>，原模型也用和 <code>hw6.py</code> 訓練後相同的範例重新評估了一次：<!-- TODO(本機實測): base1126_t256／base1126_t512 跑完後填入（docs/tools/hw06_runs.jsonl），並說明和 0.303／0.326 差多少 -->結果在所有實驗跑完後補上。第 7、8 章的「原模型」一律用這組數字。</p>
+<p>為了讓後面的比較乾淨，評估工具加了 <code>--py-seed 1126</code>，原模型也用和 <code>hw6.py</code> 訓練後相同的範例重新評估了一次（greedy）：256 個 token 是 <strong>0.235</strong>，512 個 token 是 0.242。和上面用另一套範例量到的 0.303、0.326 相比，差了 9 到 11 題。只是每一題配到的範例不同，原模型的 Accuracy 就差這麼多；微調後的模型因為學會了固定的作答格式，對範例沒有這麼敏感（第 7 章）。第 7、8 章的「原模型」一律用 0.235 這組數字。這個結果也呼應投影片 Strong 提示的第一項：固定 few-shot 範例，評估才會穩定。</p>
 
 <div class="recap"><h4>重點回顧</h4>
 <ul>
