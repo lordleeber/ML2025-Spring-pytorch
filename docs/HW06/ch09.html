@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 9 章　總結 — HW06 讀碼教材</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap">
+<style id="book-style">
+/* HW06 讀碼教材 — 全書樣板（定義在 index.html，其他頁逐字複製）
+   版面：單欄 1080px 的「微調實驗紀錄」——偏紫的石墨底、微暖的紙白字、玉綠只用在標題記號與強調
+   （玉綠＝這本書要守住的東西：微調後的安全性）。程式與輸出是比底色更深的面板；段落限寬，
+   表格、程式、圖用滿 1080px。只有暗色主題。
+   設定色（圖表與標籤）：原模型 灰、1 epoch 藍、3／5 epochs 橘、lr 青、few-shot 黃、weight decay／dropout 洋紅、
+   self-instruct 綠、固定 few-shot 紫；審查模型：Guard 8B 紫、Guard 1B 洋紅、ShieldGemma 黃
+   （dataviz 參考色盤的暗色步階，與 ML2022 HW14 書相同的一組）。 */
+:root {
+  color-scheme: dark;
+  /* color */
+  --bg: #141319;          /* 頁面 */
+  --panel: #1b1a22;       /* 卡片、圖、表的底（圖表的 surface） */
+  --panel-2: #24232d;     /* 次一層：表頭、quiz 摘要 */
+  --code-bg: #0f0e13;     /* 程式與終端輸出 */
+  --ink: #e9e6ef;         /* 內文 */
+  --muted: #a39fb2;       /* 次要文字、圖說 */
+  --hair: #2f2d39;        /* 細線 */
+  --accent: #6fcfae;      /* 玉綠：標題記號、重點 */
+  --link: #9cc6f2;        /* 連結 */
+  --link-visited: #c4b2f0;
+  --hot: rgba(111, 207, 174, 0.11);  /* 程式的強調行 */
+  --note: #9cc6f2;  --warn: #e3b341;  --recap: #6fcfae;
+  /* 設定色 */
+  --c-base: #8b949e; --c-ep1: #3987e5; --c-ep3: #d95926; --c-lr: #199e70;
+  --c-shot: #c98500; --c-reg: #d55181; --c-self: #008300; --c-fixed: #9085e9;
+  /* 審查模型色 */
+  --j-8b: #9085e9; --j-1b: #d55181; --j-sg: #c98500;
+  /* type */
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step-0: 1.0625rem;  --step-1: 1.3rem;  --step-2: 1.7rem;  --step-3: 2.4rem;
+  --measure: 46rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto;
+  max-width: 67.5rem;
+  padding-inline: 1.25rem;
+  padding-block: 1.5rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+main > p, main > ul, main > ol, main > h3, main > h4,
+.note > p, .warn > p, .recap > ul { max-width: var(--measure); }
+img { max-width: 100%; }
+
+a { color: var(--link); text-decoration: underline; text-decoration-color: rgba(156, 198, 242, 0.35); text-underline-offset: 0.2em; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- 導覽 ---------- */
+nav.chapnav {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center;
+  font-size: 0.9rem; padding-block: 0.6rem; border-bottom: 1px solid var(--hair);
+}
+nav.chapnav.bottom { border-bottom: 0; border-top: 1px solid var(--hair); margin-top: 3rem; }
+nav.chapnav .spacer { flex: 1; }
+nav.chapnav a { color: var(--muted); text-decoration: none; }
+nav.chapnav a:hover { color: var(--ink); }
+
+/* ---------- 章首 ---------- */
+header.chap-header { padding-block: 2.5rem 1.5rem; }
+.book-title {
+  margin: 0; font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--muted);
+}
+.book-title::after {                     /* 這本書的資料流，當成每頁的眉標 */
+  content: "Llama-3.2-1B-Instruct　·　4-bit NF4 ＋ LoRA r=8　·　GSM8K Accuracy ↑　AILuminate Safety 不可 ↓";
+  display: block; margin-top: 0.25rem; color: var(--accent); opacity: 0.85;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-3);
+  line-height: 1.3; margin: 0.6rem 0 1rem; text-wrap: balance; letter-spacing: 0.01em;
+}
+.chap-lead { max-width: var(--measure); color: var(--muted); font-size: 1.05rem; margin: 0; }
+
+/* ---------- 本章目錄（JS 產生） ---------- */
+.toc-box {
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 6px;
+  padding: 0.9rem 1.25rem; margin-block: 0 2rem; max-width: var(--measure);
+}
+.toc-box-title { margin: 0 0 0.3rem; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+.toc-box ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 2rem; font-size: 0.92rem; line-height: 1.7; }
+.toc-box li { break-inside: avoid; }
+
+/* ---------- 標題 ---------- */
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); line-height: 1.35;
+  margin: 3.2rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--hair); text-wrap: balance;
+  scroll-margin-top: 1rem;
+}
+h2::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.6rem; vertical-align: 0.25em; background: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 2.2rem 0 0.6rem; text-wrap: balance; scroll-margin-top: 1rem; }
+h4 { font-size: 1rem; margin: 0 0 0.4rem; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.4rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.35rem; }
+strong { color: #fbf8ff; font-weight: 700; }
+sub, sup { font-size: 0.72em; }
+
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--panel-2); padding: 0.08em 0.35em; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 程式引用 ---------- */
+figure { margin: 1.5rem 0; }
+figure.listing { border: 1px solid var(--hair); border-radius: 6px; overflow: hidden; background: var(--code-bg); }
+figure.listing figcaption {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  padding: 0.45rem 1rem; background: var(--panel-2); border-bottom: 1px solid var(--hair);
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6;
+  background: var(--code-bg); color: #e2dfe9; margin: 0 0 1.2rem; padding: 0.9rem 1rem;
+  overflow-x: auto; border-radius: 6px; tab-size: 4;
+}
+figure.listing pre { margin: 0; border-radius: 0; }
+.hot-line { display: inline-block; width: 100%; background: var(--hot); border-left: 3px solid var(--accent); margin-left: -1rem; padding-left: calc(1rem - 3px); }
+
+.tok-kw   { color: #e8b87a; }
+.tok-str  { color: #a3d9b6; }
+.tok-cmt  { color: #7c788c; font-style: italic; }
+.tok-num  { color: #f2a68f; }
+.tok-fn   { color: #9cc6f2; }
+.tok-type { color: #c4b2f0; }
+.tok-pre  { color: #f2a68f; }
+
+/* ---------- 終端：要貼上執行的指令 vs 輸出 ---------- */
+pre.shell { background: var(--code-bg); border: 1px solid var(--hair); color: #d9d6e1; }
+pre.shell.cmd { background: #17161e; border-color: rgba(111, 207, 174, 0.45); }
+pre.shell.cmd::before { content: "執行"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.3rem; }
+pre.shell:not(.cmd)::before { content: "輸出"; display: block; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+.sh-prompt { color: var(--accent); user-select: none; }
+.sh-cmd { color: #fff; }
+.sh-cmt { color: #7c788c; }
+pre.diagram { background: var(--panel); border: 1px solid var(--hair); color: var(--ink); }
+
+/* 標注：pre 裡的 «N» 與下方逐點說明 */
+.mk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.35em; height: 1.35em; border-radius: 50%; font-size: 0.78em; font-weight: 700;
+  background: var(--accent); color: #0d1712; font-family: var(--font-mono); vertical-align: 0.05em;
+}
+ol.notes { list-style: none; padding-left: 0; max-width: var(--measure); }
+ol.notes li { position: relative; padding-left: 2rem; }
+ol.notes li > .mk:first-child { position: absolute; left: 0; top: 0.3rem; }
+
+/* ---------- 圖 ---------- */
+figure.fig { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+figure.fig svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+figure.fig img { display: block; margin: 0 auto; border-radius: 3px; }
+figure figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.7; }
+.s-lbl  { fill: var(--ink);   font-size: 13px;   font-family: var(--font-body); }
+.s-sm   { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.s-mono { fill: var(--muted); font-size: 11.5px; font-family: var(--font-mono); }
+.s-key  { fill: var(--ink);   font-size: 12.5px; font-family: var(--font-mono); }
+.s-box  { fill: var(--panel-2); stroke: var(--hair); stroke-width: 1.5; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-size: 0.88rem; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.legend i { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -0.1em; }
+
+/* ---------- 公式 ---------- */
+.eq {
+  font-family: var(--font-mono); font-size: 0.92rem; background: var(--panel); border: 1px solid var(--hair);
+  border-radius: 6px; padding: 0.8rem 1.1rem; margin: 0 0 1.2rem; overflow-x: auto; line-height: 1.9;
+}
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .recap {
+  background: var(--panel); border: 1px solid var(--hair); border-left: 4px solid var(--note);
+  border-radius: 6px; padding: 0.9rem 1.2rem; margin: 1.5rem 0;
+}
+.warn { border-left-color: var(--warn); }
+.recap { border-left-color: var(--recap); }
+.note h4 { color: var(--note); }
+.warn h4 { color: var(--warn); }
+.recap h4 { color: var(--recap); }
+.note > :last-child, .warn > :last-child, .recap > :last-child { margin-bottom: 0; }
+
+/* ---------- 表格 ---------- */
+.tablewrap { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--hair); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.65; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--hair); }
+th { background: var(--panel-2); font-weight: 700; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* ---------- 自我測驗與摺疊 ---------- */
+details { margin: 0 0 0.6rem; }
+details > summary { cursor: pointer; }
+details.quiz { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; max-width: var(--measure); }
+details.quiz > summary { padding: 0.7rem 1rem; font-weight: 600; list-style-position: outside; margin-left: 1.1rem; }
+details.quiz[open] > summary { border-bottom: 1px solid var(--hair); }
+details.quiz > p { padding: 0.7rem 1.1rem 0.2rem; margin: 0; }
+main > details:not(.quiz) > summary { color: var(--muted); font-size: 0.92rem; margin-bottom: 0.6rem; }
+
+/* ---------- 目錄頁 ---------- */
+.cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 1rem 1.1rem; min-width: 0; }
+.card h4 { font-family: var(--font-display); color: var(--accent); }
+.card p { margin: 0; font-size: 0.95rem; }
+ol.toc { padding-left: 0; list-style: none; max-width: none; display: grid; gap: 0.6rem; }
+ol.toc li { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 0.7rem 1rem; margin: 0; }
+ol.toc a { text-decoration: none; }
+.toc-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.toc-desc { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.92rem; }
+
+/* ---------- 頁尾 ---------- */
+.chap-footer { color: var(--muted); font-size: 0.82rem; padding-top: 0.6rem; }
+
+@media (max-width: 760px) {
+  .cardgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc-box ol { columns: 1; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media print { nav.chapnav { display: none; } body { max-width: none; } }
+figure.listing pre.shell { border: 0; background: var(--code-bg); }
+figure.listing pre.shell::before { content: none; }
+
+/* ---------- 設定／審查模型標籤（色塊只標身分，文字一律用內文色） ---------- */
+.cfg { white-space: nowrap; }
+.cfg::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; margin-right: 0.35em; vertical-align: 0.02em; background: var(--cc, var(--muted)); }
+.cfg.base { --cc: var(--c-base); } .cfg.ep1 { --cc: var(--c-ep1); } .cfg.ep3 { --cc: var(--c-ep3); }
+.cfg.lr { --cc: var(--c-lr); } .cfg.shot { --cc: var(--c-shot); } .cfg.reg { --cc: var(--c-reg); }
+.cfg.self { --cc: var(--c-self); } .cfg.fixed { --cc: var(--c-fixed); }
+.cfg.j8b { --cc: var(--j-8b); } .cfg.j1b { --cc: var(--j-1b); } .cfg.jsg { --cc: var(--j-sg); }
+/* 圖內：資料標記用 fill／stroke 屬性帶設定色；hover 提示 */
+.viz-tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: var(--ink); white-space: nowrap; display: none;
+}
+figure.fig { position: relative; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); }
+/* JetBrains Mono 的連字會把 != 畫成 ≠、-> 畫成箭頭；程式要照原樣顯示 */
+code, pre, .eq, .s-mono, .s-key, .book-title, figure.listing figcaption { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<nav class="chapnav"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch08.html">← 第 8 章</a><a href="index.html">回到目錄 ↑</a></nav>
+<header class="chap-header">
+  <p class="book-title">ML2025 Spring · HW6 讀碼教材</p>
+  <h1>第 9 章　總結</h1>
+  <p class="chap-lead">這一章把全書的實驗放在同一張圖上，整理本書的主要發現與讀程式找到的問題，再談現在的研究與實務怎麼處理「微調會遺忘」。最後是三級實作題庫、名詞對照與速查表，方便回頭查。</p>
+</header>
+<main>
+
+<h2 id="all">9.1　所有設定放在一起</h2>
+<p>橫軸是數學（GSM8K public Accuracy），縱軸是安全（Guard 8B 的 Safety Rate），每個點是一個設定三個種子的平均，都用 greedy 解碼、和訓練後相同的 few-shot 範例評估。虛線是原模型。右上方是兩者都好，左下方是兩者都差：</p>
+<figure class="fig">
+<!-- CHART:tradeoff -->
+<svg viewBox="0 0 900 460" role="img" aria-label="各設定的 GSM8K Accuracy（橫軸）對 Safety Rate（Guard 8B，縱軸），三個種子平均；虛線是原模型">
+<line x1="64.0" y1="20" x2="64.0" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="64.0" y="428" text-anchor="middle">0.2</text>
+<line x1="199.3" y1="20" x2="199.3" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="199.3" y="428" text-anchor="middle">0.25</text>
+<line x1="334.7" y1="20" x2="334.7" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="334.7" y="428" text-anchor="middle">0.3</text>
+<line x1="470.0" y1="20" x2="470.0" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="470.0" y="428" text-anchor="middle">0.35</text>
+<line x1="605.3" y1="20" x2="605.3" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="605.3" y="428" text-anchor="middle">0.4</text>
+<line x1="740.7" y1="20" x2="740.7" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="740.7" y="428" text-anchor="middle">0.45</text>
+<line x1="876.0" y1="20" x2="876.0" y2="410" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="876.0" y="428" text-anchor="middle">0.5</text>
+<line x1="64" y1="410.0" x2="876" y2="410.0" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="56" y="414.0" text-anchor="end">0.6</text>
+<line x1="64" y1="298.6" x2="876" y2="298.6" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="56" y="302.6" text-anchor="end">0.7</text>
+<line x1="64" y1="187.1" x2="876" y2="187.1" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="56" y="191.1" text-anchor="end">0.8</text>
+<line x1="64" y1="75.7" x2="876" y2="75.7" stroke="#2f2d39" stroke-width="1"/>
+<text class="s-mono" x="56" y="79.7" text-anchor="end">0.9</text>
+<line x1="158.7" y1="20" x2="158.7" y2="410" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="6 5"/>
+<line x1="64" y1="145.4" x2="876" y2="145.4" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text class="s-sm" x="164.7" y="32">原模型 0.235／0.838</text>
+<text class="s-sm" x="470.0" y="452" text-anchor="middle">GSM8K public Accuracy（greedy，3 種子平均）→ 越右越會算</text>
+<text class="s-sm" x="16" y="215.0" text-anchor="middle" transform="rotate(-90 16 215.0)">Safety Rate（Guard 8B）→ 越上越安全</text>
+<circle cx="526.8" cy="88.1" r="6" fill="#3987e5" stroke="#1b1a22" stroke-width="2" data-tip="1 epoch（預設）：Accuracy 0.371、Safety 0.889"/>
+<text class="s-lbl" x="536.8" y="106.1">1 epoch（預設）</text>
+<circle cx="514.2" cy="60.2" r="6" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-4：Accuracy 0.366、Safety 0.914"/>
+<text class="s-lbl" x="452.2" y="52.2">lr 1e-4</text>
+<circle cx="356.3" cy="92.7" r="6" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-5：Accuracy 0.308、Safety 0.885"/>
+<text class="s-lbl" x="286.3" y="96.7">lr 1e-5</text>
+<circle cx="281.4" cy="188.7" r="6" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="8-shot（隨機）：Accuracy 0.280、Safety 0.799"/>
+<text class="s-lbl" x="291.4" y="192.7">8-shot（隨機）</text>
+<circle cx="281.4" cy="218.1" r="6" fill="#d95926" stroke="#1b1a22" stroke-width="2" data-tip="5 epochs：Accuracy 0.280、Safety 0.772"/>
+<text class="s-lbl" x="291.4" y="222.1">5 epochs</text>
+<circle cx="596.3" cy="51.0" r="6" fill="#9085e9" stroke="#1b1a22" stroke-width="2" data-tip="固定 8-shot：Accuracy 0.397、Safety 0.922"/>
+<text class="s-lbl" x="606.3" y="43.0">固定 8-shot</text>
+<circle cx="814.6" cy="106.7" r="6" fill="#008300" stroke="#1b1a22" stroke-width="2" data-tip="self-instruct：Accuracy 0.477、Safety 0.872"/>
+<text class="s-lbl" x="824.6" y="110.7">self-instruct</text>
+<circle cx="540.4" cy="137.6" r="6" fill="#c98500" stroke="#1b1a22" stroke-width="2" data-tip="只算答案 8-shot：Accuracy 0.376、Safety 0.844"/>
+<text class="s-lbl" x="550.4" y="153.6">只算答案 8-shot</text>
+<circle cx="363.5" cy="374.4" r="6" fill="#199e70" stroke="#1b1a22" stroke-width="2" data-tip="lr 1e-3：Accuracy 0.311、Safety 0.632"/>
+<text class="s-lbl" x="373.5" y="378.4">lr 1e-3</text>
+</svg>
+<!-- /CHART:tradeoff -->
+<figcaption>圖 9-1　各設定的數學與安全。虛線交叉處是原模型（0.235／0.838）。點的位置是三個種子的平均，三個種子之間的差距見第 7、8 章；滑鼠移到點上可以看數值。</figcaption>
+</figure>
+<p>幾乎所有用 1-shot、1 個 epoch 訓練的設定，都落在原模型的右上方：數學進步，安全也沒有下降。掉到原模型安全線（水平虛線）以下的只有三種：每題隨機抽 8 題範例、訓練 5 個 epoch、學習率 1e-3。它們的數學仍比原模型好一點（都在垂直虛線右邊），但都比預設的 1 epoch 差。往右上走得最遠的是固定 8-shot（最安全）與 self-instruct（最會算）。和投影片的三級基準線對照（只有 Accuracy 能比，Safety 用的審查模型不同）：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>投影片基準線（2025 public）</th><th class="num">Accuracy</th><th>本書達到的設定（3 種子平均）</th></tr></thead>
+<tbody>
+<tr><td>Simple</td><td class="num">0.280</td><td>原模型 0.235 未達；照範例程式訓練 1 epoch 0.371 達到</td></tr>
+<tr><td>Medium</td><td class="num">0.379</td><td>1 epoch 平均 0.371 在邊緣（三個種子 0.348～0.394）；固定 8-shot 0.397、只算答案 1-shot 0.387 達到</td></tr>
+<tr><td>Strong</td><td class="num">0.455</td><td>self-instruct 0.477 達到（三個種子 0.455～0.492）</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="findings">9.2　本書的主要發現</h2>
+<ol>
+<li><strong>照範例程式的預設設定訓練，三個審查模型都沒有看到遺忘</strong>，兩個 Llama Guard 甚至判定模型更安全（第 5、7 章）。學習率小到幾乎學不會數學時，安全率一樣上升，所以「變安全」不是學會數學的副產品（第 7 章）。</li>
+<li><strong>遺忘確實會發生，條件是訓練訊號太強或方向不對</strong>：每題隨機抽 8 題範例（Guard 8B 0.799）、5 個 epoch（0.772）、學習率 1e-3（0.632），三個種子與三個審查模型都一致（第 7、8 章）。</li>
+<li><strong>loss 算在哪些 token 上很重要</strong>。範例程式的 loss 算整段文字，8-shot 時答案只占 6.6% 的 token；改成只算答案，隨機 8-shot 的遺忘就消失了（第 3、8 章）。</li>
+<li><strong>固定 few-shot 範例與 self-instruct 資料同時改善數學與安全</strong>：固定 8-shot 0.397／0.922，self-instruct 0.477／0.872（第 8 章）。</li>
+<li><strong>Safety Rate 的量法本身很不穩定</strong>：三個審查模型兩兩之間的 κ 只有 0.16～0.36；Guard 1B 會把被截斷的回答判成不安全；連 prompt 裡的日期都能讓安全率差 0.025（第 5、6 章）。</li>
+<li><strong>評估的雜訊比想像大</strong>：取樣解碼讓原模型的 Accuracy 在 0.227～0.318 之間跳；換一套 few-shot 範例，原模型差 9 題；換一個 LoRA 起點，同一設定差 0.05（第 4、6、7 章）。</li>
+<li><strong>原版程式不可重現，而且會隨日期改變</strong>：LoRA 在設定種子之前初始化；chat template 把當天日期寫進評估 prompt（第 2、6 章）。</li>
+</ol>
+
+<h2 id="issues">9.3　讀程式找到的問題</h2>
+<p>完整清單在<a href="outline.html#issues">教學大綱</a>，這裡依影響大小排列：</p>
+<div class="tablewrap"><table>
+<thead><tr><th>問題</th><th>影響</th><th>章</th></tr></thead>
+<tbody>
+<tr><td>評估 prompt 帶當天日期，訓練時又把它切掉</td><td>結果跨日不可重現；Safety 差到 0.025；訓練與評估格式不一致</td><td>1、6</td></tr>
+<tr><td>LoRA 在 <code>set_seed(1126)</code> 之前初始化</td><td>每次跑的結果都不同</td><td>2、6</td></tr>
+<tr><td>loss 算整段文字（trl 預設的 collator）</td><td>few-shot 越多，答案在 loss 裡占比越低，8-shot 時造成遺忘</td><td>3、8</td></tr>
+<tr><td>評估時的 few-shot 範例每題從訓練集重抽</td><td>原模型的 Accuracy 隨範例變動 9 題左右</td><td>1、4</td></tr>
+<tr><td>trl 遇到 PeftModel 就原樣使用，跳過 kbit 訓練的準備</td><td>2025 與 2026 範例的訓練不同；layer norm 停在 float16</td><td>3</td></tr>
+<tr><td><code>pipeline.model = …</code> 設在函式上</td><td>看起來錯，靠就地載入碰巧生效；不影響結果</td><td>4</td></tr>
+<tr><td>加了 <code>[PAD]</code> 卻沒有擴大 embedding</td><td>batch size 1 時沒事，加大就會崩潰</td><td>2</td></tr>
+<tr><td>答案抽取刪掉所有的 g、用字串比對</td><td>寫法粗糙，實測沒有冤枉答對的題目</td><td>4</td></tr>
+<tr><td>AILuminate 測試檔有 12 題重複</td><td>用 id 合併結果會漏算</td><td>1、5</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="now">9.4　現在的做法</h2>
+<p>這份作業的提示多半是「少改一點」：小學習率、少幾個 epoch、只訓練 LoRA。本書的實驗顯示，這些確實能避免遺忘，但效果更好的兩項（固定範例、self-instruct）其實是在改「訓練什麼」，而不是「改多少」。近年的研究與實務也是往這個方向走：</p>
+<ul>
+<li><strong>混入安全資料</strong>：在微調資料裡加入少量安全拒答的範例。Bianchi et al.（2023）發現，只要在指令微調資料裡加入幾百筆安全範例，就能明顯提升安全性，而不太影響一般能力。這就是持續學習裡 replay 的做法。</li>
+<li><strong>拉住輸出分布</strong>：在 loss 加一項 KL 散度，懲罰微調後的模型在輸出分布上離原模型太遠。這是 RLHF（例如 InstructGPT）用來避免模型偏離太多的標準做法，精神上和 ML2022 HW14 的 EWC、本書第 8 章的 weight decay 同類，只是拉的是輸出而不是參數。</li>
+<li><strong>只在安全的方向上微調</strong>：Wei et al.（2024）發現安全行為集中在很少的參數與低秩方向上；Safe LoRA（Hsu et al.，2024）用對齊前後兩個模型的權重差定義一個「安全對齊的子空間」，把選定層的 LoRA 權重投影到這個子空間上，減少微調對安全的破壞。</li>
+<li><strong>用模型自己的資料</strong>：第 8 章的 self-instruct 就是一例。從模型自己的生成裡篩選正確的回答再拿來訓練，資料分布貼近模型原本的說話方式，學新能力時對原本行為的擾動比較小。</li>
+<li><strong>量法要先查</strong>：本書第 5、6 章的經驗也是現在的共識：安全評估依賴審查模型，報告結果時要寫清楚用了哪個審查模型、怎麼解碼、評估了幾次。</li>
+</ul>
+
+<h2 id="exercises">9.5　實作題庫</h2>
+<p>每一題都可以用 <code>hw6.py</code> 的選項或 <code>docs/tools/</code> 的工具完成。題目沒有標準答案的，請照第 6 章的規則跑 3 個種子、用 greedy 評估。</p>
+<h3 id="ex-basic">入門</h3>
+<details class="quiz"><summary>1. 照範例程式的預設設定，用 <code>--seed 0</code> 跑一次，對照第 7 章的 1 epoch 數字。你的 Accuracy 和本書的 0.394 一樣嗎？為什麼可能不一樣？</summary>
+<p>提示：本書種子 0 的數字是用 <code>--greedy</code> 評估的；不加 <code>--greedy</code> 是取樣解碼。就算都用 greedy，評估的日期也不同（第 6 章），GPU、驅動、套件版本不同也可能讓浮點結果有細微差異。</p></details>
+<details class="quiz"><summary>2. 用 <code>docs/tools/hw06_judge.py</code> 判你自己跑出來的 <code>responses.json</code>，三個審查模型各判一次。三個 Safety Rate 的排序和第 5 章一樣嗎？</summary>
+<p>提示：第 5 章的排序是 ShieldGemma 最寬、Guard 1B 最嚴。工具的用法寫在檔案開頭的註解。</p></details>
+<details class="quiz"><summary>3. 把 <code>--max-new-tokens</code> 改成 512，用 greedy 評估同一個 checkpoint（<code>--skip-train --adapter</code>）。GSM8K 和三個審查模型的數字各變了多少？</summary>
+<p>提示：第 4、5 章的預測是微調後的模型 Accuracy 幾乎不變、Guard 1B 的安全率可能上升。</p></details>
+<h3 id="ex-mid">進階</h3>
+<details class="quiz"><summary>4. 修正評估 prompt 的日期問題：在 <code>make_generator</code> 或 <code>get_response</code> 裡讓 chat template 不再帶當天日期（例如傳入固定的 <code>date_string</code>，或評估時也切掉 system header）。修正前後的 Accuracy 與 Safety 差多少？</summary>
+<p>提示：pipeline 會把額外的參數傳給 <code>apply_chat_template</code>；也可以自己套 template、再呼叫 <code>model.generate</code>。修正後，同一個 checkpoint 在不同日子評估應該得到相同的結果。</p></details>
+<details class="quiz"><summary>5. 把 weight decay 或 LoRA dropout 加到會遺忘的設定上（例如 <code>--epochs 5</code>），看看能不能減輕遺忘。</summary>
+<p>提示：第 8 章在 1 epoch 時看不出它們的效果，因為預設本來就不會忘。5 epochs 的基準是 Guard 8B 0.772。</p></details>
+<details class="quiz"><summary>6. 組合兩個有效的 Strong 提示：self-instruct 資料加上固定 8-shot 範例。數學與安全會比各自單獨使用更好嗎？</summary>
+<p>提示：<code>--train-data self-instruct --fixed-shots-seed 0 --train-n-shot 8 --test-n-shot 8</code>。注意固定範例是從訓練集抽的，換成 self-instruct 資料後，範例的寫法也會跟著變。</p></details>
+<h3 id="ex-hard">挑戰</h3>
+<details class="quiz"><summary>7. 實作「混入安全資料」：從 AILuminate 以外的來源寫一小批安全拒答的對話，混進訓練資料。安全率能提升多少？數學會不會下降？</summary>
+<p>提示：作業規則禁止用助教以外的資料提升成績，這一題只當研究練習，不能拿來交作業。要確保混入的資料和 AILuminate 的測試題沒有重疊。</p></details>
+<details class="quiz"><summary>8. 在 loss 加一項 KL 散度，懲罰微調後的模型在 token 分布上離原模型太遠。原模型的分布可以在同一個模型上暫時停用 LoRA 取得（peft 的 <code>disable_adapter()</code>）。</summary>
+<p>提示：要自訂 Trainer 的 <code>compute_loss</code>。KL 的權重太大，模型學不到數學；太小，等於沒加。可以先在會遺忘的設定（例如 lr 1e-3）上試。</p></details>
+<details class="quiz"><summary>9. 本書推測固定 8-shot 之所以有效，一部分是因為範例被背熟後，loss 實際上只剩答案。設計一個實驗檢驗這個推測。</summary>
+<p>提示：可以比較「固定 8-shot＋只算答案」與「固定 8-shot＋整段算 loss」；或在訓練過程中分別記錄範例部分與答案部分的 loss，看範例部分多快降到接近 0。</p></details>
+
+<h2 id="glossary">9.6　名詞對照</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>中文</th><th>英文</th><th>說明</th><th>首見</th></tr></thead>
+<tbody>
+<tr><td>遺忘</td><td>forgetting（catastrophic forgetting）</td><td>學新能力時把原本會的弄丟</td><td>0</td></tr>
+<tr><td>審查模型</td><td>safeguard model／guard model</td><td>判斷對話安不安全的語言模型</td><td>0</td></tr>
+<tr><td>分組查詢注意力</td><td>GQA（grouped-query attention）</td><td>多個 query 頭共用一組 key／value</td><td>0</td></tr>
+<tr><td>對話模板</td><td>chat template</td><td>把多輪對話轉成模型看得懂的文字格式</td><td>0</td></tr>
+<tr><td>少樣本提示</td><td>few-shot prompting</td><td>先給模型看幾個解好的例子</td><td>1</td></tr>
+<tr><td>思維鏈</td><td>chain-of-thought</td><td>要求模型寫出推理步驟</td><td>1</td></tr>
+<tr><td>計算標記</td><td>calculator annotation</td><td>GSM8K 答案裡的 <code>&lt;&lt;式子=結果&gt;&gt;</code></td><td>1</td></tr>
+<tr><td>全參數微調</td><td>full fine-tuning</td><td>訓練模型的所有參數</td><td>2</td></tr>
+<tr><td>低秩適應</td><td>LoRA</td><td>凍結原權重，只訓練旁邊的兩個小矩陣</td><td>2</td></tr>
+<tr><td>量化低秩適應</td><td>QLoRA</td><td>底模量化成 4-bit 再掛 LoRA</td><td>2</td></tr>
+<tr><td>4-bit 常態浮點</td><td>NF4</td><td>依常態分布分位點設計的 4-bit 格式</td><td>2</td></tr>
+<tr><td>監督式微調</td><td>SFT（supervised fine-tuning）</td><td>用「輸入 → 正確輸出」的資料訓練</td><td>3</td></tr>
+<tr><td>梯度累積</td><td>gradient accumulation</td><td>累積多個樣本的梯度再更新一次</td><td>3</td></tr>
+<tr><td>分頁優化器</td><td>paged optimizer</td><td>優化器狀態可在 GPU 與 CPU 間搬移</td><td>3</td></tr>
+<tr><td>只算答案的 loss</td><td>completion-only loss</td><td>prompt 部分不算 loss</td><td>3</td></tr>
+<tr><td>取樣解碼</td><td>sampling（temperature、top-p）</td><td>依機率分布隨機選下一個 token</td><td>4</td></tr>
+<tr><td>貪婪解碼</td><td>greedy decoding</td><td>每步選機率最高的 token</td><td>4</td></tr>
+<tr><td>一致性係數</td><td>Cohen's κ</td><td>扣掉碰巧一致後的一致程度</td><td>5</td></tr>
+<tr><td>決定性演算法</td><td>deterministic algorithms</td><td>同樣輸入保證得到同樣結果的運算方式</td><td>0</td></tr>
+<tr><td>遺忘曲線</td><td>forgetting curve</td><td>訓練過程中逐 checkpoint 的能力變化</td><td>7</td></tr>
+<tr><td>過擬合</td><td>overfitting</td><td>訓練資料越背越熟，新資料卻變差</td><td>8</td></tr>
+<tr><td>權重衰減</td><td>weight decay</td><td>每步把參數往 0 拉一點</td><td>3</td></tr>
+<tr><td>重播</td><td>replay</td><td>學新任務時混入舊資料</td><td>2</td></tr>
+<tr><td>KL 散度</td><td>KL divergence</td><td>兩個機率分布的差距</td><td>9</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="cheatsheet">9.7　速查表</h2>
+<h3 id="cs-run">指令</h3>
+<pre class="shell cmd">$ (cd HW06 &amp;&amp; uv sync)                                       # 建環境
+$ HF_HUB_OFFLINE=1 HW06/.venv/bin/python HW06/hw6.py --name simple   # 照範例程式跑一次
+$ HF_HUB_OFFLINE=1 HW06/.venv/bin/python HW06/hw6.py --seed 0 --greedy --name g0      # 可重現的比較用
+$ HF_HUB_OFFLINE=1 HW06/.venv/bin/python HW06/hw6.py --skip-train --adapter &lt;checkpoint&gt; --greedy --name eval
+$ HF_HUB_OFFLINE=1 HW06/.venv/bin/python docs/tools/hw06_judge.py --judge guard8b --responses &lt;responses.json&gt; --tag run --out judge.jsonl</pre>
+<h3 id="cs-flags">hw6.py 選項</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>選項</th><th>預設（＝範例程式）</th><th>對應的提示</th><th>本書的結果</th></tr></thead>
+<tbody>
+<tr><td><code>--seed</code></td><td>不設（每次不同）</td><td>—</td><td>比較時一律設定</td></tr>
+<tr><td><code>--greedy</code></td><td>取樣解碼</td><td>Medium</td><td>評估一律用</td></tr>
+<tr><td><code>--max-new-tokens</code></td><td>256</td><td>Medium</td><td>512 只幫到原模型</td></tr>
+<tr><td><code>--lr</code></td><td>2e-4</td><td>Medium</td><td>1e-4 可以；1e-3 嚴重遺忘</td></tr>
+<tr><td><code>--train-n-shot</code>／<code>--test-n-shot</code></td><td>1／1</td><td>Medium</td><td>隨機 8-shot 會遺忘</td></tr>
+<tr><td><code>--fixed-shots-seed</code></td><td>不設（隨機範例）</td><td>Strong</td><td>固定 8-shot 最安全</td></tr>
+<tr><td><code>--epochs</code></td><td>1</td><td>Strong</td><td>5 epochs 遺忘</td></tr>
+<tr><td><code>--weight-decay</code>、<code>--lora-dropout</code></td><td>不設（0）</td><td>Strong</td><td>1 epoch 時無差別</td></tr>
+<tr><td><code>--train-data self-instruct</code></td><td>original</td><td>Strong</td><td>數學最好</td></tr>
+<tr><td><code>--completion-only-loss</code></td><td>整段算 loss</td><td>本書加的</td><td>救回隨機 8-shot</td></tr>
+<tr><td><code>--skip-train --adapter</code></td><td>訓練後評估最後一個 checkpoint</td><td>Medium（挑 checkpoint）</td><td>會自動重設 <code>random.seed(1126)</code></td></tr>
+</tbody>
+</table></div>
+<h3 id="cs-numbers">關鍵數字</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>項目</th><th>數字</th></tr></thead>
+<tbody>
+<tr><td>模型參數／可訓練參數</td><td>1,235,814,400／5,636,096（0.454%）</td></tr>
+<tr><td>訓練步數（1 epoch）／checkpoint 間隔</td><td>1868／187</td></tr>
+<tr><td>本機整條流程／訓練時間</td><td>39 分 11 秒／861 秒（Colab T4 訓練 8,992 秒）</td></tr>
+<tr><td>原模型（greedy，同一套範例）</td><td>Accuracy 0.235；Safety 8B 0.838、1B 0.629、ShieldGemma 0.946</td></tr>
+<tr><td>預設 1 epoch（3 種子平均）</td><td>Accuracy 0.371；Safety 8B 0.889</td></tr>
+<tr><td>種子雜訊（同一設定 3 種子的全距）</td><td>Accuracy 約 0.05；Safety（8B）0.03～0.05</td></tr>
+<tr><td>日期造成的 Safety 差異（原模型，8B）</td><td>0.025</td></tr>
+</tbody>
+</table></div>
+
+<div class="recap"><h4>重點回顧</h4>
+<ul>
+<li>照範例程式的預設設定，數學進步、安全不降；遺忘出現在隨機 8-shot、5 個 epoch、大學習率這三種訓練訊號過強的設定。</li>
+<li>固定 few-shot 範例與 self-instruct 資料同時改善數學與安全；只算答案的 loss 能救回隨機 8-shot 的遺忘。</li>
+<li>Safety Rate 的量法依賴審查模型、解碼長度與 prompt 裡的日期，報告時要寫清楚；比較設定至少跑 3 個種子、用 greedy。</li>
+<li>現在的做法傾向改變「訓練什麼」：混入安全資料、拉住輸出分布、避開安全相關的方向、用模型自己的資料。</li>
+</ul></div>
+
+<h2 id="quiz">自我測驗</h2>
+<details class="quiz"><summary>1. 圖 9-1 裡，哪三個設定落在原模型的安全線（水平虛線）以下？它們有什麼共同點？</summary>
+<p>每題隨機抽 8 題範例、5 個 epoch、學習率 1e-3。共同點是訓練訊號太強：前者讓大量和答案無關的文字進入 loss，後兩者分別是走太多步與步子太大，都把模型推離原本的說話方式。</p></details>
+<details class="quiz"><summary>2. 為什麼本書說「效果更好的兩項，其實是在改訓練什麼，而不是改多少」？</summary>
+<p>固定 few-shot 範例改變了 prompt 的內容與一致性，self-instruct 改變了訓練答案的寫法；兩者都沒有減少訓練量或學習率，卻同時改善數學與安全。相對地，小學習率、少 epoch、weight decay 這類「改少一點」的提示，在本書的設定下只能避免遺忘，沒有帶來額外的好處。</p></details>
+<details class="quiz"><summary>3. 如果要向別人報告「我的模型 Safety Rate 是 0.9」，至少要附上哪些資訊，別人才能理解這個數字？</summary>
+<p>用了哪個審查模型（與它的判斷方式）、解碼方式與 <code>max_new_tokens</code>、評估了幾次（幾個種子）與它們的差距，以及 prompt 的格式（例如有沒有帶日期的 system header）。這些都會讓同一個模型的 Safety Rate 改變好幾個百分點。</p></details>
+
+<h2 id="reading">延伸閱讀</h2>
+<ul>
+<li>Bianchi et al.，<a href="https://arxiv.org/abs/2309.07875">Safety-Tuned LLaMAs: Lessons From Improving the Safety of Large Language Models that Follow Instructions</a>（2023）：混入少量安全資料的效果。</li>
+<li>Ouyang et al.，<a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback</a>（2022）：InstructGPT，用 KL 懲罰避免模型偏離原本的分布。</li>
+<li>Hsu et al.，<a href="https://arxiv.org/abs/2405.16833">Safe LoRA: the Silver Lining of Reducing Safety Risks when Fine-tuning Large Language Models</a>（2024）：把 LoRA 的更新投影到安全的子空間。</li>
+<li>Qi et al.，<a href="https://arxiv.org/abs/2310.03693">Fine-tuning Aligned Language Models Compromises Safety, Even When Users Do Not Intend To!</a>（2023）：微調破壞安全性的代表性研究。</li>
+<li>Biderman et al.，<a href="https://arxiv.org/abs/2405.09673">LoRA Learns Less and Forgets Less</a>（2024）：LoRA 與全參數微調在學習與遺忘上的取捨。</li>
+</ul>
+
+</main>
+<nav class="chapnav bottom"><a href="index.html">↑ 目錄</a><span class="spacer"></span><a href="ch08.html">← 第 8 章</a><a href="index.html">回到目錄 ↑</a></nav>
+<footer class="chap-footer"><p>ML2025 Spring HW6 讀碼教材。作業內容與範例程式出自台大《機器學習 2025 Spring》課程（李宏毅老師與助教群）；書中數字皆為本機實測。</p></footer>
+<script id="book-js">
+/* HW06 讀碼教材 — 頁面腳本（定義在 index.html，其他頁逐字複製；沿用 ML2022 HW14 書的 book.js）
+   pre.py 上色、pre.shell 上色、data-hot 行強調（行號取 figcaption 的起始行）、«N» 圓形標記、本章目錄、圖表 hover。 */
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var PY_KW = new Set(('False None True and as assert async await break class continue def del elif else except ' +
+    'finally for from global if import in is lambda nonlocal not or pass raise return try while with yield').split(' '));
+  var PY_BUILTIN = new Set(('int float str list dict set tuple len range enumerate zip print open super isinstance ' +
+    'max min sum abs round sorted any all bool type object self').split(' '));
+  var PY_RE = new RegExp(
+    '(#[^\\n]*)' +                                                   // 1 comment
+    '|("""[\\s\\S]*?"""|\'\'\'[\\s\\S]*?\'\'\'|[rbfRBF]{0,2}"(?:\\\\.|[^"\\\\\\n])*"|[rbfRBF]{0,2}\'(?:\\\\.|[^\'\\\\\\n])*\')' + // 2 string
+    '|(@[A-Za-z_][\\w.]*)' +                                         // 3 decorator
+    '|\\b([A-Za-z_]\\w*)(?=\\s*\\()' +                               // 4 call
+    '|\\b(\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b' +                  // 5 number
+    '|\\b([A-Za-z_]\\w*)\\b', 'g');                                  // 6 word
+
+  function highlightPy(text) {
+    var out = '', last = 0, m;
+    PY_RE.lastIndex = 0;
+    while ((m = PY_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      last = PY_RE.lastIndex;
+      if (m[1]) out += '<span class="tok-cmt">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="tok-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="tok-pre">' + esc(m[3]) + '</span>';
+      else if (m[4]) {
+        var cls = PY_KW.has(m[4]) ? 'tok-kw' : (PY_BUILTIN.has(m[4]) ? 'tok-type' : 'tok-fn');
+        out += '<span class="' + cls + '">' + esc(m[4]) + '</span>';
+      } else if (m[5]) out += '<span class="tok-num">' + esc(m[5]) + '</span>';
+      else if (m[6]) out += PY_KW.has(m[6]) ? '<span class="tok-kw">' + esc(m[6]) + '</span>' : esc(m[6]);
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function highlightShell(text) {
+    return text.split('\n').map(function (line) {
+      var m = line.match(/^(\s*)\$\s(.*)$/);
+      if (m) {
+        var cmd = m[2], cmt = '', k = cmd.search(/\s#\s/);
+        if (k >= 0) { cmt = cmd.slice(k); cmd = cmd.slice(0, k); }
+        return esc(m[1]) + '<span class="sh-prompt">$</span> <span class="sh-cmd">' + esc(cmd) + '</span>' +
+          (cmt ? '<span class="sh-cmt">' + esc(cmt) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  function parseHot(spec) {
+    var set = new Set();
+    spec.split(',').forEach(function (part) {
+      var m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (m) for (var i = +m[1]; i <= +(m[2] || m[1]); i++) set.add(i);
+    });
+    return set;
+  }
+
+  /* 行號 = figcaption 的起始行號 + 區塊內第幾行。跨行的 span（多行字串）在行尾收、下一行重開。 */
+  function wrapHot(html, spec, offset) {
+    var hot = parseHot(spec), carry = null;
+    return html.split('\n').map(function (line, i) {
+      var s = (carry || '') + line;
+      var opens = s.match(/<span[^>]*>/g) || [], closes = s.match(/<\/span>/g) || [];
+      if (opens.length > closes.length) { carry = opens[opens.length - 1]; s += '</span>'; } else carry = null;
+      return hot.has(i + 1 + offset) ? '<span class="hot-line">' + s + '</span>' : s;
+    }).join('\n');
+  }
+
+  document.querySelectorAll('pre').forEach(function (pre) {
+    if (pre.classList.contains('diagram')) return;
+    var target = pre.querySelector('code') || pre;
+    var text = target.textContent;
+    if (pre.classList.contains('shell')) target.innerHTML = highlightShell(text);
+    else if (pre.classList.contains('py')) target.innerHTML = highlightPy(text);
+    if (/«\d+»/.test(target.innerHTML)) target.innerHTML = target.innerHTML.replace(/«(\d+)»/g, '<span class="mk">$1</span>');
+    if (pre.dataset.hot) {
+      var cap = pre.closest('figure.listing') && pre.closest('figure.listing').querySelector('figcaption');
+      var m = cap && cap.textContent.match(/:(\d+)/);
+      target.innerHTML = wrapHot(target.innerHTML, pre.dataset.hot, m ? parseInt(m[1], 10) - 1 : 0);
+    }
+  });
+
+  var main = document.querySelector('main'), header = document.querySelector('header.chap-header');
+  if (main && header) {
+    var hs = main.querySelectorAll('h2');
+    if (hs.length >= 3) {
+      var box = document.createElement('nav');
+      box.className = 'toc-box';
+      box.setAttribute('aria-label', '本章目錄');
+      var html = '<p class="toc-box-title">本章目錄</p><ol>';
+      hs.forEach(function (h, i) {
+        if (!h.id) h.id = 'sec-' + (i + 1);
+        html += '<li><a href="#' + h.id + '">' + esc(h.textContent) + '</a></li>';
+      });
+      box.innerHTML = html + '</ol>';
+      header.insertAdjacentElement('afterend', box);
+    }
+  }
+  /* 圖表的 hover：figure.fig 裡任何帶 data-tip 的元素，滑過時在 .viz-tip 顯示它的內容 */
+  document.querySelectorAll('figure.fig').forEach(function (fig) {
+    if (!fig.querySelector('[data-tip]')) return;
+    var tip = fig.querySelector('.viz-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'viz-tip'; fig.appendChild(tip); }
+    fig.addEventListener('mousemove', function (e) {
+      var t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { tip.style.display = 'none'; return; }
+      tip.textContent = t.getAttribute('data-tip');
+      tip.style.display = 'block';
+      var r = fig.getBoundingClientRect(), x = e.clientX - r.left + 14;
+      if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = (e.clientY - r.top + 14) + 'px';
+    });
+    fig.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -117,7 +117,48 @@ def strong_safety():
                     aria='Strong 提示與對照各設定的 Safety Rate（Guard 8B），三個種子與平均')
 
 
-CHARTS = {'strong_acc': strong_acc, 'strong_safety': strong_safety, 'loss_curve': loss_curve, 'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
+def tradeoff():
+    """Scatter: mean GSM8K accuracy (x) vs mean Guard 8B safety (y) per setting; base model as crosshair."""
+    import html
+    W, H, ML, MR, MT, MB = 900, 460, 64, 24, 20, 50
+    x0, x1, y0, y1 = 0.2, 0.5, 0.6, 0.95
+    pw, ph = W - ML - MR, H - MT - MB
+    X = lambda v: ML + pw * (v - x0) / (x1 - x0)  # noqa: E731
+    Y = lambda v: MT + ph * (1 - (v - y0) / (y1 - y0))  # noqa: E731
+    pts = [(lab, k, st.mean(acc[r] for r in runs), st.mean(safety[('guard8b', r)] for r in runs), dx, dy)
+           for lab, k, runs, dx, dy in TRADEOFF]
+    out = [f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="各設定的 GSM8K Accuracy（橫軸）對 Safety Rate（Guard 8B，縱軸），三個種子平均；虛線是原模型">']
+    for t in [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
+        out.append(f'<line x1="{X(t):.1f}" y1="{MT}" x2="{X(t):.1f}" y2="{MT + ph}" stroke="#2f2d39" stroke-width="1"/>')
+        out.append(f'<text class="s-mono" x="{X(t):.1f}" y="{MT + ph + 18}" text-anchor="middle">{t}</text>')
+    for t in [0.6, 0.7, 0.8, 0.9]:
+        out.append(f'<line x1="{ML}" y1="{Y(t):.1f}" x2="{ML + pw}" y2="{Y(t):.1f}" stroke="#2f2d39" stroke-width="1"/>')
+        out.append(f'<text class="s-mono" x="{ML - 8}" y="{Y(t) + 4:.1f}" text-anchor="end">{t}</text>')
+    bx, by = acc['base1126_t256'], safety[('guard8b', 'base1126_t256')]
+    out.append(f'<line x1="{X(bx):.1f}" y1="{MT}" x2="{X(bx):.1f}" y2="{MT + ph}" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="6 5"/>')
+    out.append(f'<line x1="{ML}" y1="{Y(by):.1f}" x2="{ML + pw}" y2="{Y(by):.1f}" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="6 5"/>')
+    out.append(f'<text class="s-sm" x="{X(bx) + 6:.1f}" y="{MT + 12}">原模型 {bx:.3f}／{by:.3f}</text>')
+    out.append(f'<text class="s-sm" x="{ML + pw / 2:.1f}" y="{H - 8}" text-anchor="middle">GSM8K public Accuracy（greedy，3 種子平均）→ 越右越會算</text>')
+    out.append(f'<text class="s-sm" x="16" y="{MT + ph / 2:.1f}" text-anchor="middle" transform="rotate(-90 16 {MT + ph / 2:.1f})">Safety Rate（Guard 8B）→ 越上越安全</text>')
+    for lab, k, x, y, dx, dy in pts:
+        out.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="6" fill="{C[k]}" stroke="#1b1a22" stroke-width="2" data-tip="{html.escape(lab)}：Accuracy {x:.3f}、Safety {y:.3f}"/>')
+        out.append(f'<text class="s-lbl" x="{X(x) + dx:.1f}" y="{Y(y) + dy:.1f}">{html.escape(lab)}</text>')
+    out.append('</svg>')
+    return '\n'.join(out)
+
+
+TRADEOFF = [('1 epoch（預設）', 'ep1', ['ep1g_s0', 'ep1g_s1', 'ep1g_s2'], 10, 18),
+            ('lr 1e-4', 'lr', ['lr1e-4_s0', 'lr1e-4_s1', 'lr1e-4_s2'], -62, -8),
+            ('lr 1e-5', 'lr', ['lr1e-5_s0', 'lr1e-5_s1', 'lr1e-5_s2'], -70, 4),
+            ('8-shot（隨機）', 'shot', ['shot8_s0', 'shot8_s1', 'shot8_s2'], 10, 4),
+            ('5 epochs', 'ep3', ['ep5b_s0', 'ep5b_s1', 'ep5b_s2'], 10, 4),
+            ('固定 8-shot', 'fixed', ['fixed8_s0', 'fixed8_s1', 'fixed8_s2'], 10, -8),
+            ('self-instruct', 'self', ['selfinst_s0', 'selfinst_s1', 'selfinst_s2'], 10, 4),
+            ('只算答案 8-shot', 'shot', ['co8_s0', 'co8_s1', 'co8_s2'], 10, 16),
+            ('lr 1e-3', 'lr', ['lr1e-3_s0', 'lr1e-3_s1', 'lr1e-3_s2'], 10, 4)]
+
+
+CHARTS = {'tradeoff': tradeoff, 'strong_acc': strong_acc, 'strong_safety': strong_safety, 'loss_curve': loss_curve, 'ckpt_acc': ckpt_acc, 'ckpt_safety': ckpt_safety, 'medium_acc': medium_acc, 'medium_safety': medium_safety}
 
 for page in sys.argv[1:]:
     s = open(page).read()
